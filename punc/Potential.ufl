@@ -1,0 +1,8 @@
+V = FiniteElement("Lagrange", triangle, 1)
+
+phi = TrialFunction(V)
+phi_ = TestFunction(V)
+rho = Coefficient(V)
+
+a = inner(grad(phi), grad(phi_))*dx
+L = rho*phi_*dx

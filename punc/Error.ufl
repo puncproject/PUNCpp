@@ -1,0 +1,10 @@
+degree = 1
+degree_rise = 3
+
+V = FiniteElement("Lagrange", triangle, degree)
+W = FiniteElement("Lagrange", triangle, degree+degree_rise)
+
+phi = Coefficient(V)
+phi_e = Coefficient(W)
+
+a = (phi - phi_e)*(phi - phi_e)*dx
