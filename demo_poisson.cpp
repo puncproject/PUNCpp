@@ -39,7 +39,7 @@ int main()
 
     };    
 
-    bool show_plot = true;
+    bool show_plot = false;
     std::vector<int> N{4,8,16,32,64,128};
     bool remove_null_space = false;
     auto dim = 2;
