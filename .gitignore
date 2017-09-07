@@ -1,0 +1,7 @@
+punc/Potential.h
+punc/EField.h
+punc/Error.h
+punc/Errorv2.h
+punc/Flux.h
+build
+.vscode
