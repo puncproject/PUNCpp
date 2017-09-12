@@ -50,7 +50,7 @@ class PeriodicBoundary : public df::SubDomain
 public:
     const std::vector<double> &Ld;
     const std::vector<bool> &periodic;
-    PeriodicBoundary(const std::vector<double> &Ld, 
+    PeriodicBoundary(const std::vector<double> &Ld,
                      const std::vector<bool> &periodic);
 
     bool inside(const df::Array<double> &x, bool on_boundary) const;
@@ -59,10 +59,10 @@ public:
 };
 
 class PoissonSolver
-{  
+{
 public:
-    const std::shared_ptr<Potential::FunctionSpace> &V;    
-    std::vector<std::shared_ptr<df::DirichletBC> > bc;     
+    const std::shared_ptr<Potential::FunctionSpace> &V;
+    std::vector<std::shared_ptr<df::DirichletBC> > bc;
     bool remove_null_space;
     df::PETScKrylovSolver solver;
     std::string method;
@@ -72,29 +72,40 @@ public:
     df::PETScMatrix A;
     df::PETScVector b;
     std::shared_ptr<df::VectorSpaceBasis> null_space;
-                        
+
     PoissonSolver(const std::shared_ptr<Potential::FunctionSpace> &V,
                   bool remove_null_space = false,
                   std::string method = "gmres",
-                  std::string preconditioner = "hypre_amg"); 
+                  std::string preconditioner = "hypre_amg");
 
     PoissonSolver(const std::shared_ptr<Potential::FunctionSpace> &V,
                   std::shared_ptr<df::DirichletBC> dbc,
                   bool remove_null_space = false,
                   std::string method = "gmres",
-                  std::string preconditioner = "hypre_amg");  
+                  std::string preconditioner = "hypre_amg");
 
     PoissonSolver(const std::shared_ptr<Potential::FunctionSpace> &V,
                   std::vector<std::shared_ptr<df::DirichletBC> > bc,
                   bool remove_null_space = false,
                   std::string method = "gmres",
-                  std::string preconditioner = "hypre_amg");                  
+                  std::string preconditioner = "hypre_amg");
 
     void initialize();
 
     void solve(std::shared_ptr<df::Function> &phi,
                const std::shared_ptr<df::Function> &rho);
 
+    void solve(std::shared_ptr<df::Function> &phi,
+               const std::shared_ptr<df::Function> &rho,
+               const Object &bcs);
+
+    void solve(std::shared_ptr<df::Function> &phi,
+               const std::shared_ptr<df::Function> &rho,
+               const std::vector<Object> &bcs);
+
+    void solve(std::shared_ptr<df::Function> &phi,
+               const std::shared_ptr<df::Function> &rho,
+               const std::shared_ptr<Object> &bcs);
 
     void solve(std::shared_ptr<df::Function> &phi,
                const std::shared_ptr<df::Function> &rho,
@@ -106,7 +117,7 @@ public:
                        const std::shared_ptr<df::Function> &phi_h);
 
     double errornormv2(const std::shared_ptr<df::Function> &phi,
-                       const std::shared_ptr<df::Function> &phi_h);                     
+                       const std::shared_ptr<df::Function> &phi_h);
 };
 
 std::shared_ptr<df::Function> electric_field(const std::shared_ptr<df::Function> &phi);

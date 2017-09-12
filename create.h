@@ -4,25 +4,39 @@
 #include <iostream>
 #include <dolfin.h>
 #include <algorithm>
+#include "punc/object.h"
+#include "punc/Potential.h"
+#include "punc/capacitance.h"
 
-using namespace dolfin;
+using namespace punc;
 
-class Source : public Expression
+class Source : public df::Expression
 {
-    void eval(Array<double> &values, const Array<double> &x) const;
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
 };
 
-class CreateObject : public SubDomain
-{
-public:
-    const double& r;
-    const std::vector<double>& s;
-    double tol;
-    std::function<bool(const Array<double>&)> func;
+std::vector<Object> create_objects(
+    const std::shared_ptr<Potential::FunctionSpace> &V,
+    const std::vector<std::shared_ptr<ObjectBoundary>> &objects,
+    const std::vector<double> &potentials);
 
-    CreateObject(const double& r, const std::vector<double>&s, double tol=1e-4);
+std::vector<Object> create_objects(
+    const std::shared_ptr<Potential::FunctionSpace> &V,
+    const std::vector<std::shared_ptr<ObjectBoundary>> &objects,
+    const std::vector<std::shared_ptr<df::Function>> &potentials);
 
-    bool inside(const Array<double>& x, bool on_boundary) const;
-};
+std::vector<std::shared_ptr<ObjectBoundary>> circle_objects();
+
+typedef boost::numeric::ublas::matrix<double> boost_matrix;
+typedef boost::numeric::ublas::vector<double> boost_vector;
+
+void get_circuit(std::map <int, std::vector<int> > &circuits_info,
+                 std::map <int, std::vector<double> > &bias_potential);
+
+std::vector<Circuit> create_circuits(
+                          std::vector<Object> &obj,
+                          boost_matrix &inv_capacity,
+                          std::map <int, std::vector<int> > &circuits_info,
+                          std::map <int, std::vector<double> > &bias_potential);
 
 #endif

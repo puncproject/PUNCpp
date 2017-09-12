@@ -3,30 +3,30 @@
 namespace punc
 {
 
-std::shared_ptr<df::FacetFunction<std::size_t>> markers(
+df::FacetFunction<std::size_t> markers(
                             std::shared_ptr<const df::Mesh> &mesh,
-                            const std::vector<std::shared_ptr<Object>> &objects)
+                            std::vector<Object> &objects)
 {
     auto num_objects = objects.size();
-    auto facet_func = std::make_shared<df::FacetFunction<std::size_t>>(mesh);
-    facet_func->set_all(num_objects);
+    df::FacetFunction<std::size_t> facet_func(mesh);
+    facet_func.set_all(num_objects);
     for (int i = 0; i < num_objects; ++i)
     {
-        objects[i]->mark_facets(facet_func, i);
+        objects[i].mark_facets(facet_func, i);
     }
     return facet_func;
 }
 
 std::vector<std::shared_ptr<df::Function>> solve_laplace(
     const std::shared_ptr<Potential::FunctionSpace> &V,
-    const std::shared_ptr<PoissonSolver> &poisson,
+    PoissonSolver &poisson,
     const std::shared_ptr<NonPeriodicBoundary> &non_periodic_bnd,
-    const std::vector<std::shared_ptr<Object>> &objects)
+    std::vector<Object> &objects)
 {
-    auto poisson_bc = poisson->bc;
+    auto poisson_bc = poisson.bc;
     auto phi_bnd = std::make_shared<df::Constant>(0.0);
     auto bnd = std::make_shared<df::DirichletBC>(V, phi_bnd, non_periodic_bnd);
-    poisson->bc = {bnd}; 
+    poisson.bc = {bnd};
     auto num_objects = objects.size();
 
     std::vector<std::shared_ptr<df::Function>> object_e_field(num_objects);
@@ -36,27 +36,27 @@ std::vector<std::shared_ptr<df::Function>> solve_laplace(
         {
             if (i == j)
             {
-                objects[j]->set_potential(1.0);
+                objects[j].set_potential(1.0);
             }
             else
             {
-                objects[j]->set_potential(0.0);
+                objects[j].set_potential(0.0);
             }
         }
         auto rho = std::make_shared<df::Function>(V);
         auto phi = std::make_shared<df::Function>(V);
-        poisson->solve(phi, rho, objects);
+        poisson.solve(phi, rho, objects);
         object_e_field[i] = electric_field(phi);
     }
-    poisson->bc = poisson_bc;
+    poisson.bc = poisson_bc;
     return object_e_field;
 }
 
 boost_matrix capacitance_matrix(
                 const std::shared_ptr<Potential::FunctionSpace> &V,
-                const std::shared_ptr<PoissonSolver> &poisson,
+                PoissonSolver &poisson,
                 const std::shared_ptr<NonPeriodicBoundary> &non_periodic_bnd,
-                const std::vector<std::shared_ptr<Object>> &objects)
+                std::vector<Object> &objects)
 {
     auto mesh = V->mesh();
     auto facet_func = markers(mesh, objects);
@@ -69,20 +69,20 @@ boost_matrix capacitance_matrix(
     std::vector<std::shared_ptr<df::SubsetIterator>> subset_itr(num_objects);
     for (auto i = 0; i < num_objects; ++i)
     {
-        auto f = std::make_shared<df::SubsetIterator>(*facet_func, i);
+        auto f = std::make_shared<df::SubsetIterator>(facet_func, i);
         subset_itr[i] = f;
     }
-
+    auto facet_func_ptr = std::make_shared<df::FacetFunction<std::size_t>>(facet_func);
     for (unsigned i = 0; i < num_objects; ++i)
     {
-        facet_func->set_all(num_objects);
+        facet_func_ptr->set_all(num_objects);
         auto f = *subset_itr[i];
         for (; !f.end(); ++f)
         {
-            facet_func->set_value(f->index(), 0);
+            facet_func_ptr->set_value(f->index(), 0);
         }
         Flux::Form_flux flux(mesh, object_e_field[i]);
-        flux.ds = facet_func;
+        flux.ds = facet_func_ptr;
         for (unsigned j = 0; j < num_objects; ++j)
         {
             flux.e = object_e_field[j];
@@ -90,7 +90,6 @@ boost_matrix capacitance_matrix(
         }
     }
     inv(capacitance, inv_capacity);
-    std::cout << "C: " << capacitance << ", inv(C): " << inv_capacity << '\n';
     return inv_capacity;
 }
 
@@ -123,7 +122,6 @@ boost_matrix bias_matrix(const boost_matrix &inv_capacity,
         s += circuit.size() - 1;
     }
     inv(bias_matrix, inv_bias);
-    std::cout << "B: " << bias_matrix << ", inv(B): " << inv_bias << '\n';
     return inv_bias;
 }
 

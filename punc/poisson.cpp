@@ -24,7 +24,7 @@ std::vector<double> get_mesh_size(std::shared_ptr<const df::UnitSquareMesh> &mes
         Ld[i] = max;
     }
     return Ld;
-}   
+}
 
 std::vector<double> get_mesh_size(std::shared_ptr<const df::Mesh> &mesh)
 {
@@ -49,7 +49,7 @@ std::vector<double> get_mesh_size(std::shared_ptr<const df::Mesh> &mesh)
     return Ld;
 }
 
-PhiBoundary::PhiBoundary(const std::vector<double> &B, 
+PhiBoundary::PhiBoundary(const std::vector<double> &B,
                          const std::vector<double> &vd)
                          :B(B), vd(vd)
 {
@@ -154,9 +154,9 @@ PoissonSolver::PoissonSolver(const std::shared_ptr<Potential::FunctionSpace> &V,
 void PoissonSolver::initialize()
 {
     assemble(A, a);
-    for(int i = 0; i<bc.size();++i)
+    for(auto& bci: bc)
     {
-        bc[i]->apply(A);
+        bci->apply(A);
     }
 
     solver.parameters["absolute_tolerance"] = 1e-14;
@@ -183,9 +183,9 @@ void PoissonSolver::initialize()
 
     df::assemble(b, L);
 
-    for(int i = 0; i<bc.size();++i)
+    for(auto& bci: bc)
     {
-        bc[i]->apply(A,b);
+        bci->apply(b);
     }
 
     if (remove_null_space)
@@ -198,15 +198,79 @@ void PoissonSolver::initialize()
 
 void PoissonSolver::solve(std::shared_ptr<df::Function> &phi,
                           const std::shared_ptr<df::Function> &rho,
+                          const Object &bcs)
+{
+    L.rho = rho;
+
+    df::assemble(b, L);
+
+    for(auto& bci: bc)
+    {
+        bci->apply(b);
+    }
+
+    bcs.apply(A, b);
+
+
+    solver.solve(A, *phi->vector(), b);
+}
+
+void PoissonSolver::solve(std::shared_ptr<df::Function> &phi,
+                          const std::shared_ptr<df::Function> &rho,
+                          const std::vector<Object> &bcs)
+{
+    L.rho = rho;
+
+    df::assemble(b, L);
+
+    for(auto& bci: bc)
+    {
+        bci->apply(b);
+    }
+
+    for(auto& bcsi: bcs)
+    {
+        bcsi.apply(A, b);
+    }
+
+    if (remove_null_space)
+    {
+        null_space->orthogonalize(b);
+    }
+
+    solver.solve(A, *phi->vector(), b);
+}
+
+void PoissonSolver::solve(std::shared_ptr<df::Function> &phi,
+                          const std::shared_ptr<df::Function> &rho,
+                          const std::shared_ptr<Object> &bcs)
+{
+    L.rho = rho;
+
+    df::assemble(b, L);
+
+    for(auto& bci: bc)
+    {
+        bci->apply(b);
+    }
+
+    bcs->apply(A, b);
+
+
+    solver.solve(A, *phi->vector(), b);
+}
+
+void PoissonSolver::solve(std::shared_ptr<df::Function> &phi,
+                          const std::shared_ptr<df::Function> &rho,
                           const std::vector<std::shared_ptr<Object>> &bcs)
 {
     L.rho = rho;
 
     df::assemble(b, L);
 
-    for(int i = 0; i<bc.size();++i)
+    for(auto& bci: bc)
     {
-        bc[i]->apply(A,b);
+        bci->apply(b);
     }
 
     for (std::size_t i = 0; i < bcs.size(); ++i)

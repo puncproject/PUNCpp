@@ -3,11 +3,6 @@ cmake_minimum_required(VERSION 3.5)
 set(PROJECT_NAME demo)
 project(${PROJECT_NAME})
 
-#file(GLOB SOURCES "punc/*.cpp")
-#file(GLOB HEADERS "punc/*.h")
-#include_directories(punc)
-#file(GLOB helper "punc/circuit.xml")
-
 include_directories("${CMAKE_SOURCE_DIR}/punc")
 
 file(GLOB RUN "demo_poisson.cpp")
@@ -35,10 +30,7 @@ set ( HEADERS
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
 
-# Get DOLFIN configuration data (DOLFINConfig.cmake must be in
-# DOLFIN_CMAKE_CONFIG_PATH)
 find_package(DOLFIN REQUIRED)
-
 include(${DOLFIN_USE_FILE})
 
 # Default build type (can be overridden by user)
@@ -55,8 +47,8 @@ if (HAVE_NO_MULTLINE)
   set(CMAKE_CXX_FLAGS "-Wno-comment ${CMAKE_CXX_FLAGS}")
 endif()
 
-
 add_executable(${PROJECT_NAME} ${RUN} ${SOURCES} ${HEADERS})
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} dolfin)
+target_link_libraries(${PROJECT_NAME} ${DOLFIN_LIBRARIES})

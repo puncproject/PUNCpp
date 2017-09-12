@@ -45,23 +45,23 @@ bool inv(const boost::numeric::ublas::matrix<T> &input,
 typedef boost::numeric::ublas::matrix<double> boost_matrix;
 typedef boost::numeric::ublas::vector<double> boost_vector;
 
-std::shared_ptr<df::FacetFunction<std::size_t>> markers(
+df::FacetFunction<std::size_t> markers(
                         std::shared_ptr<const df::Mesh> &mesh,
-                        const std::vector<std::shared_ptr<Object>> &objects);
+                        std::vector<Object> &objects);
 
 
 std::vector<std::shared_ptr<df::Function>> solve_laplace(
                 const std::shared_ptr<Potential::FunctionSpace> &V,
-                const std::shared_ptr<PoissonSolver> &poisson,
+                PoissonSolver &poisson,
                 const std::shared_ptr<NonPeriodicBoundary> &non_periodic_bnd,
-                const std::vector<std::shared_ptr<Object>> &objects);
+                std::vector<Object> &objects);
 
 
 boost_matrix capacitance_matrix(
                 const std::shared_ptr<Potential::FunctionSpace> &V,
-                const std::shared_ptr<PoissonSolver> &poisson,
+                PoissonSolver &poisson,
                 const std::shared_ptr<NonPeriodicBoundary> &non_periodic_bnd,
-                const std::vector<std::shared_ptr<Object>> &objects);
+                std::vector<Object> &objects);
 
 boost_matrix bias_matrix(const boost_matrix &inv_capacity,
                          const std::map<int, std::vector<int>> &circuits_info);
