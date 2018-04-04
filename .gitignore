@@ -5,3 +5,4 @@ punc/Errorv2.h
 punc/Flux.h
 build
 .vscode
+*.ghc
