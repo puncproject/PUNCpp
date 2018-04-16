@@ -1,0 +1,12 @@
+# UFL input for formulation of the errornorm calculation 
+
+cell = interval 
+
+family = "Lagrange" # or "CG"
+degree = 1
+degree_rise = 3
+
+
+element = FiniteElement(family, cell, degree+degree_rise)
+e = Coefficient(element)
+a = e*e*dx

@@ -1,0 +1,11 @@
+# UFL input for formulation of the potential energy calculation 
+
+cells = [interval, triangle, tetrahedron] 
+
+family = "Lagrange" # or "CG"
+degree = 1
+
+forms = []
+for cell in cells:
+    element = FiniteElement(family, cell, degree)
+    forms.append(Coefficient(element)*Coefficient(element)*dx)

@@ -1,0 +1,16 @@
+# UFL input for calculating the surface area of a 3D geometrical object
+
+
+cell = tetrahedron    
+
+family = "Lagrange" # or "CG"
+
+degree = 1
+
+element = FiniteElement(family, cell, degree)
+
+f = Coefficient(element)
+
+surface = f*ds(9999)
+
+forms = [surface]

@@ -1,0 +1,16 @@
+# UFL input for formulation for electric flux through the object surfaces 2D
+
+cell = triangle    	
+
+family = "Lagrange" # or "CG"
+
+degree = 1
+
+element = VectorElement(family, cell, degree)
+
+n = FacetNormal(cell)
+e = Coefficient(element)
+
+flux = inner(e, -1*n)*ds(9999)
+
+forms = [flux]

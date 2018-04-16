@@ -1,0 +1,8 @@
+# UFL input for calculating the volume of mesh
+
+cells = [interval, triangle, tetrahedron] 
+
+forms = []
+for cell in cells:
+    forms.append(Constant(cell)*dx)
+

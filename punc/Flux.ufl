@@ -1,9 +1,0 @@
-cell = triangle
-element = VectorElement("Lagrange", cell, 1)
-
-n = FacetNormal(cell)
-e = Coefficient(element)
-
-flux = inner(e, -1*n)*ds(0)
-
-forms = [flux]

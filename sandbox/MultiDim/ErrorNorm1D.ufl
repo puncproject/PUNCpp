@@ -1,0 +1,14 @@
+# UFL input for formulation of the error calculation 1D
+
+cell = interval 
+
+family = "Lagrange" # or "CG"
+
+degree = 1
+degree_rise = 3
+
+element = FiniteElement(family, cell, degree+degree_rise)
+
+e = Coefficient(element)
+
+a = e*e*dx

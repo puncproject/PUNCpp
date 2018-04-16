@@ -1,0 +1,3 @@
+[submodule "mesh"]
+	path = mesh
+	url = https://github.uio.no/sigvaldm/mesh.git
