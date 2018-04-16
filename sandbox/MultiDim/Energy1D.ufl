@@ -1,0 +1,14 @@
+# UFL input for formulation of the potential energy calculation 1D
+
+cell = interval    
+
+family = "Lagrange" # or "CG"
+
+degree = 1
+
+element = FiniteElement(family, cell, degree)
+
+phi = Coefficient(element)
+rho = Coefficient(element)
+
+a = rho*phi*dx

@@ -1,0 +1,13 @@
+# UFL input for formulation for electric flux through the object surfaces
+
+cells = [interval, triangle, tetrahedron] 
+
+family = "Lagrange" # or "CG"
+degree = 1
+
+forms = []
+
+for cell in cells:
+    element = VectorElement(family, cell, degree)
+    n = FacetNormal(cell)
+    forms.append(inner(Coefficient(element), -1*n)*ds(9999))

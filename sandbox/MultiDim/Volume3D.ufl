@@ -1,0 +1,8 @@
+# UFL input for calculating the volume of the 3D mesh
+
+cell = tetrahedron  
+
+v = Constant(cell)
+
+a = v * dx
+

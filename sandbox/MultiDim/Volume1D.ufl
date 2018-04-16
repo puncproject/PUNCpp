@@ -1,0 +1,7 @@
+# UFL input for calculating the length of the 1D mesh
+
+cell = interval    
+
+v = Constant(cell)
+
+a = v * dx

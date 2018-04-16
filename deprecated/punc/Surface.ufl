@@ -1,0 +1,12 @@
+# UFL input for calculating the surface area of a geometrical object
+
+cells = [interval, triangle, tetrahedron] 
+family = "Lagrange" # or "CG"
+degree = 1
+
+forms = []
+for cell in cells:
+    element = FiniteElement(family, cell, degree)
+    forms.append(Coefficient(element)*ds(9999))
+
+

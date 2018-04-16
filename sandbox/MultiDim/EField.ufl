@@ -1,0 +1,23 @@
+# UFL input for formulation of electric field
+
+cells = [interval, triangle, tetrahedron] 
+
+family = "Lagrange" # or "CG"
+degree = 1
+
+bilinearforms = []
+linearforms = []
+
+for cell in cells:
+    element1 = VectorElement(family, cell, degree)
+    element2 = FiniteElement(family, cell, degree)
+
+    u = TrialFunction(element1)
+    v = TestFunction(element1)
+    phi = Coefficient(element2)
+
+    a =  inner(u, v)*dx
+    L = inner(-1*grad(phi), v)*dx   
+
+    bilinearforms.append(a)
+    linearforms.append(L)

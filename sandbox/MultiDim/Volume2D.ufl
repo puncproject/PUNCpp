@@ -1,0 +1,8 @@
+# UFL input for calculating the area of the 2D mesh
+
+cell = triangle   
+
+v = Constant(cell)
+
+a = v * dx
+

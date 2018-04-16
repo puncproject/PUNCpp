@@ -1,0 +1,11 @@
+# UFL input for formulation of the errornorm calculation 
+
+cell = triangle 
+
+family = "Lagrange" # or "CG"
+degree = 1
+degree_rise = 3
+
+element = VectorElement(family, cell, degree+degree_rise)
+e = Coefficient(element)
+a = inner(e,e)*dx

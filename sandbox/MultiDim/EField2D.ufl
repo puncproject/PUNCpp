@@ -1,0 +1,17 @@
+# UFL input for formulation of electric field 2D
+
+cell = triangle   
+
+family = "Lagrange" # or "CG"
+
+degree = 1
+
+element1 = VectorElement(family, cell, degree)
+element2 = FiniteElement(family, cell, degree)
+
+u = TrialFunction(element1)
+v = TestFunction(element1)
+phi = Coefficient(element2)
+
+a =  inner(u, v)*dx
+L = inner(-1*grad(phi), v)*dx

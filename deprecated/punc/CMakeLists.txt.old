@@ -1,0 +1,57 @@
+cmake_minimum_required(VERSION 3.5)
+
+set(PROJECT_NAME punc)
+project(${PROJECT_NAME} VERSION 0.0.1 DESCRIPTION "PUNC" LANGUAGES c++)
+
+include(GNUInstallDirs)
+
+# Set CMake behavior
+cmake_policy(SET CMP0004 NEW)
+
+add_library(${PROJECT_NAME} SHARED punc.h
+population.cpp
+poisson.cpp
+injector.cpp
+diagnostics.cpp
+distributor.cpp
+object.cpp
+pusher.cpp
+)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+    PUBLIC_HEADER api/punc.h)
+
+find_package(DOLFIN REQUIRED)
+include(${DOLFIN_USE_FILE})
+
+# Default build type (can be overridden by user)
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
+      "Choose the type of build, options are: Debug MinSizeRel Release RelWithDebInfo." FORCE)
+endif()
+
+# Do not throw error for 'multi-line comments' (these are typical in
+# rst which includes LaTeX)
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-Wno-comment" HAVE_NO_MULTLINE)
+if (HAVE_NO_MULTLINE)
+  set(CMAKE_CXX_FLAGS "-Wno-comment ${CMAKE_CXX_FLAGS}")
+endif()
+
+# Executable
+# add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+
+# Target libraries
+target_link_libraries(${PROJECT_NAME} dolfin)
+
+# configure_file(punc.pc.in punc.pc @ONLY)
+
+target_include_directories(${PROJECT_NAME} PRIVATE .)
+install(TARGETS ${PROJECT_NAME}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+#install(FILES ${CMAKE_BINARY_DIR}/punc.pc
+#    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)

@@ -1,0 +1,13 @@
+# UFL input for formulation of the errornorm calculation 
+
+cells = [interval, triangle, tetrahedron] 
+
+family = "Lagrange" # or "CG"
+degree = 1
+degree_rise = 3
+
+forms = []
+
+for cell in cells:
+    element = FiniteElement(family, cell, degree+degree_rise)
+    forms.append(Coefficient(element)**2*dx)
