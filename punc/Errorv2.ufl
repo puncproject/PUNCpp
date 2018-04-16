@@ -1,8 +1,0 @@
-degree = 1
-degree_rise = 3
-
-V = FiniteElement("Lagrange", triangle, degree+degree_rise)
-
-e = Coefficient(V)
-
-a = e*e*dx
