@@ -39,6 +39,10 @@ void CreateSpecies::create(double q, double m, double n, int npc, double vth,
     }
     if (std::isnan(this->M))
     {
+        double num = npc * this->num_cells;
+        double w =  (n / num) * this->volume;
+        this->Q *= w;
+        
         this->M = (this->T * this->T * this->Q * this->Q) /
                   (this->epsilon_0 * pow(this->X, this->D));
     }
@@ -199,7 +203,7 @@ signed long int Population::relocate(std::vector<double> &p, signed long int cel
         }
     }
 }
-void Population::update(boost::optional<std::vector<Object>& > objects)
+void Population::update(boost::optional<std::vector<ObjectBC>& > objects)
 {
     std::size_t num_objects = 0;
     if(objects)

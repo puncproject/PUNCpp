@@ -3,7 +3,7 @@
 namespace punc
 {
 
-std::vector<double> voronoi_volume_approx(const df::FunctionSpace &V)
+std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 {
     auto num_dofs = V.dim();
     auto dof_indices = df::vertex_to_dof_map(V);
@@ -25,10 +25,19 @@ std::vector<double> voronoi_volume_approx(const df::FunctionSpace &V)
         }
         j++;
     }
-    for (std::size_t i = 0; i < num_dofs; ++i)
+    if(voronoi)
     {
-        volumes[i] = (gdim + 1.0) / volumes[i];
+        for (std::size_t i = 0; i < num_dofs; ++i)
+        {
+            volumes[i] = (gdim + 1.0) / volumes[i];
+        }
+    }else{
+        for (std::size_t i = 0; i < num_dofs; ++i)
+        {
+            volumes[i] = 1.0 / volumes[i];
+        }
     }
+
     return volumes;
 }
 
@@ -89,5 +98,34 @@ df::Function distribute(const df::FunctionSpace &V,
     rho.vector()->set_local(rho0);
     return rho;
 }
+
+df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop)
+{
+    auto mesh = Q.mesh();
+    auto tdim = mesh->topology().dim();
+    df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
+    auto rho_vec = rho.vector();
+    std::size_t len_rho = rho_vec->size();
+    std::vector<double> rho0(len_rho);
+    rho_vec->get_local(rho0);
+
+    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    {
+        auto cell_id = e->index();
+        df::Cell _cell(*mesh, cell_id);
+        auto dof_id = Q.dofmap()->cell_dofs(cell_id);
+        double accum = 0.0;
+
+        std::size_t num_particles = pop.cells[cell_id].particles.size();
+        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
+        {
+            auto particle = pop.cells[cell_id].particles[p_id];
+            accum += particle.q;
+        }
+        rho0[dof_id[0]] = accum/_cell.volume();
+    }
+    rho.vector()->set_local(rho0);
+    return rho;
+}                            
 
 }

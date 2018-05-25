@@ -7,8 +7,7 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
-    // std::string fname{"/home/diako/Documents/cpp/punc/mesh/3D/laframboise_sphere_in_sphere_res1"};
-    std::string fname{"/home/diako/Documents/Software/punc/mesh/3D/laframboise_sphere_in_sphere_res1b"};
+    std::string fname{"/home/diako/Documents/cpp/punc/mesh/3D/laframboise_sphere_in_cube_res1"};
     auto mesh = load_mesh(fname);
     auto dim = mesh->geometry().dim();
     auto tdim = mesh->topology().dim();
@@ -36,7 +35,7 @@ int main()
     int npc = 4;
     double ne = 1.0e10;
     double debye = 1.0;
-    double Rp = 2.0*debye;
+    double Rp = 1.0*debye;
     double X = Rp;
     double Te = e*e*debye*debye*ne/(eps0*kB);
     double wpe = sqrt(ne*e*e/(eps0*me));
@@ -45,12 +44,10 @@ int main()
 
     double Vlam  = kB*Te/e;
     double Ilam  = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
-    // double Iexp  = 1.987*Ilam;
-    // double Iexp = 2.945 * Ilam;
-    double Iexp = 2.824 * Ilam;
+    double Iexp  = 1.987*Ilam;
 
-    double dt = 0.10;
-    std::size_t steps = 12000;
+    double dt = 0.05;
+    std::size_t steps = 3000;
 
     CreateSpecies create_species(mesh, facet_vec, X);
 
@@ -65,16 +62,10 @@ int main()
     Inorm /= fabs(Ilam);
     Vnorm /= Vlam;
 
-    // double cap_factor = 1.;
-    double current_collected = Iexp/(create_species.Q/create_species.T);
+    double cap_factor = 1.;
+    double current_collected = Iexp;
     double imposed_potential = 1.0/Vnorm;
     eps0 = 1.0;
-
-    std::vector<std::vector<int>> isources{{-1,0}};
-    std::vector<double> ivalues{-current_collected};
-
-    std::vector<std::vector<int>> vsources{{-1,0}};
-    std::vector<double> vvalues{0.0};
 
     printf("Q:  %e\n", create_species.Q);
     printf("T:  %e\n", create_species.T);
@@ -86,28 +77,25 @@ int main()
     printf("Laframboise current:  %e\n", Ilam);
     printf("Expected current:     %e\n", Iexp);
     printf("Imposed potential:    %e\n", imposed_potential);
-    printf("Imposed current:    %e\n", -current_collected);
 
     auto V = function_space(mesh);
-    auto Q = DG0_space(mesh);
-    auto dv_inv = element_volume(V);
+    auto dv_inv = voronoi_volume_approx(V);
 
     auto u0 = std::make_shared<df::Constant>(0.0);
-    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
+    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0, 
 		std::make_shared<df::MeshFunction<std::size_t>>(boundaries), ext_bnd_id);
     std::vector<df::DirichletBC> ext_bc = {bc};
 
-	ObjectBC object(V, boundaries, tags[2]);
-	// object.set_potential(0.0);
-	std::vector<ObjectBC> int_bc = {object};
-
-    std::vector<std::size_t> bnd_id{tags[2]};
-    CircuitNew circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
-	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
-
-    PoissonSolver poisson(V, ext_bc, circuit);
+    PoissonSolver poisson(V, ext_bc);
     ESolver esolver(V);
-    // reset_objects(int_bc);
+
+	Object object(V, boundaries, tags[2]);
+	object.set_potential(0.0);
+	std::vector<Object> int_bc = {object};
+
+	boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
+
+    reset_objects(int_bc);
 
     Population pop(mesh, boundaries);
 
@@ -138,78 +126,65 @@ int main()
     std::cout << " total: " << num3 << '\n';
 
     std::ofstream file;
-
+    file.open("history.dat", std::ofstream::out | std::ofstream::app);
     for(int i=0; i<steps;++i)
     {
         std::cout<<"step: "<< i<<'\n';
-        // auto rho = distribute(V, pop, dv_inv);
-        auto rho = distribute_dg0(Q, pop);
+        auto rho = distribute(V, pop, dv_inv); 
         dist[i] = timer.elapsed();
         timer.reset();
-        // reset_objects(int_bc);
-        // rsetobj[i]= timer.elapsed();
+        reset_objects(int_bc);  
+        rsetobj[i]= timer.elapsed();
         timer.reset();
-        auto phi = poisson.solve(rho, int_bc, circuit, V);
-        // df::File ofile("phi.pvd");
-        // ofile << phi;
+        auto phi = poisson.solve(rho, int_bc); 
         pois[i] = timer.elapsed();
         timer.reset();
 
-        for(auto& o: int_bc)
-        {
-            printf("Object charge before: %e\n", o.charge);
-            auto _charge = o.update_charge(phi);
-            printf("Object charge after: %e\n", o.charge);
-        }
-
-        potential[i] = int_bc[0].update_potential(phi)*Vnorm;
-        printf("Object potential: %e\n", potential[i]);
-        auto E = esolver.solve(phi);
+        auto E = esolver.solve(phi); 
         efil[i] = timer.elapsed();
         timer.reset();
+        compute_object_potentials(int_bc, E, inv_capacity, mesh); 
+        objpoten[i] = timer.elapsed();
+        timer.reset();
 
-        // compute_object_potentials(int_bc, E, inv_capacity, mesh);
-        // objpoten[i] = timer.elapsed();
-        // timer.reset();
-        //
-        // potential[i] = int_bc[0].potential*Vnorm;
+        potential[i] = int_bc[0].potential*Vnorm; 
 
-        // auto phi1 = poisson.solve(rho, int_bc);
-        // pois[i] += timer.elapsed();
-        // timer.reset();
-        //
-        // auto E1 = esolver.solve(phi1);
-        // efil[i] += timer.elapsed();
-        // timer.reset();
+        auto phi1 = poisson.solve(rho, int_bc); 
+        pois[i] += timer.elapsed();
+        timer.reset();
 
-        PE[i] = particle_potential_energy(pop, phi);
+        auto E1 = esolver.solve(phi1); 
+        efil[i] += timer.elapsed();
+        timer.reset();
+
+        PE[i] = particle_potential_energy(pop, phi1); 
         pot[i] = timer.elapsed();
         timer.reset();
 
-        old_charge = int_bc[0].charge;
+        old_charge = int_bc[0].charge;               
 
-        KE[i] = accel(pop, E, (1.0-0.5*(i == 1))*dt);
+        KE[i] = accel(pop, E1, (1.0-0.5*(i == 1))*dt); 
         ace[i] = timer.elapsed();
         if(i==0)
         {
             KE[i] = kinetic_energy(pop);
         }
         timer.reset();
-        move(pop, dt);
+        move(pop, dt);          
         mv[i] = timer.elapsed();
         timer.reset();
 
-        pop.update(int_bc);
+        pop.update(int_bc);      
         upd[i]= timer.elapsed();
 
-        current_measured[i] = ((int_bc[0].charge - old_charge) / dt) * Inorm;
-        printf("Current: %e\n", current_measured[i]);
-        // int_bc[0].charge -= current_collected*dt;
-        // obj_charge[i] = int_bc[0].charge;
+        file<<i<<"\t"<<num_e[i]<<"\t"<<num_i[i]<<"\t"<<KE[i]<<"\t"<<PE[i]<<"\t"<<potential[i]<<"\t"<<current_measured[i]<<'\n';
 
+        current_measured[i] = ((int_bc[0].charge-old_charge)/dt)*Inorm;
+        int_bc[0].charge -= current_collected*dt;                       
+        obj_charge[i] = int_bc[0].charge;
         timer.reset();
 
-        inject_particles(pop, species, facet_vec, dt);
+        inject_particles(pop, species, facet_vec, dt);         
         inj[i] = timer.elapsed();
 
         timer.reset();
@@ -218,11 +193,9 @@ int main()
         num_tot[i] = pop.num_of_particles();
         pnum[i] = timer.elapsed();
         timer.reset();
-
-        file.open("history.dat", std::ofstream::out | std::ofstream::app);
-        file << i << "\t" << num_e[i] << "\t" << num_i[i] << "\t" << KE[i] << "\t" << PE[i] << "\t" << potential[i] << "\t" << current_measured[i] << '\n';
-        file.close();
     }
+
+    file.close();
 
     auto time_dist = std::accumulate(dist.begin(), dist.end(), 0.0);
     auto time_rsetobj = std::accumulate(rsetobj.begin(), rsetobj.end(), 0.0);

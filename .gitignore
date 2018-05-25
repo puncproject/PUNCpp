@@ -26,6 +26,7 @@ sandbox/struct/build
 sandbox/varobjects/build
 sandbox/varobjects/*.py
 sandbox/varobjects/*.h
+sandbox/Clement/build
 deprecated/punc/*.swp
 deprecated/punc/Charge.h
 deprecated/punc/EField1D.h
@@ -54,3 +55,5 @@ deprecated/demo/convergence/build
 deprecated/demo/capacitance/build
 deprecated/demo/capacitance/mesh
 deprecated/demo/varobject/build
+deprecated/demo/laframboise/build
+deprecated/demo/laframboise/Results

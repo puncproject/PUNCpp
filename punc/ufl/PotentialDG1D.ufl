@@ -1,0 +1,19 @@
+# UFL input for formulation of Poisson equation 1D
+
+cell = interval   
+
+family0 = "Discontinuous Lagrange"
+family1 = "Lagrange" 
+
+degree0 = 0
+degree1 = 1
+
+element0 = FiniteElement(family0, cell, degree0)
+element1 = FiniteElement(family1, cell, degree1)
+
+phi  = TrialFunction(element1)
+phi_ = TestFunction(element1)
+rho  = Coefficient(element0)
+
+a = inner(grad(phi), grad(phi_))*dx
+L = rho*phi_*dx

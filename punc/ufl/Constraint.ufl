@@ -1,0 +1,14 @@
+cells = [interval, triangle, tetrahedron] 
+family = "Lagrange" # or "CG"
+degree = 1
+
+forms = []
+
+for cell in cells:
+    CG = FiniteElement(family, cell, degree)
+    R  = FiniteElement("Real", cell, 0)
+  
+    n   = FacetNormal(cell)
+    mu  = TestFunction(R)
+    phi = TrialFunction(CG)
+    forms.append(inner(mu, dot(grad(phi), n))*ds(9999))

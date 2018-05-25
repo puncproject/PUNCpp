@@ -37,7 +37,7 @@ int main()
 	std::string fname3{"/home/diako/Documents/cpp/punc/mesh/3D/sphere_in_sphere_res3"};
 
 	std::vector<std::string> fnames = {fname1, fname2, fname3};
-	auto num_cases = fnames.size();
+	auto num_cases = fnames.size()-1;
 	std::vector<double> phi_error(num_cases);
 	std::vector<double> E_error(num_cases);
 	std::vector<double> h(num_cases);
@@ -61,7 +61,7 @@ int main()
 		//______________________________________________________________________
 		//-------------------Define boundary condition--------------------------
 		auto u0 = std::make_shared<df::Constant>(0.0);
-		df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0, 
+		df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
 		std::make_shared<df::MeshFunction<std::size_t>>(boundaries), ext_bnd_id);
 		std::vector<df::DirichletBC> ext_bc = {bc};
 		//______________________________________________________________________

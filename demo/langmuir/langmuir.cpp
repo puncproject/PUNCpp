@@ -36,10 +36,10 @@ int main()
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
     auto V = function_space(mesh, constr);
-    PoissonSolver poisson(V, boost::none, remove_null_space);
+    PoissonSolver poisson(V, boost::none, boost::none, remove_null_space);
     ESolver esolver(V);
 
-    auto dv_inv = voronoi_volume_approx(V);
+    auto dv_inv = element_volume(V, true);
 
     double vth = 0.0;
     int npc = 64;

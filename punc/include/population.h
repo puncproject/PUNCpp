@@ -1,10 +1,10 @@
 #ifndef POPULATION_H
 #define POPULATION_H
 
-#include <dolfin.h>
-#include "injector.h"
-#include "object.h"
+//#include <dolfin.h>
 #include "poisson.h"
+#include "injector.h"
+//#include "object.h"
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>
@@ -125,7 +125,7 @@ class Population
                        double q, double m);
     signed long int locate(std::vector<double> &p);
     signed long int relocate(std::vector<double> &p, signed long int cell_id);
-    void update(boost::optional<std::vector<Object>& > objects = boost::none);
+    void update(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
     std::size_t num_of_particles();
     std::size_t num_of_positives();
     std::size_t num_of_negatives();

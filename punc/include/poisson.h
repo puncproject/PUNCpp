@@ -6,12 +6,24 @@
 #include "../ufl/Potential1D.h"
 #include "../ufl/Potential2D.h"
 #include "../ufl/Potential3D.h"
+#include "../ufl/PotentialDG1D.h"
+#include "../ufl/PotentialDG2D.h"
+#include "../ufl/PotentialDG3D.h"
 #include "../ufl/VarPotential1D.h"
 #include "../ufl/VarPotential2D.h"
 #include "../ufl/VarPotential3D.h"
 #include "../ufl/EField1D.h"
 #include "../ufl/EField2D.h"
 #include "../ufl/EField3D.h"
+#include "../ufl/Clement1D.h"
+#include "../ufl/Clement2D.h"
+#include "../ufl/Clement3D.h"
+#include "../ufl/Mean1D.h"
+#include "../ufl/Mean2D.h"
+#include "../ufl/Mean3D.h"
+#include "../ufl/EFieldDG01D.h"
+#include "../ufl/EFieldDG02D.h"
+#include "../ufl/EFieldDG03D.h"
 #include "../ufl/ErrorNorm1D.h"
 #include "../ufl/ErrorNorm2D.h"
 #include "../ufl/ErrorNorm3D.h"
@@ -21,6 +33,7 @@
 #include "../ufl/Surface.h"
 #include "../ufl/Volume.h"
 #include <boost/optional.hpp>
+#include <petscvec.h>
 
 namespace punc
 {
@@ -85,21 +98,29 @@ public:
 df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
                                  boost::optional<std::shared_ptr<PeriodicBoundary>> constr = boost::none);
 
+df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
+
 df::FunctionSpace var_function_space(std::shared_ptr<const df::Mesh> &mesh);
 
 class PoissonSolver
 {
 public:
-    PoissonSolver(const df::FunctionSpace &V,
+    PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
+                  boost::optional<CircuitNew& > circuit=boost::none,
                   bool remove_null_space = false,
-                  std::string method = "cg",
+                  std::string method = "gmres",
                   std::string preconditioner = "hypre_amg");
 
     df::Function solve(const df::Function &rho);
 
     df::Function solve(const df::Function &rho,
                        const std::vector<Object> &objects);
+
+    df::Function solve(const df::Function &rho,
+                       std::vector<ObjectBC> &objects,
+                       CircuitNew &circuit,
+                       const df::FunctionSpace &V);
 
     double residual(const std::shared_ptr<df::Function> &phi);
 
@@ -120,7 +141,7 @@ class ESolver
 {
 public:
   ESolver(const df::FunctionSpace &V,
-          std::string method = "cg",
+          std::string method = "gmres",
           std::string preconditioner = "hypre_amg");
 
   df::Function solve(df::Function &phi);
@@ -131,6 +152,45 @@ private:
   std::shared_ptr<df::Form> a, L;
   df::PETScMatrix A;
   df::PETScVector b;
+};
+
+class EFieldDG0
+{
+public:
+	std::shared_ptr<df::FunctionSpace> Q;
+	EFieldDG0(std::shared_ptr<const df::Mesh> mesh);
+	df::Function solve(const df::Function &phi);
+
+private:
+	std::shared_ptr<df::Form> M;
+};
+
+class EFieldMean
+{
+  public:
+    std::shared_ptr<df::FunctionSpace> V;
+    EFieldMean(std::shared_ptr<const df::Mesh> mesh, bool arithmetic_mean = false);
+    df::Function mean(const df::Function &phi);
+
+  private:
+    std::shared_ptr<df::FunctionSpace> Q, W;
+    std::shared_ptr<df::Form> a, b, c, d;
+    df::PETScMatrix A;
+    df::PETScVector ones, Av, e_dg0;
+};
+
+class ClementInterpolant
+{
+  public:
+    std::shared_ptr<df::FunctionSpace> V;
+    std::shared_ptr<df::FunctionSpace> Q;
+    ClementInterpolant(std::shared_ptr<const df::Mesh> mesh);
+    df::Function interpolate(const df::Function &u);
+
+  private:
+    std::shared_ptr<df::Form> a, b;
+    df::PETScMatrix A;
+    df::PETScVector ones, Av;
 };
 
 class VarPoissonSolver
