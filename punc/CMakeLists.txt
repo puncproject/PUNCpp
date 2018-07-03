@@ -23,5 +23,4 @@ add_library(punc SHARED ${SOURCES})
 # Link punc to dolfin and its 3rd party libraries
 target_link_libraries(punc ${DOLFIN_LIBRARIES} ${DOLFIN_3RD_PARTY_LIBRARIES})
 
-# Install
 install(TARGETS punc DESTINATION /usr/lib)
