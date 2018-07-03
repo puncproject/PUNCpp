@@ -4,6 +4,7 @@
 #include <dolfin.h>
 #include <boost/math/special_functions/erf.hpp>
 #include <chrono>
+#include <random>
 
 namespace punc
 {
