@@ -131,18 +131,26 @@ double surface_area(std::shared_ptr<const df::Mesh> &mesh,
 df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
                                  boost::optional<std::shared_ptr<PeriodicBoundary>> constr)
 {
-    if (mesh->geometry().dim() == 1)
+
+    std::size_t dim = mesh->geometry().dim();
+
+    if(dim<1 || dim>3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
     {
         if(constr)
         {
             Potential1D::FunctionSpace V(mesh, constr.get());
             return V;
-        }else{
+        }
+        else
+        {
             Potential1D::FunctionSpace V(mesh);
             return V;
         }
     }
-    else if (mesh->geometry().dim() == 2)
+    else if (dim == 2)
     {
         if (constr)
         {
@@ -155,7 +163,7 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
             return V;
         }
     }
-    else if (mesh->geometry().dim() == 3)
+    else
     {
         if (constr)
         {
@@ -168,51 +176,54 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
             return V;
         }
     }
-    else
-        df::error("PUNC is programmed for dimensions up to 3D only.");
-
 }
 
 df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh)
 {
-    if (mesh->geometry().dim() == 1)
+    std::size_t dim = mesh->geometry().dim();
+
+    if(dim<1 || dim>3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
     {
         PotentialDG1D::CoefficientSpace_rho Q(mesh);
         return Q;
     }
-    else if (mesh->geometry().dim() == 2)
+    else if (dim == 2)
     {
         PotentialDG2D::CoefficientSpace_rho Q(mesh);
         return Q;
     }
-    else if (mesh->geometry().dim() == 3)
+    else
     {
         PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh);
         return Q;
     }
-    else
-        df::error("PUNC is programmed for dimensions up to 3D only.");
 }
 
 df::FunctionSpace var_function_space(std::shared_ptr<const df::Mesh> &mesh)
 {
-    if (mesh->geometry().dim() == 1)
+    std::size_t dim = mesh->geometry().dim();
+
+    if(dim<1 || dim>3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
     {
         VarPotential1D::FunctionSpace V(mesh);
         return V;
     }
-    else if (mesh->geometry().dim() == 2)
+    else if (dim == 2)
     {
         VarPotential2D::FunctionSpace V(mesh);
         return V;
     }
-    else if (mesh->geometry().dim() == 3)
+    else
     {
         VarPotential3D::FunctionSpace V(mesh);
         return V;
     }
-    else
-        df::error("PUNC is programmed for dimensions up to 3D only.");
 }
 
 PhiBoundary::PhiBoundary(const std::vector<double> &B,
@@ -329,7 +340,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         df::assemble(A, *a);
     }
 
-    for (auto i = 0; i < num_bcs; ++i)
+    for (std::size_t i = 0; i < num_bcs; ++i)
     {
         ext_bc.get()[i].apply(A);
     }
@@ -356,7 +367,7 @@ df::Function PoissonSolver::solve(const df::Function &rho)
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
 
-    for(auto i = 0; i<num_bcs; ++i)
+    for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }
@@ -375,7 +386,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
-    for(auto i = 0; i<num_bcs; ++i)
+    for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }
@@ -395,7 +406,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
-    for(auto i = 0; i<num_bcs; ++i)
+    for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }

@@ -76,7 +76,6 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
     {
         std::vector<std::size_t> neighbors;
         auto cell_id = e->index();
-        auto vertices = e->entities(0);
         auto num_vertices = e->num_entities(0);
         for (std::size_t i = 0; i < num_vertices; ++i)
         {
@@ -203,6 +202,8 @@ signed long int Population::relocate(std::vector<double> &p, signed long int cel
         }
     }
 }
+
+// FIXME: Consider using default argument rather than boost::optional
 void Population::update(boost::optional<std::vector<ObjectBC>& > objects)
 {
     std::size_t num_objects = 0;
@@ -210,8 +211,13 @@ void Population::update(boost::optional<std::vector<ObjectBC>& > objects)
     {
         num_objects = objects->size();
     }
+
+    // FIXME: Consider a different mechanism for boundaries than using negative
+    // numbers, or at least circumvent the problem of casting num_cells to
+    // signed. Not good practice. size_t may overflow to negative numbers upon
+    // truncation for large numbers.
     signed long int new_cell_id;
-    for (signed long int cell_id = 0; cell_id < num_cells; ++cell_id)
+    for (signed long int cell_id = 0; cell_id < (signed long int)num_cells; ++cell_id)
     {
         std::vector<std::size_t> to_delete;
         std::size_t num_particles = cells[cell_id].particles.size();
@@ -226,9 +232,9 @@ void Population::update(boost::optional<std::vector<ObjectBC>& > objects)
                 {
                     cells[new_cell_id].particles.push_back(particle);
                 }else{
-                    for (auto i = 0; i < num_objects; ++i)
+                    for (std::size_t i = 0; i < num_objects; ++i)
                     {
-                        if(-new_cell_id == objects.get()[i].id)
+                        if((std::size_t)(-new_cell_id) == objects.get()[i].id)
                         {
                             objects.get()[i].charge += particle.q;
                         }
@@ -354,8 +360,9 @@ void Population::load_file(const std::string &fname)
     std::string line;
     std::vector<double> x(gdim);
     std::vector<double> v(gdim);
-    double q, m;
-    int i;
+    double q = 0;
+    double m = 0;
+    std::size_t i;
     while (std::getline(in, line))
     {
         double value;

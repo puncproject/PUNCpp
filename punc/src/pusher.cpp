@@ -153,40 +153,40 @@ double boris(Population &pop, const df::Function &E,
             auto vel = particle.v;
 
             t_mag2 = 0.0;
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 t[i] = tan((dt * q / (2.0 * m)) * B[i]);
                 t_mag2 += t[i] * t[i];
             }
 
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 s[i] = 2 * t[i] / (1 + t_mag2);
             }
 
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_minus[i] = vel[i] + 0.5 * dt * (q / m) * Ei[i];
             }
 
-            for (auto i = 0; i < dim; i++)
+            for (std::size_t i = 0; i < dim; i++)
             {
                 KE += 0.5 * m * v_minus[i] * v_minus[i];
             }
 
             auto v_minus_cross_t = cross(v_minus, t);
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_prime[i] = v_minus[i] + v_minus_cross_t[i];
             }
 
             auto v_prime_cross_s = cross(v_prime, s);
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_plus[i] = v_minus[i] + v_prime_cross_s[i];
             }
 
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 pop.cells[cell_id].particles[p_id].v[i] = v_plus[i] + 0.5 * dt * (q / m) * Ei[i];
             }
@@ -271,35 +271,35 @@ double boris_nonuniform(Population &pop, const df::Function &E,
             auto q = particle.q;
             auto vel = particle.v;
             t_mag2 = 0.0;
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 t[i] = tan( (dt * q / (2.0 * m)) * Bi[i]);
                 t_mag2 += t[i]*t[i];
             }
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 s[i] = 2 * t[i] / (1 + t_mag2);
             }
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_minus[i] = vel[i] + 0.5 * dt * (q / m) * Ei[i];
             }
-            for (auto i = 0; i < dim; i++)
+            for (std::size_t i = 0; i < dim; i++)
             {
                 KE += 0.5 * m * v_minus[i] * v_minus[i];
             }
 
             auto v_minus_cross_t = cross(v_minus, t);
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_prime[i] = v_minus[i] + v_minus_cross_t[i];
             }
             auto v_prime_cross_s = cross(v_prime, s);
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 v_plus[i] = v_minus[i] + v_prime_cross_s[i];
             }
-            for (auto i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < dim; ++i)
             {
                 pop.cells[cell_id].particles[p_id].v[i] = v_plus[i] + 0.5 * dt * (q / m) * Ei[i];
             }
