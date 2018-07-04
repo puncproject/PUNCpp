@@ -1,0 +1,17 @@
+Charge.h
+EField1D.h
+EField2D.h
+EField3D.h
+Potential1D.h
+Potential2D.h
+Potential3D.h
+VarPotential1D.h
+VarPotential2D.h
+VarPotential3D.h
+Energy.h
+Flux.h
+Surface.h
+Volume.h
+ErrorNorm1D.h
+ErrorNorm2D.h
+ErrorNorm3D.h

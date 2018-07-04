@@ -1,33 +1,12 @@
 punc/ufl/*.h
-**build
+**/build
+**/mesh
+**/Results
+**swp
 .vscode
-
-# Should preferrably be lower-case for consistency with other folders
-**Results
 
 # This part should perhaps be cleaned up
 sandbox/injection_v0/vs.txt
-sandbox/mesh
 sandbox/MultiDim/*.h
 sandbox/varobjects/*.py
 sandbox/varobjects/*.h
-deprecated/punc/*.swp
-deprecated/punc/Charge.h
-deprecated/punc/EField1D.h
-deprecated/punc/EField2D.h
-deprecated/punc/EField3D.h
-deprecated/punc/Potential1D.h
-deprecated/punc/Potential2D.h
-deprecated/punc/Potential3D.h
-deprecated/punc/VarPotential1D.h
-deprecated/punc/VarPotential2D.h
-deprecated/punc/VarPotential3D.h
-deprecated/punc/Energy.h
-deprecated/punc/Flux.h
-deprecated/punc/Surface.h
-deprecated/punc/Volume.h
-deprecated/punc/ErrorNorm1D.h
-deprecated/punc/ErrorNorm2D.h
-deprecated/punc/ErrorNorm3D.h
-deprecated/demo/injection/mesh
-deprecated/demo/capacitance/mesh
