@@ -21,6 +21,7 @@ double kinetic_energy(Population &pop)
             }
         }
     }
+	return KE;
 }
 
 double mesh_potential_energy(df::Function &phi, df::Function &rho)
