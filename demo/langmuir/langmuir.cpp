@@ -11,7 +11,6 @@ int main()
     double dt = 0.25;
     std::size_t steps = 30;
 
-    // std::string fname{"/home/diako/Documents/cpp/punc/mesh/2D/nothing_in_square"};
     std::string fname{"../../mesh/2D/nothing_in_square"};
     auto mesh = load_mesh(fname);
     auto D = mesh->geometry().dim();

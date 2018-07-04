@@ -2,7 +2,7 @@ from numpy import *
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-fnames = ["build/vels_pre.txt", "build/vels_post.txt"]
+fnames = ["vels_pre.txt", "vels_post.txt"]
 
 vth = 1.0
 vd = array([0.0,0.0])

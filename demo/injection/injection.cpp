@@ -14,9 +14,9 @@ int main()
     std::string fname;
     if (gdim==2)
     {
-        fname = "/home/diako/Documents/cpp/punc/mesh/2D/nothing_in_square";
+        fname = "../../mesh/2D/nothing_in_square";
     }else if (gdim==3){
-        fname = "/home/diako/Documents/cpp/punc/mesh/3D/nothing_in_cube";
+        fname = "../../mesh/3D/nothing_in_cube";
     }
 
     auto mesh = load_mesh(fname);

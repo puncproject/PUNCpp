@@ -34,7 +34,7 @@ int main()
     df::set_log_level(df::WARNING);
     double dt = 0.01;
     std::size_t steps = 10;
-    std::string fname{"/home/diako/Documents/cpp/punc/mesh/3D/nothing_in_cube"};
+    std::string fname{"../../mesh/3D/nothing_in_cube"};
 
     auto mesh = load_mesh(fname);
     auto dim = mesh->geometry().dim();

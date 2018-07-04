@@ -32,9 +32,9 @@ int main()
 {
 	df::set_log_level(df::WARNING);
 
-	std::string fname1{"/home/diako/Documents/cpp/punc/mesh/3D/sphere_in_sphere_res1"};
-	std::string fname2{"/home/diako/Documents/cpp/punc/mesh/3D/sphere_in_sphere_res2"};
-	std::string fname3{"/home/diako/Documents/cpp/punc/mesh/3D/sphere_in_sphere_res3"};
+	std::string fname1{"../../mesh/3D/sphere_in_sphere_res1"};
+	std::string fname2{"../../mesh/3D/sphere_in_sphere_res2"};
+	std::string fname3{"../../mesh/3D/sphere_in_sphere_res3"};
 
 	std::vector<std::string> fnames = {fname1, fname2, fname3};
 	auto num_cases = fnames.size()-1;

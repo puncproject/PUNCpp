@@ -1,4 +1,7 @@
 #!/bin/bash
 rm -rf build
-mkdir -p build && cd build && cmake .. && make && ./injection
-cd .. && python particleNumber.py && python hist.py
+mkdir -p build && cd build && cmake .. && make
+cd ..
+cp build/injection . 
+./injection
+python particleNumber.py && python hist.py

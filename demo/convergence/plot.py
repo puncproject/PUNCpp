@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-files = ['build/phi.txt', 'build/E.txt', 'build/h.txt']
+files = ['phi.txt', 'E.txt', 'h.txt']
 err_f, err_e = [], []
 h = []
 

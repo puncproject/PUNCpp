@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-files = ['build/num_e.txt', 'build/num_i.txt',
-         'build/num_tot.txt', "build/outside.txt", "build/injected.txt"]
+files = ['num_e.txt', 'num_i.txt',
+         'num_tot.txt', "outside.txt", "injected.txt"]
 
 data = []
 for fname in files:

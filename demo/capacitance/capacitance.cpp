@@ -11,7 +11,7 @@ int main()
 	auto cap = 4.*M_PI*r*R/(R-r);
 
 	//----------- Create mesh --------------------------------------------------
-	std::string fname{"/home/diako/Documents/cpp/punc/mesh/3D/sphere_in_sphere_res1"};
+	std::string fname{"../../mesh/3D/sphere_in_sphere_res1"};
 	auto mesh = load_mesh(fname);
 
 	auto boundaries = load_boundaries(mesh, fname);
