@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 11)
 # Require C++11
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_CXX_FLAGS "-Wall -O3 ${CMAKE_CXX_FLAGS}")
+
 include_directories(ufl,include)
 
 file(GLOB SOURCES "src/*.cpp")
