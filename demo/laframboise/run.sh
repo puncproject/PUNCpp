@@ -1,4 +1,7 @@
 #!/bin/bash
 rm -rf build
-mkdir -p build && cd build && cmake .. && make && ./laframboise
-cd .. && python plot.py
+mkdir -p build && cd build && cmake .. && make 
+cd ..
+cp build/laframboise .
+./laframboise
+python plot.py

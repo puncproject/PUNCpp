@@ -7,8 +7,8 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
-    // std::string fname{"/home/diako/Documents/cpp/punc/mesh/3D/laframboise_sphere_in_sphere_res1"};
-    std::string fname{"/home/diako/Documents/Software/punc/mesh/3D/laframboise_sphere_in_sphere_res1b"};
+    // std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1"};
+    std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
     auto mesh = load_mesh(fname);
     auto dim = mesh->geometry().dim();
     auto tdim = mesh->topology().dim();
@@ -36,7 +36,7 @@ int main()
     int npc = 4;
     double ne = 1.0e10;
     double debye = 1.0;
-    double Rp = 2.0*debye;
+    double Rp = 1.0*debye;
     double X = Rp;
     double Te = e*e*debye*debye*ne/(eps0*kB);
     double wpe = sqrt(ne*e*e/(eps0*me));
@@ -50,7 +50,7 @@ int main()
     double Iexp = 2.824 * Ilam;
 
     double dt = 0.10;
-    std::size_t steps = 12000;
+    std::size_t steps = 100;
 
     CreateSpecies create_species(mesh, facet_vec, X);
 
@@ -157,13 +157,13 @@ int main()
 
         for(auto& o: int_bc)
         {
-            printf("Object charge before: %e\n", o.charge);
+            // printf("Object charge before: %e\n", o.charge);
             auto _charge = o.update_charge(phi);
-            printf("Object charge after: %e\n", o.charge);
+            // printf("Object charge after: %e\n", o.charge);
         }
 
         potential[i] = int_bc[0].update_potential(phi)*Vnorm;
-        printf("Object potential: %e\n", potential[i]);
+        // printf("Object potential: %e\n", potential[i]);
         auto E = esolver.solve(phi);
         efil[i] = timer.elapsed();
         timer.reset();
@@ -203,7 +203,7 @@ int main()
         upd[i]= timer.elapsed();
 
         current_measured[i] = ((int_bc[0].charge - old_charge) / dt) * Inorm;
-        printf("Current: %e\n", current_measured[i]);
+        // printf("Current: %e\n", current_measured[i]);
         // int_bc[0].charge -= current_collected*dt;
         // obj_charge[i] = int_bc[0].charge;
 
