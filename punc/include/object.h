@@ -167,7 +167,7 @@ public:
     std::vector<std::size_t> bnd_id;
     double dt;
     double eps0;
-    df::la_index rows_charge, rows_potential;
+    std::size_t rows_charge, rows_potential;
     std::shared_ptr<df::Form> charge_constr;
     // df::GenericMatrix A0;
 

@@ -14,7 +14,7 @@ std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> v
 
     for (auto i = 0; i < len; ++i)
     {
-        for (auto j = 0; j < dim - 1; ++j)
+        for (std::size_t j = 0; j < dim - 1; ++j)
         {
             arr[i][j] = vec[i % plen][j];
         }
@@ -30,7 +30,7 @@ std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> v
 
 ORS::ORS(double vth, std::vector<double> &vd,
          std::function<double(std::vector<double> &)> vdf, int num_sp):vdf(vdf),
-         dist(0.0, 1.0), rng{random_seed_seq::get_instance()}
+         rng{random_seed_seq::get_instance()}, dist(0.0, 1.0)
 {
 
     dim = vd.size();
@@ -109,14 +109,14 @@ std::vector<double> ORS::sample(const std::size_t N)
 {
     random_source rng(random_seed_seq::get_instance());
     std::vector<double> vs(N*dim), vs_new(dim);
-    int index, n = 0;
+    std::size_t index, n = 0;
     double p_vs, value;
     while (n < N)
     {
         index = std::distance(cdf.begin(),
                 std::lower_bound(cdf.begin(), cdf.end(), dist(rng)));
 
-        for (int i = n * dim; i < (n + 1) * dim; ++i)
+        for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
         {
             vs_new[i%dim] = sp[index*num_edges][i%dim] + dv[i % dim] * dist(rng);
             vs[i] = vs_new[i%dim];
@@ -134,11 +134,8 @@ GenericFlux::GenericFlux(double vth, std::vector<double> &vd,
          const std::vector<std::vector<double>> &cutoffs,
          int num_sp,
          std::vector<Facet> &facets) :
-         dist(0.0, 1.0), rng{random_seed_seq::get_instance()}
+         rng{random_seed_seq::get_instance()}, dist(0.0, 1.0)
 {
-    double vth2 = vth * vth;
-    double factor = (1.0 / (sqrt(2. * M_PI * vth2)));
-
     auto num_facets = facets.size();
     num_particles.resize(num_facets);
     vdf.resize(num_facets);
@@ -199,7 +196,7 @@ GenericFlux::GenericFlux(double vth, std::vector<double> &vd,
     vdf.resize(num_facets);
     double vdn, max, value;
 
-    for(auto i=0; i<num_facets; ++i)
+    for (std::size_t i = 0; i < num_facets; ++i)
     {
         auto n = facets[i].normal;
         vdn = std::inner_product(n.begin(), n.end(), vd.begin(), 0.0);
@@ -242,14 +239,14 @@ std::vector<double> GenericFlux::sample(const std::size_t N, const std::size_t f
 {
     random_source rng(random_seed_seq::get_instance());
     std::vector<double> vs(N*dim), vs_new(dim);
-    int index, n = 0;
+    std::size_t index, n = 0;
     double p_vs, value;
     while (n < N)
     {
         index = std::distance(cdf.begin()+f*nbins,
                 std::lower_bound(cdf.begin()+f*nbins, cdf.begin()+(f+1)*nbins, dist(rng)));
 
-        for (int i = n * dim; i < (n + 1) * dim; ++i)
+        for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
         {
             vs_new[i%dim] = sp[index*num_edges][i%dim] + dv[i % dim] * dist(rng);
             vs[i] = vs_new[i%dim];
@@ -285,7 +282,7 @@ MaxwellianFlux::MaxwellianFlux(double vth, std::vector<double> &vd,
     dv = (cutoffs[1] - cutoffs[0]) / nsp;
     std::vector<double> vdfv(nsp);
 
-    for (auto i = 0; i < num_facets; ++i)
+    for (std::size_t i = 0; i < num_facets; ++i)
     {
         auto n = facets[i].normal;
         std::vector<double> vdn(dim);
@@ -339,7 +336,7 @@ std::vector<double> MaxwellianFlux::sample(const std::size_t N, const std::size_
 {
     random_source rng(random_seed_seq::get_instance());
     std::vector<double> vs(N * dim), vs_new(dim);
-    int index, n = 0;
+    std::size_t index, n = 0;
     double p_vs, value;
     while (n < N)
     {
@@ -380,7 +377,7 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     auto values = boundaries.values();
     auto length = boundaries.size();
     int num_facets = 0;
-    for (auto i = 0; i < length; ++i)
+    for (std::size_t i = 0; i < length; ++i)
     {
         if (ext_bnd_id == values[i])
         {
@@ -389,7 +386,7 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     }
     std::vector<Facet> ext_facets;
 
-    double area;
+    double area = 0.0;
     std::vector<double> normal(gdim);
     std::vector<double> vertices(gdim * gdim);
     std::vector<double> basis(gdim * gdim);
@@ -403,34 +400,36 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
         df::Cell cell(*mesh, facet_iter->entities(tdim)[0]);
         auto cell_facet = cell.entities(tdim - 1);
         std::size_t num_facets = cell.num_entities(tdim - 1);
-        for (auto i = 0; i < num_facets; ++i)
+        for (std::size_t i = 0; i < num_facets; ++i)
         {
             if (cell_facet[i] == facet_iter->index())
             {
                 area = cell.facet_area(i);
-                for (auto j = 0; j < gdim; ++j)
+                for (std::size_t j = 0; j < gdim; ++j)
                 {
                     normal[j] = -1*cell.normal(i, j);
                     basis[j*gdim] = normal[j];
                 }
             }
         }
+        assert(area != 0.0 && "The facet area cannot be zero!");
+
         j = 0;
         for (df::VertexIterator v(*facet_iter); !v.end(); ++v)
         {
-            for (auto i = 0; i < gdim; ++i)
+            for (std::size_t i = 0; i < gdim; ++i)
             {
                 vertices[j * gdim + i] = v->x(i);
             }
             j += 1;
         }
         norm = 0.0;
-        for (auto i = 0; i < gdim; ++i)
+        for (std::size_t i = 0; i < gdim; ++i)
         {
             vertex[i] = vertices[i] - vertices[gdim + i];
             norm += vertex[i] * vertex[i];
         }
-        for (auto i = 0; i < gdim; ++i)
+        for (std::size_t i = 0; i < gdim; ++i)
         {
             vertex[i] /= sqrt(norm);
             basis[i * gdim + 1] = vertex[i];
@@ -483,7 +482,6 @@ std::vector<double> random_domain_points(
 
     auto D = mesh->geometry().dim();
     auto coordinates = mesh->coordinates();
-    int num_vertices = mesh->num_vertices();
     auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
     auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
 
@@ -494,7 +492,7 @@ std::vector<double> random_domain_points(
     random_source rng{random_seed_seq::get_instance()};
     distribution dist(0.0, pdf_max);
 
-    for (int i = 0; i < D; ++i)
+    for (std::size_t i = 0; i < D; ++i)
     {
         dists[i] = distribution(Ld_min, Ld_max);
     }
@@ -503,13 +501,13 @@ std::vector<double> random_domain_points(
     int n = 0;
     while (n < N)
     {
-        for (int i = 0; i < D; ++i)
+        for (std::size_t i = 0; i < D; ++i)
         {
             v[i] = dists[i](rng);
         }
         if (dist(rng) < mesh_pdf(v))
         {
-            for (int i = n * D; i < (n + 1) * D; ++i)
+            for (std::size_t i = n * D; i < (n + 1) * D; ++i)
             {
                 xs[i] = v[i % D];
             }
@@ -568,7 +566,7 @@ std::vector<double> maxwellian(double vth, std::vector<double> vd, const int &N)
     double r;
     auto cdf = [vth, vd](double &v, int i) { return vd[i] - sqrt(2.0) * vth * erfc_inv(2 * v); };
     std::vector<double> vs(N * dim);
-    for (auto j = 0; j < dim; ++j)
+    for (std::size_t j = 0; j < dim; ++j)
     {
         for (auto i = 0; i < N; ++i)
         {
@@ -586,7 +584,7 @@ std::function<double(std::vector<double> &)> maxwellian_vdf(double vth, std::vec
     auto factor =  (1.0 / (pow(sqrt(2. * M_PI * vth2), dim)));
     auto pdf = [vth2, vd, factor, dim](std::vector<double> &v) {
         double v_sqrt = 0.0;
-        for (auto i = 0; i < dim; ++i)
+        for (std::size_t i = 0; i < dim; ++i)
         {
             v_sqrt += (v[i] - vd[i]) * (v[i] - vd[i]);
         }
@@ -609,10 +607,10 @@ void inject_particles(Population &pop, std::vector<Species> &species,
     auto num_facets = facets.size();
     std::vector<double> xs_tmp(dim);
 
-    for (auto i = 0; i < num_species; ++i)
+    for (std::size_t i = 0; i < num_species; ++i)
     {
         std::vector<double> xs, vs;
-        for(auto j = 0; j < num_facets; ++j)
+        for (std::size_t j = 0; j < num_facets; ++j)
         {
             auto normal_i = facets[j].normal;
             int N = int(species[i].n*dt*species[i].flux->num_particles[j]);
@@ -631,13 +629,13 @@ void inject_particles(Population &pop, std::vector<Species> &species,
                 for(auto k=0; k<n; ++k)
                 {
                     auto r = dist(rng);
-                    for (auto l = 0; l <dim; ++l)
+                    for (std::size_t l = 0; l < dim; ++l)
                     {
                         xs_tmp[l] = xs_new[k*dim + l] + dt*r*vs_new[k*dim + l];
                     }
                     if (pop.locate(xs_tmp) >= 0)
                     {
-                        for (auto l = 0; l < dim; ++l)
+                        for (std::size_t l = 0; l < dim; ++l)
                         {
                             xs.push_back(xs_tmp[l]);
                             vs.push_back(vs_new[k * dim + l]);
@@ -655,9 +653,8 @@ void inject_particles(Population &pop, std::vector<Species> &species,
 
 void load_particles(Population &pop, std::vector<Species> &species)
 {
-    auto dim = pop.gdim;
     auto num_species = species.size();
-    for (auto i = 0; i < num_species; ++i)
+    for (std::size_t i = 0; i < num_species; ++i)
     {
         auto s = species[i];
         auto xs = random_domain_points(s.pdf, s.pdf_max, s.num, pop.mesh);

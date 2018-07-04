@@ -16,7 +16,6 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
     mesh->init(0, tdim);
     for (df::MeshEntityIterator e(*mesh, 0); !e.end(); ++e)
     {
-        auto cells = e->entities(tdim);
         auto num_cells = e->num_entities(tdim);
         for (std::size_t i = 0; i < num_cells; ++i)
         {

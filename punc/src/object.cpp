@@ -94,7 +94,7 @@ void compute_object_potentials(std::vector<Object> &objects,
                                std::shared_ptr<const df::Mesh> &mesh)
 {
     auto dim = mesh->geometry().dim();
-    int num_objects = objects.size();
+    auto num_objects = objects.size();
     std::vector<double> image_charge(num_objects);
 
     std::shared_ptr<df::Form> flux;
@@ -110,7 +110,7 @@ void compute_object_potentials(std::vector<Object> &objects,
     {
         flux = std::make_shared<Flux::Form_2>(mesh);
     }
-    for (unsigned j = 0; j < num_objects; ++j)
+    for (std::size_t j = 0; j < num_objects; ++j)
     {
         flux->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[j].bnd));
         flux->set_coefficient("w0", std::make_shared<df::Function>(E));
@@ -118,10 +118,10 @@ void compute_object_potentials(std::vector<Object> &objects,
     }
 
     double potential;
-    for (auto i = 0; i < num_objects; ++i)
+    for (std::size_t i = 0; i < num_objects; ++i)
     {
         potential = 0.0;
-        for (auto j = 0; j < num_objects; ++j)
+        for (std::size_t j = 0; j < num_objects; ++j)
         {
             potential += (objects[j].charge -\
                           image_charge[j]) * inv_capacity(i, j);
@@ -215,7 +215,7 @@ void VObject::apply(df::GenericMatrix &A)
     }
     else
     {
-        for (auto i = 1; i < num_dofs; ++i)
+        for (std::size_t i = 1; i < num_dofs; ++i)
         {
             std::vector<double> neighbor_values;
             std::vector<std::size_t> neighbor_ids, surface_neighbors;
@@ -225,7 +225,7 @@ void VObject::apply(df::GenericMatrix &A)
 
             std::size_t num_surface_neighbors = 0;
             std::size_t self_index;
-            for (auto j = 0; j < num_neighbors; ++j)
+            for (std::size_t j = 0; j < num_neighbors; ++j)
             {
                 if (std::find(dofs.begin(), dofs.end(), neighbor_ids[j]) != dofs.end())
                 {
@@ -438,10 +438,9 @@ void ConstantBC::apply(df::GenericMatrix &A)
     std::vector<double> values;
     std::vector<std::size_t> surface_neighbors;
     std::vector<df::la_index> zero_row;
-    std::size_t self_index;
-    std::vector<std::size_t> ind;
+    std::size_t self_index = 0;
+    std::vector<df::la_index> ind;
     std::vector<std::vector<std::size_t> > allneighbors;
-    int m;
 
     for (std::size_t i = 0; i < num_dofs; i++)
         ind.push_back(dofs[i]);
@@ -545,7 +544,6 @@ double ObjectBC::update_charge(df::Function &phi)
 {
     charge_form->set_coefficient("w0", std::make_shared<df::Function>(phi));
     charge = df::assemble(*charge_form);
-    // std::cout<<"correct charge: "<< charge<<'\n';
     return charge;
 }
 
@@ -556,15 +554,15 @@ double ObjectBC::update_potential(df::Function &phi)
 }
 
 CircuitNew::CircuitNew(const df::FunctionSpace &V,
-           std::vector<ObjectBC> &objects,
-           std::vector<std::vector<int>> isources,
-           std::vector<double> ivalues,
-           std::vector<std::vector<int>> vsources,
-           std::vector<double> vvalues,
-           double dt, double eps0, std::string method)
-           :V(V), objects(objects), isources(isources),
-           ivalues(ivalues), vsource(vsources),
-           vvalues(vvalues), dt(dt), eps0(eps0)
+                       std::vector<ObjectBC> &objects,
+                       std::vector<std::vector<int>> isources,
+                       std::vector<double> ivalues,
+                       std::vector<std::vector<int>> vsources,
+                       std::vector<double> vvalues,
+                       double dt, double eps0, std::string method)
+                    : V(V), objects(objects), isources(isources),
+                    vsource(vsources), ivalues(ivalues),
+                    vvalues(vvalues), dt(dt), eps0(eps0)
 {
     rows_charge = objects[0].get_free_row();
     rows_potential = objects[0].get_free_row();
@@ -578,7 +576,6 @@ void CircuitNew::apply(df::GenericVector &b)
 
 void CircuitNew::apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc)
 {
-    // auto mesh = V.mesh();
     auto dim = V.mesh()->geometry().dim();
     if (dim == 1)
     {
@@ -599,16 +596,14 @@ void CircuitNew::apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc)
         charge_constr = std::make_shared<Constraint::Form_2>(V1,V0);
     }
     charge_constr->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[0].bnd));
-    std::cout<<"0"<<'\n';
-    std::cout << "rows_charge: "<< rows_charge<< '\n';
+
     df::PETScMatrix A0;
     df::assemble(A0, *charge_constr);
 
     std::vector<std::size_t> cols;
     std::vector<double> vals;
     A0.getrow(0, cols, vals);
-    std::cout << "1" << '\n';
-    // df::GenericMatrix Bc;
+
     auto replace_row = rows_charge;
 
     std::shared_ptr<df::TensorLayout> layout;
@@ -728,7 +723,7 @@ void CircuitNew::apply_vsources_to_vector(df::GenericVector &b)
 
 void CircuitNew::apply_isources_to_object()
 {
-    for (auto i = 0; i < isources.size(); ++i)
+    for (std::size_t i = 0; i < isources.size(); ++i)
     {
         auto obj_a_id = isources[i][0];
         auto obj_b_id = isources[i][1];
