@@ -91,7 +91,9 @@ class Flux
 {
 public:
     std::vector<double> num_particles;
-    virtual std::vector<double> sample(const std::size_t N, const std::size_t f);
+    virtual std::vector<double> sample(const std::size_t N, const std::size_t f){
+        std::vector<double> x;
+        return x;};
 };
 
 class GenericFlux
