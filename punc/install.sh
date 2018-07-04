@@ -1,6 +1,11 @@
 #!/bin/bash
+
 cd ufl
-make
+make -j $(nproc)
 cd ..
-rm -rf build
-mkdir -p build && cd build && cmake .. && make && sudo make install
+# rm -rf build
+# mkdir -p build 
+cd build
+# cmake ..
+make -j $(nproc)
+sudo make install
