@@ -130,7 +130,7 @@ void compute_object_potentials(std::vector<Object> &objects,
     }
 }
 
-Circuit::Circuit(std::vector<Object> &objects,
+CircuitCM::CircuitCM(std::vector<Object> &objects,
                  const boost_vector &precomputed_charge,
                  const boost_matrix &inv_bias,
                  double charge):
@@ -138,7 +138,7 @@ Circuit::Circuit(std::vector<Object> &objects,
                  precomputed_charge(precomputed_charge),
                  inv_bias(inv_bias), charge(charge) {}
 
-void Circuit::circuit_charge()
+void CircuitCM::circuit_charge()
 {
     double c_charge = 0.0;
     for (auto obj: objects)
@@ -148,7 +148,7 @@ void Circuit::circuit_charge()
     this->charge = c_charge;
 }
 
-void Circuit::redistribute_charge(const std::vector<double> &tot_charge)
+void CircuitCM::redistribute_charge(const std::vector<double> &tot_charge)
 {
     std::size_t num_objects = objects.size();
     std::size_t num_rows = inv_bias.size1();
@@ -170,7 +170,7 @@ void Circuit::redistribute_charge(const std::vector<double> &tot_charge)
     }
 }
 
-void redistribute_circuit_charge(std::vector<Circuit> &circuits)
+void redistribute_circuit_charge(std::vector<CircuitCM> &circuits)
 {
     std::size_t num_circuits = circuits.size();
     std::vector<double> tot_charge(num_circuits);
@@ -290,7 +290,6 @@ boost_matrix bias_matrix(const boost_matrix &inv_capacity,
     inv(bias_matrix, inv_bias);
     return inv_bias;
 }
-
 
 ConstantBC::ConstantBC(const df::FunctionSpace &V,
                const df::MeshFunction<std::size_t> &bnd,
@@ -439,7 +438,7 @@ double ObjectBC::update_potential(df::Function &phi)
     return potential;
 }
 
-CircuitNew::CircuitNew(const df::FunctionSpace &V,
+Circuit::Circuit(const df::FunctionSpace &V,
                        std::vector<ObjectBC> &objects,
                        std::vector<std::vector<int>> isources,
                        std::vector<double> ivalues,
@@ -454,13 +453,13 @@ CircuitNew::CircuitNew(const df::FunctionSpace &V,
     rows_potential = objects[0].get_free_row();
 }
 
-void CircuitNew::apply(df::GenericVector &b)
+void Circuit::apply(df::GenericVector &b)
 {
     apply_isources_to_object();
     apply_vsources_to_vector(b);
 }
 
-void CircuitNew::apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc)
+void Circuit::apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc)
 {
     auto dim = V.mesh()->geometry().dim();
     if (dim == 1)
@@ -601,13 +600,13 @@ void CircuitNew::apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc)
     // return Bc;
 }
 
-void CircuitNew::apply_vsources_to_vector(df::GenericVector &b)
+void Circuit::apply_vsources_to_vector(df::GenericVector &b)
 {
     auto object_charge = objects[0].charge;
     b.setitem(rows_charge, object_charge);
 }
 
-void CircuitNew::apply_isources_to_object()
+void Circuit::apply_isources_to_object()
 {
     for (std::size_t i = 0; i < isources.size(); ++i)
     {

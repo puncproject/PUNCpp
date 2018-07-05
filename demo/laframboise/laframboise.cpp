@@ -102,7 +102,7 @@ int main()
 	std::vector<ObjectBC> int_bc = {object};
 
     std::vector<std::size_t> bnd_id{tags[2]};
-    CircuitNew circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
+    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
 	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
 
     PoissonSolver poisson(V, ext_bc, circuit);

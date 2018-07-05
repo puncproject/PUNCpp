@@ -276,7 +276,7 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
-                             boost::optional<CircuitNew& > circuit,
+                             boost::optional<Circuit& > circuit,
                              bool remove_null_space,
                              std::string method,
                              std::string preconditioner) : ext_bc(ext_bc),
@@ -376,7 +376,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 
 df::Function PoissonSolver::solve(const df::Function &rho,
                                   std::vector<ObjectBC> &objects,
-                                  CircuitNew &circuit,
+                                  Circuit &circuit,
                                   const df::FunctionSpace &V)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));

@@ -60,7 +60,7 @@ void compute_object_potentials(std::vector<Object> &objects,
                                const boost_matrix &inv_capacity,
                                std::shared_ptr<const df::Mesh> &mesh);
 
-class Circuit
+class CircuitCM
 {
 public:
     std::vector<Object> &objects;
@@ -68,7 +68,7 @@ public:
     const boost_matrix &inv_bias;
     double charge;
 
-    Circuit(std::vector<Object> &objects,
+    CircuitCM(std::vector<Object> &objects,
             const boost_vector &precomputed_charge,
             const boost_matrix &inv_bias,
             double charge = 0.0);
@@ -77,7 +77,7 @@ public:
     void redistribute_charge(const std::vector<double> &tot_charge);
 };
 
-void redistribute_circuit_charge(std::vector<Circuit> &circuits);
+void redistribute_circuit_charge(std::vector<CircuitCM> &circuits);
 
 std::vector<std::shared_ptr<df::Function>> solve_laplace(
     std::shared_ptr<df::FunctionSpace> &V,
@@ -130,7 +130,7 @@ public:
     double update_potential(df::Function &phi);
 };
 
-class CircuitNew
+class Circuit
 {
 public:
     const df::FunctionSpace &V;
@@ -144,7 +144,7 @@ public:
     std::shared_ptr<df::Form> charge_constr;
     // df::GenericMatrix A0;
 
-    CircuitNew(const df::FunctionSpace &V,
+    Circuit(const df::FunctionSpace &V,
             std::vector<ObjectBC> &objects,
             std::vector<std::vector<int>> isources,
             std::vector<double> ivalues,
