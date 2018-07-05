@@ -15,9 +15,9 @@
 #include "../ufl/Potential1D.h"
 #include "../ufl/Potential2D.h"
 #include "../ufl/Potential3D.h"
-#include "../ufl/VarPotential1D.h"
-#include "../ufl/VarPotential2D.h"
-#include "../ufl/VarPotential3D.h"
+#include "../ufl/PotentialDG1D.h"
+#include "../ufl/PotentialDG2D.h"
+#include "../ufl/PotentialDG3D.h"
 #include "../ufl/ErrorNorm1D.h"
 #include "../ufl/ErrorNorm2D.h"
 #include "../ufl/ErrorNorm3D.h"
@@ -29,6 +29,5 @@
 #include "../ufl/Energy.h"
 #include "../ufl/Surface.h"
 #include "../ufl/Charge.h"
-// #include <utils.h>
 
 #endif

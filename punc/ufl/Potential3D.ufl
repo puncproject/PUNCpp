@@ -1,5 +1,7 @@
 # UFL input for formulation of Poisson equation 3D
 
+# Both the electric potential, phi, and the Volume charge density, rho, are in CG.
+
 cell = tetrahedron
 
 family = "Lagrange" # or "CG"

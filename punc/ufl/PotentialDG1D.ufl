@@ -1,5 +1,8 @@
 # UFL input for formulation of Poisson equation 1D
 
+# The electric potential, phi, is in CG,
+# The Volume charge density, rho, is in DG.
+
 cell = interval   
 
 family0 = "Discontinuous Lagrange"

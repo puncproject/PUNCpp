@@ -1,5 +1,8 @@
 # UFL input for formulation of Poisson equation 3D
 
+# The electric potential, phi, is in CG,
+# The Volume charge density, rho, is in DG.
+
 cell = tetrahedron   
 
 family0 = "Discontinuous Lagrange"

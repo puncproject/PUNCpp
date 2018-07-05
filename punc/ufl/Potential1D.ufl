@@ -1,5 +1,7 @@
 # UFL input for formulation of Poisson equation 1D
 
+# Both the electric potential, phi, and the Volume charge density, rho, are in CG.
+
 cell = interval   
 
 family = "Lagrange" # or "CG"
