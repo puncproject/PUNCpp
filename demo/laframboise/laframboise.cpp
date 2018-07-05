@@ -1,5 +1,5 @@
 #include <dolfin.h>
-#include "../../punc/include/punc.h"
+#include <punc.h>
 
 using namespace punc;
 
