@@ -1,10 +1,8 @@
 #ifndef POPULATION_H
 #define POPULATION_H
 
-//#include <dolfin.h>
 #include "poisson.h"
 #include "injector.h"
-//#include "object.h"
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>

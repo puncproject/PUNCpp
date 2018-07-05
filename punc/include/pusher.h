@@ -1,7 +1,6 @@
 #ifndef PUSHER_H
 #define PUSHER_H
 
-//#include <dolfin.h>
 #include "population.h"
 
 namespace punc

@@ -1,7 +1,6 @@
 #ifndef DIAGNOSTICS_H
 #define DIAGNOSTICS_H
 
-//#include <dolfin.h>
 #include "population.h"
 #include "../ufl/Energy.h"
 
