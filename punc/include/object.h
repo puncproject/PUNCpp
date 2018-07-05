@@ -60,33 +60,6 @@ void compute_object_potentials(std::vector<Object> &objects,
                                const boost_matrix &inv_capacity,
                                std::shared_ptr<const df::Mesh> &mesh);
 
-class VObject : public df::DirichletBC
-{
-  public:
-    double potential;
-    double charge;
-    bool floating;
-    std::size_t id;
-    df::MeshFunction<std::size_t> bnd;
-    std::vector<std::size_t> dofs;
-    std::size_t num_dofs;
-    std::shared_ptr<df::Form> charge_form;
-
-    VObject(const df::FunctionSpace &V,
-            df::MeshFunction<std::size_t> &boundaries,
-            std::size_t bnd_id,
-            double potential = 0.0,
-            double charge = 0.0,
-            bool floating = true,
-            std::string method = "topological");
-    void get_dofs();
-    void add_charge(const double &q);
-    double calculate_charge(df::Function &phi);
-    void set_potential(double voltage);
-    void apply(df::GenericVector &b);
-    void apply(df::GenericMatrix &A);
-};
-
 class Circuit
 {
 public:

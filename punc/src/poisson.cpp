@@ -172,7 +172,7 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
         }
         else
         {
-            PotentialDG3D::FunctionSpace V(mesh);
+            Potential3D::FunctionSpace V(mesh);
             return V;
         }
     }
@@ -199,30 +199,6 @@ df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh)
     {
         PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh);
         return Q;
-    }
-}
-
-df::FunctionSpace var_function_space(std::shared_ptr<const df::Mesh> &mesh)
-{
-    std::size_t dim = mesh->geometry().dim();
-
-    if(dim<1 || dim>3)
-        df::error("PUNC is programmed for dimensions up to 3D only.");
-
-    if (dim == 1)
-    {
-        VarPotential1D::FunctionSpace V(mesh);
-        return V;
-    }
-    else if (dim == 2)
-    {
-        VarPotential2D::FunctionSpace V(mesh);
-        return V;
-    }
-    else
-    {
-        VarPotential3D::FunctionSpace V(mesh);
-        return V;
     }
 }
 
@@ -334,7 +310,6 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     {
         df::PETScMatrix A0;
         df::assemble(A0, *a);
-        std::cout<<"circuit"<<'\n';
         circuit.get().apply_matrix(A0, A);
     }else{
         df::assemble(A, *a);
@@ -661,69 +636,6 @@ df::Function ClementInterpolant::interpolate(const df::Function &u)
 	auto ui_vec = ui.vector();
 	A.mult(*u_vec, *ui_vec);
 	return ui;
-}
-
-VarPoissonSolver::VarPoissonSolver(df::FunctionSpace &W,
-                                   std::vector<df::DirichletBC> &ext_bc,
-                                   VObject &vobject,
-                                   std::string method,
-                                   std::string preconditioner) :
-                                   V(std::make_shared<df::FunctionSpace>(W)),
-                                   ext_bc(ext_bc),
-                                   solver(method, preconditioner)
-{
-    auto dim = V->mesh()->geometry().dim();
-    if (dim == 1)
-    {
-        a = std::make_shared<VarPotential1D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential1D::LinearForm>(V);
-    }
-    else if (dim == 2)
-    {
-        a = std::make_shared<VarPotential2D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential2D::LinearForm>(V);
-    }
-    else if (dim == 3)
-    {
-        a = std::make_shared<VarPotential3D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential3D::LinearForm>(V);
-    }
-    a->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(vobject.bnd));
-    L->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(vobject.bnd));
-
-    df::assemble(A, *a);
-    for (auto &bc : ext_bc)
-    {
-        bc.apply(A);
-    }
-    auto mesh = V->mesh();
-    auto surface = surface_area(mesh, vobject.bnd);
-    S = std::make_shared<df::Constant>(surface);
-    L->set_coefficient("S", S);
-
-    solver.parameters["absolute_tolerance"] = 1e-14;
-    solver.parameters["relative_tolerance"] = 1e-12;
-    solver.parameters["maximum_iterations"] = 100000;
-    solver.set_reuse_preconditioner(true);
-}
-
-df::Function VarPoissonSolver::solve(const df::Function &rho, double Q, VObject &int_bc)
-{
-    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
-    L->set_coefficient("Q", std::make_shared<df::Constant>(Q));
-
-    df::assemble(b, *L);
-    for (auto &bc : ext_bc)
-    {
-        bc.apply(b);
-    }
-
-    int_bc.apply(b);
-    int_bc.apply(A);
-
-    df::Function wh(V);
-    solver.solve(A, *wh.vector(), b);
-    return wh[0];
 }
 
 }

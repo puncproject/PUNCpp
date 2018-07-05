@@ -100,8 +100,6 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
 
 df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
 
-df::FunctionSpace var_function_space(std::shared_ptr<const df::Mesh> &mesh);
-
 class PoissonSolver
 {
 public:
@@ -191,25 +189,6 @@ class ClementInterpolant
     std::shared_ptr<df::Form> a, b;
     df::PETScMatrix A;
     df::PETScVector ones, Av;
-};
-
-class VarPoissonSolver
-{
-  public:
-    std::shared_ptr<df::FunctionSpace> V;
-    std::vector<df::DirichletBC> ext_bc;
-    df::PETScKrylovSolver solver;
-    std::shared_ptr<df::Form> a, L;
-    df::PETScMatrix A;
-    df::PETScVector b;
-    std::shared_ptr<df::Constant> S;
-    VarPoissonSolver(df::FunctionSpace &W,
-                     std::vector<df::DirichletBC> &ext_bc,
-                     VObject &vobject,
-                     std::string method = "tfqmr",
-                     std::string preconditioner = "none");
-
-    df::Function solve(const df::Function &rho, double Q, VObject &int_bc);
 };
 
 }
