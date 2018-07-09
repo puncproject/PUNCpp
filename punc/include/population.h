@@ -52,6 +52,33 @@ struct Particle
     double m;
 };
 
+class Pdf {
+public:
+    virtual double operator()(const std::vector<double> &x) = 0;
+    virtual double flux(const std::vector<double> &n) = 0;
+    virtual double flux_num(const std::vector<double> &n, double S) = 0;
+    virtual double max() = 0;
+};
+
+Kappa vdf(vth, vd, k);
+z = vdf(x);
+z = vdf.flux(x);
+
+/**
+ * @brief Complete specification of a species.
+ */
+class Species {
+    double q; ///< Charge
+    double m; ///< Mass
+    double n; ///< Density
+    int num;  ///< Initial number of particles
+    Pdf pdf;  ///< Position distribution function (initially)
+    Pdf vdf;  ///< Velocity distribution function (initially and at boundary)
+
+    Species(double q, double m, double n, int num, Pdf pdf, Vdf vdf) :
+            q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
+};
+
 class Species
 {
   public:

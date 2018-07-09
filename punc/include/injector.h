@@ -81,8 +81,26 @@ struct Facet
 std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
                                        std::size_t ext_bnd_id);
 
-class ORS
-{
+class Maxwellian : Pdf {
+    Maxwellian(const std::vector<double> &vth, const std::vector<double> &vd);
+    //...
+};
+
+class UniformPosition : Pdf {
+    // ... A pdf that's uniform in the domain (takes into account mesh)
+};
+
+class Sampler {
+public:
+    virtual std::vector<double> sample(const std::size_t N) const = 0;
+};
+
+class RejectionSampler : Sampler {
+    // formerly known as random_points() which was replaced by
+    // random_domain_points()
+};
+
+class ORS : Sampler {
 public:
     std::function<double(std::vector<double> &)> vdf;
     int dim, nbins, num_edges;
@@ -97,8 +115,9 @@ public:
     random_source rng;
     distribution dist;
 
-    ORS(double vth, std::vector<double> &vd,
-        std::function<double(std::vector<double> &)> vdf, int num_sp=60);
+    // ORS(double vth, std::vector<double> &vd,
+    //     std::function<double(std::vector<double> &)> vdf, int num_sp=60);
+    ORS(const Pdf &pdf, int num_sp=60);
     std::vector<double> sample(const std::size_t N);
 };
 
@@ -179,11 +198,19 @@ std::vector<double> maxwellian(double vth, std::vector<double> vd, const int &N)
 
 std::function<double(std::vector<double> &)> maxwellian_vdf(double vth, std::vector<double> &vd);
 
+// void inject_particles(Population &pop, std::vector<Species> &species,
+//                       std::vector<Facet> &facets, const double dt);
 void inject_particles(Population &pop, std::vector<Species> &species,
-                      std::vector<Facet> &facets, const double dt);
+                      std::vector<Facet> &facets, const double dt,
+                      const Sampler &velSampler);
 
-void load_particles(Population &pop, std::vector<Species> &species);
+// void load_particles(Population &pop, std::vector<Species> &species);
+void load_particles(Population &pop, std::vector<Species> &species,
+                    const Sampler &posSampler, const Sampler &velSampler);
 
 }
+
+sampler = ORS(Maxwellian(), 60)
+load_particles(pop,..., sampler);
 
 #endif
