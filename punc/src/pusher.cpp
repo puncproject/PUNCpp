@@ -3,7 +3,7 @@
 namespace punc
 {
 
-double accel(Population &pop, const df::Function &E, const double dt)
+double accel(Population &pop, const df::Function &E, double dt)
 {
     auto W = E.function_space();
     auto mesh = W->mesh();
@@ -14,9 +14,13 @@ double accel(Population &pop, const df::Function &E, const double dt)
 
     double KE = 0.0;
 
-    std::vector<std::vector<double>> basis_matrix;
-    std::vector<double> coefficients(s_dim, 0.0);
+    /* std::vector<std::vector<double>> basis_matrix; */
+    /* std::vector<double> coefficients(s_dim, 0.0); */
     std::vector<double> vertex_coordinates;
+    double basis_matrix[v_dim*s_dim];
+    double coefficients[s_dim];
+    /* double vertex_coordinates[tdim]; // FIXME: use gdim? */
+    double Ei[v_dim];
 
     for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
     {
@@ -28,38 +32,64 @@ double accel(Population &pop, const df::Function &E, const double dt)
         ufc::cell ufc_cell;
         _cell.get_cell_data(ufc_cell);
 
-        E.restrict(&coefficients[0], *element, _cell,
-                    vertex_coordinates.data(), ufc_cell);
+        E.restrict(coefficients, *element, _cell,
+                   vertex_coordinates.data(), ufc_cell);
 
-        std::vector<double> basis(v_dim);
-        basis_matrix.resize(v_dim);
-        for (std::size_t i = 0; i < v_dim; ++i)
-        {
-            basis_matrix[i].resize(s_dim);
-        }
+        /* std::vector<double> basis(v_dim); */
+        /* basis_matrix.resize(v_dim); */
+        /* for (std::size_t i = 0; i < v_dim; ++i) */
+        /* { */
+        /*     basis_matrix[i].resize(s_dim); */
+        /* } */
 
         std::size_t num_particles = pop.cells[cell_id].particles.size();
         for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
         {
-            std::vector<double> Ei(v_dim, 0.0);
+            /* std::vector<double> Ei(v_dim, 0.0); */
             auto particle = pop.cells[cell_id].particles[p_id];
-            for (std::size_t i = 0; i < s_dim; ++i)
-            {
-                element->evaluate_basis(i, basis.data(),
+
+            /* for (std::size_t i = 0; i < s_dim; ++i) */
+            /* { */
+            /*     element->evaluate_basis(i, basis.data(), */
+            /*                             particle.x.data(), */
+            /*                             vertex_coordinates.data(), */
+            /*                             cell_orientation); */
+
+            /*     for (std::size_t j = 0; j < v_dim; ++j) */
+            /*     { */
+            /*         basis_matrix[j][i] = basis[j]; */
+            /*     } */
+            /* } */
+
+            element->evaluate_basis_all(basis_matrix,
                                         particle.x.data(),
                                         vertex_coordinates.data(),
                                         cell_orientation);
+            
+            /* std::cout << std::endl; */
+            /* for (std::size_t i = 0; i < s_dim; ++i){ */
+            /*     for (std::size_t j = 0; j < v_dim; j++){ */
+            /*         std::cout << test[i*v_dim+j] << "\t"; */
+            /*     } */
+            /*     std::cout << std::endl; */
+            /* } */
+            /* std::cout << std::endl; */
+            /* for (std::size_t i = 0; i < s_dim; ++i){ */
+            /*     for (std::size_t j = 0; j < v_dim; j++){ */
+            /*         std::cout << basis_matrix[j][i] << "\t"; */
+            /*     } */
+            /*     std::cout << std::endl; */
+            /* } */
 
-                for (std::size_t j = 0; j < v_dim; ++j)
-                {
-                    basis_matrix[j][i] = basis[j];
-                }
-            }
-            for (std::size_t i = 0; i < s_dim; ++i)
-            {
-                for (std::size_t j = 0; j < v_dim; j++)
-                {
-                    Ei[j] += coefficients[i] * basis_matrix[j][i];
+            /* std::cout << std::endl; */
+            /* std::cout << std::endl; */
+            /* exit(1); */
+
+            for (std::size_t j = 0; j < v_dim; j++) {
+                Ei[j] = 0;
+                for (std::size_t i = 0; i < s_dim; ++i) {
+                    /* Ei[j] += coefficients[i] * basis_matrix[j][i]; */
+                    Ei[j] += coefficients[i] * basis_matrix[i*v_dim+j];
                 }
             }
 

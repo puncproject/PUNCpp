@@ -19,6 +19,7 @@ for fname in files:
     plt.plot(data)
     plt.grid()
     plt.xlabel("Timestep")
+    plt.title(fname.split('.')[0])
 
 files = ['num_e.txt', 'num_i.txt']
 #files = ['DG0_I2_945/num_e.txt', 'DG0_I2_945/num_i.txt']

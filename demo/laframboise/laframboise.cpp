@@ -33,7 +33,7 @@ int main()
     double kB = constants.k_B;
     double eps0 = constants.eps0;
 
-    int npc = 4;
+    int npc = 32;
     double ne = 1.0e10;
     double debye = 1.0;
     double Rp = 1.0*debye;
@@ -46,10 +46,10 @@ int main()
     double Vlam  = kB*Te/e;
     double Ilam  = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
     // double Iexp  = 1.987*Ilam;
-    // double Iexp = 2.945 * Ilam;
-    double Iexp = 2.824 * Ilam;
+    double Iexp = 2.945 * Ilam;
+    // double Iexp = 2.824 * Ilam;
 
-    double dt = 0.10;
+    double dt = 0.05;
     std::size_t steps = 100;
 
     CreateSpecies create_species(mesh, facet_vec, X);
