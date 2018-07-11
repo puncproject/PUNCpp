@@ -327,7 +327,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     {
         df::PETScMatrix A0;
         df::assemble(A0, *a);
-        circuit.get().apply_matrix(A0, A);
+        circuit.get().apply(A0, A);
     }else{
         df::assemble(A, *a);
     }

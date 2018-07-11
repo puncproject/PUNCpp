@@ -32,6 +32,7 @@
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
+#include <dolfin/la/PETScMatrix.h>
 
 namespace punc
 {
@@ -147,19 +148,29 @@ public:
     double update_potential(df::Function &phi);
 };
 
+void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group);
+
+std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects);
+
+void addrow(df::GenericMatrix& A, df::GenericMatrix& Bc,
+            const std::vector<std::size_t> &cols,
+            const std::vector<double> &vals,
+            int replace_row, const df::FunctionSpace& V);
+
 class Circuit
 {
 public:
     const df::FunctionSpace &V;
     std::vector<ObjectBC> &objects;
-    std::vector<std::vector<int>> isources, vsource;
+    std::vector<std::vector<int>> isources, vsources;
     std::vector<double> ivalues, vvalues;
     std::vector<std::size_t> bnd_id;
     double dt;
     double eps0;
-    std::size_t rows_charge, rows_potential;
+    std::vector<std::vector<int>> groups;
+    std::vector<std::size_t> rows_charge;
+    std::vector<std::size_t> rows_potential;
     std::shared_ptr<df::Form> charge_constr;
-    // df::GenericMatrix A0;
 
     Circuit(const df::FunctionSpace &V,
             std::vector<ObjectBC> &objects,
@@ -171,7 +182,7 @@ public:
             std::string method = "topological");
 
     void apply(df::GenericVector &b);
-    void apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc);
+    void apply(df::PETScMatrix &A, df::PETScMatrix &Bc);
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
 };
