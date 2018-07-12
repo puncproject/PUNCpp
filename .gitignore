@@ -1,4 +1,5 @@
 punc/ufl/*.h
+punc/doc.html
 **/build
 **/mesh
 **/Results
