@@ -119,7 +119,7 @@ class PoissonSolver
 public:
     PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
-                  boost::optional<CircuitNew& > circuit=boost::none,
+                  boost::optional<Circuit& > circuit=boost::none,
                   bool remove_null_space = false,
                   std::string method = "gmres",
                   std::string preconditioner = "hypre_amg");
@@ -131,7 +131,7 @@ public:
 
     df::Function solve(const df::Function &rho,
                        std::vector<ObjectBC> &objects,
-                       CircuitNew &circuit,
+                       Circuit &circuit,
                        const df::FunctionSpace &V);
 
     double residual(const std::shared_ptr<df::Function> &phi);
