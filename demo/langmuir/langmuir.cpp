@@ -20,8 +20,6 @@ int main()
     auto tags = get_mesh_ids(boundaries);
     std::size_t ext_bnd_id = tags[1];
 
-    auto facet_vec = exterior_boundaries(boundaries, ext_bnd_id);
-
     bool remove_null_space = true;
     std::vector<double> Ld = get_mesh_size(mesh);
     std::vector<bool> periodic(D);
@@ -43,27 +41,38 @@ int main()
     double vth = 0.0;
     int npc = 64;
 
-    CreateSpecies create_species(mesh, facet_vec, Ld[0]);
+    CreateSpecies create_species(mesh, Ld[0]);
 
     double A = 0.5, mode = 1.0;
-    double pdf_max = 1.0+A;
 
-    auto pdfe = [A, mode, Ld](std::vector<double> t)->double{return 1.0+A*sin(2*mode*M_PI*t[0]/Ld[0]);};
-    auto pdfi = [](std::vector<double> t)->double{return 1.0;};
+    LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
+    UniformPosition pdfi(mesh);             // Ion position distribution
+
+    Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
+    Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
+
+    RejectionSampler ePosSampler(pdfe);
+    RejectionSampler iPosSampler(pdfi);
+    RejectionSampler eVelSampler(vdfe);
+    RejectionSampler iVelSampler(vdfi);
+
+    std::vector<Sampler*> posSampler{&ePosSampler, &iPosSampler};
+    std::vector<Sampler*> velSampler{&eVelSampler, &iVelSampler};
 
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
     double mi = constants.m_i;
 
-    create_species.create(-e, me, 100, npc, vth, vd, pdfe, pdf_max);
-    create_species.create(e, mi, 100, npc, vth, vd, pdfi, 1.0);
+    create_species.create(-e, me, 100, pdfe, vdfe, npc);
+    create_species.create(e, mi, 100, pdfi, vdfi, npc);
 
     auto species = create_species.species;
-    
+
     Population pop(mesh, boundaries);
 
-    load_particles(pop, species);
+    load_particles(pop, species, posSampler, velSampler);
+
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
     auto num3 = pop.num_of_particles();
