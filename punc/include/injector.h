@@ -66,8 +66,6 @@ struct random_seed_seq
     std::random_device device;
 };
 
-// std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> vec, double dv);
-
 struct Facet
 {
     double area;
@@ -161,13 +159,20 @@ public:
     std::vector<double> domain();
 };
 
-class Sampler
+enum Sampler
 {
-  public:
-    virtual std::vector<double> sample(const std::size_t N) = 0;
+    SRS,
+    ORS
 };
 
-class RejectionSampler : public Sampler
+// class Sampler
+// {
+//   public:
+//     virtual std::vector<double> sample(const std::size_t N) = 0;
+//     virtual std::vector<double> sample(const std::size_t N, const std::vector<double> &normal) = 0;
+// };
+
+class RejectionSampler 
 {
   private:
     Pdf &pdf;
@@ -184,7 +189,42 @@ class RejectionSampler : public Sampler
   public:
     RejectionSampler(Pdf &pdf);
     std::vector<double> sample(const std::size_t N);
+    std::vector<double> sample(const std::size_t N, const std::vector<double> &normal);
 };
+
+std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf);
+
+// std::vector<double> rejection_sampler(const std::size_t N, 
+//                                       double (&pdf) (std::vector<double>&), 
+//                                       double pdf_max, int dim, 
+//                                       std::vector<double> &domain);
+
+
+std::vector<double> rejection_sampler(const std::size_t N, 
+                                      std::function<double(std::vector<double> &)> pdf, 
+                                      double pdf_max, int dim, 
+                                      std::vector<double> domain);
+
+std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf, const std::vector<double> &normal);
+
+std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices);
+
+void inject_particles(Population &pop, std::vector<Species> &species,
+                      std::vector<Facet> &facets, const double dt);
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    Sampler posSampler,
+                    Sampler velSampler);
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    const std::string &posSampler,
+                    const std::string &velSampler);
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    std::vector<double> (&pos_sampler) (const std::size_t, Pdf&),
+                    std::vector<double> (&vel_sampler) (const std::size_t, Pdf&));
+                    
+// std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> vec, double dv);
 
 // class ORS : Sampler {
 // public:
@@ -287,12 +327,15 @@ class RejectionSampler : public Sampler
 //                       std::vector<Facet> &facets, const double dt);
 // void inject_particles(Population &pop, std::vector<Species> &species,
 //                       std::vector<Facet> &facets, const double dt,
-//                       const Sampler &velSampler);
+//                       const std::string &sampler);
 
-void load_particles(Population &pop, std::vector<Species> &species,
-                    std::vector<Sampler*> posSampler,
-                    std::vector<Sampler*> velSampler);
- 
+// void load_particles(Population &pop, std::vector<Species> &species,
+//                     std::vector<Sampler*> posSampler,
+//                     std::vector<Sampler*> velSampler);
+
+// void load_particles(Population &pop, std::vector<Species> &species,
+//                     const std::string &posSampler,
+//                     const std::string &velSampler);
 }
 
 #endif

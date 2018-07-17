@@ -50,6 +50,15 @@ private:
     std::vector<double> vd_;
 public:
     virtual double operator()(const std::vector<double> &x) = 0;
+    virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
+    { 
+        double vn = 0.0;
+        for (int i = 0; i < dim(); ++i)
+        {
+            vn += x[i]*n[i];
+        }
+        return (vn > 0.0) * vn * this->operator()(x); 
+    };
     virtual int dim() = 0;
     virtual double max() = 0;
     virtual std::vector<double> domain() = 0;

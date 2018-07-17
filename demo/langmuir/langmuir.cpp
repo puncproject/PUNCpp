@@ -39,7 +39,7 @@ int main()
     auto dv_inv = element_volume(V, true);
 
     double vth = 0.0;
-    int npc = 64;
+    int npc = 4;
 
     CreateSpecies create_species(mesh, Ld[0]);
 
@@ -51,13 +51,13 @@ int main()
     Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
     Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
 
-    RejectionSampler ePosSampler(pdfe);
-    RejectionSampler iPosSampler(pdfi);
-    RejectionSampler eVelSampler(vdfe);
-    RejectionSampler iVelSampler(vdfi);
+    // RejectionSampler ePosSampler(pdfe);
+    // RejectionSampler iPosSampler(pdfi);
+    // RejectionSampler eVelSampler(vdfe);
+    // RejectionSampler iVelSampler(vdfi);
 
-    std::vector<Sampler*> posSampler{&ePosSampler, &iPosSampler};
-    std::vector<Sampler*> velSampler{&eVelSampler, &iVelSampler};
+    // std::vector<Sampler*> posSampler{&ePosSampler, &iPosSampler};
+    // std::vector<Sampler*> velSampler{&eVelSampler, &iVelSampler};
 
     PhysicalConstants constants;
     double e = constants.e;
@@ -71,7 +71,8 @@ int main()
 
     Population pop(mesh, boundaries);
 
-    load_particles(pop, species, posSampler, velSampler);
+    load_particles(pop, species, "RejectionSampler", "RejectionSampler");
+    // load_particles(pop, species, rejection_sampler, rejection_sampler);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();

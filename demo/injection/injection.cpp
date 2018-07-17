@@ -40,9 +40,13 @@ int main()
 
     int npc = 100;
     double ne = 100;
-    CreateSpecies create_species(mesh, ext_bnd, Ld[0]);
+    CreateSpecies create_species(mesh, Ld[0]);
 
-    auto pdf = [](std::vector<double> t)->double{return 1.0;};
+
+    UniformPosition pdf(mesh); // Position distribution
+    Maxwellian vdf(vth, vd); // Velocity distribution 
+
+    // auto pdf = [](std::vector<double> t)->double{return 1.0;};
 
     // PhysicalConstants constants;
     // double e = constants.e;
@@ -51,12 +55,12 @@ int main()
     // create_species.create(-e, me, ne, npc, vth, vd, pdf, 1.0);
     // create_species.create(e, mi, 100, npc, vth, vd, pdf, 1.0);
 
-    create_species.create_raw(-1., 1., ne, npc, vth, vd, pdf, 1.0);
+    create_species.create_raw(-1., 1., ne, pdf, vdf, npc);
 
     auto species = create_species.species;
     Population pop(mesh, boundaries);
 
-    load_particles(pop, species);
+    load_particles(pop, species, Sampler::SRS, Sampler::SRS);
 
     std::string file_name1{"vels_pre.txt"};
     pop.save_vel(file_name1);

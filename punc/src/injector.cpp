@@ -20,6 +20,9 @@
 namespace punc
 {
 
+typedef std::uniform_real_distribution<double> rand_uniform;
+typedef std::vector<std::uniform_real_distribution<double>> rand_uniform_vec;
+
 std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
                                        std::size_t ext_bnd_id)
 {
@@ -135,7 +138,15 @@ std::vector<double> Maxwellian::vd() { return vd_; };
 void Maxwellian::set_vth(double v) { vth_ = v; }
 void Maxwellian::set_vd(std::vector<double> &v) { vd_ = v; }
 double Maxwellian::flux(const std::vector<double> &n) { return 0; }
-double Maxwellian::flux_num(const std::vector<double> &n, double S) { return 0; }
+double Maxwellian::flux_num(const std::vector<double> &n, double S) 
+{
+    auto vdn = std::inner_product(n.begin(), n.end(), vd_.begin(), 0.0);
+
+    auto num_particles = S * (vth_ / (sqrt(2 * M_PI)) *
+                        exp(-0.5 * (vdn / vth_) * (vdn / vth_)) +
+                        0.5 * vdn * (1. + erf(vdn / (sqrt(2) * vth_))));
+    return num_particles; 
+}
 
 Kappa::Kappa(double vth, std::vector<double> &vd, double k, double vdf_range) 
             : vth_(vth), vd_(vd), k(k)
@@ -262,7 +273,291 @@ std::vector<double> RejectionSampler::sample(const std::size_t N)
     return xs;
 }
 
+std::vector<double> RejectionSampler::sample(const std::size_t N, const std::vector<double> &normal)
+{
+    std::mt19937_64 rng(random_seed_seq::get_instance());
 
+    std::vector<double> xs(N * dim), tmp(dim);
+    std::size_t n = 0;
+    while (n < N)
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            tmp[i] = rand_vec[i](rng);
+        }
+        if (rand(rng) < pdf(tmp, normal))
+        {
+            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            {
+                xs[i] = tmp[i % dim];
+            }
+            n += 1;
+        }
+    }
+    return xs;
+}
+
+std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf)
+{
+    auto dim = pdf.dim();
+    auto domain = pdf.domain();
+
+    rand_uniform rand(0.0, pdf.max());
+    rand_uniform_vec rand_vec(dim);
+
+    for (int i = 0; i < dim; ++i)
+    {
+        rand_vec[i] = rand_uniform(domain[i], domain[i + dim]);
+    }
+
+    std::mt19937_64 rng(random_seed_seq::get_instance());
+
+    std::vector<double> xs(N * dim), tmp(dim);
+    std::size_t n = 0;
+    while (n < N)
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            tmp[i] = rand_vec[i](rng);
+        }
+        if (rand(rng) < pdf(tmp))
+        {
+            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            {
+                xs[i] = tmp[i % dim];
+            }
+            n += 1;
+        }
+    }
+    return xs;
+}
+
+// rejection_sample(N, pdf.operator(), pdf.max())
+// rejection_sample(N, [x] pdf.operator(x,n), pdf.max())
+
+
+// std::vector<double> rejection_sampler(const std::size_t N, pdf, pdf_max)
+
+std::vector<double> rejection_sampler(const std::size_t N, 
+                                      std::function<double(std::vector<double> &)> pdf, 
+                                      double pdf_max, int dim, 
+                                      std::vector<double> domain)
+{
+    rand_uniform rand(0.0, pdf_max);
+    rand_uniform_vec rand_vec(dim);
+
+    for (int i = 0; i < dim; ++i)
+    {
+        rand_vec[i] = rand_uniform(domain[i], domain[i + dim]);
+    }
+
+    std::mt19937_64 rng(random_seed_seq::get_instance());
+
+    std::vector<double> xs(N * dim), tmp(dim);
+    std::size_t n = 0;
+    while (n < N)
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            tmp[i] = rand_vec[i](rng);
+        }
+        if (rand(rng) < pdf(tmp))
+        {
+            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            {
+                xs[i] = tmp[i % dim];
+            }
+            n += 1;
+        }
+    }
+    return xs;
+}
+
+std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf, const std::vector<double> &normal)
+{
+    auto dim = pdf.dim();
+    auto domain = pdf.domain();
+
+    rand_uniform rand(0.0, pdf.max());
+    rand_uniform_vec rand_vec(dim);
+
+    for (int i = 0; i < dim; ++i)
+    {
+        rand_vec[i] = rand_uniform(domain[i], domain[i + dim]);
+    }
+
+    std::mt19937_64 rng(random_seed_seq::get_instance());
+
+    std::vector<double> xs(N * dim), tmp(dim);
+    std::size_t n = 0;
+    while (n < N)
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            tmp[i] = rand_vec[i](rng);
+        }
+        if (rand(rng) < pdf(tmp, normal))
+        {
+            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            {
+                xs[i] = tmp[i % dim];
+            }
+            n += 1;
+        }
+    }
+    return xs;
+}
+
+
+std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices)
+{
+    auto size = facet_vertices.size();
+    auto dim = sqrt(size);
+    std::vector<double> xs(N * dim), v(dim);
+
+    typedef std::mt19937_64 random_source;
+    typedef std::uniform_real_distribution<double> distribution;
+    random_source rng{random_seed_seq::get_instance()};
+    distribution dist(0.0, 1.0);
+
+    for (auto i = 0; i < N; ++i)
+    {
+        for (auto j = 0; j < dim; ++j)
+        {
+            xs[i*dim+j] = facet_vertices[j];
+        }
+        for (auto k = 1; k < dim; ++k)
+        {
+            auto r = dist(rng);
+            if(k==dim-k+1)
+            {
+                r = 1.0 - sqrt(r);
+            }
+            for (auto j = 0; j < dim; ++j)
+            {
+                xs[i * dim + j] += r * (facet_vertices[k*dim+j] - xs[i * dim + j]);
+            }
+        }
+    }
+    return xs;
+}
+
+void inject_particles(Population &pop, std::vector<Species> &species,
+                      std::vector<Facet> &facets, const double dt)
+{
+    typedef std::mt19937_64 random_source;
+    typedef std::uniform_real_distribution<double> distribution;
+    random_source rng{random_seed_seq::get_instance()};
+    distribution dist(0.0, 1.0);
+
+    auto dim = pop.gdim;
+    auto num_species = species.size();
+    auto num_facets = facets.size();
+    std::vector<double> xs_tmp(dim);
+
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        std::vector<double> xs, vs;
+        for (std::size_t j = 0; j < num_facets; ++j)
+        {
+            auto normal_i = facets[j].normal;
+            auto N_float = species[i].n*dt*species[i].vdf.flux_num(normal_i, facets[j].area);
+            int N = int(N_float);
+            if (dist(rng) < (N_float - N))
+            {
+                N += 1;
+            }
+            auto vdf = [i, &normal_i, &species](std::vector<double> &v)->double{return species[i].vdf(v, normal_i);};
+            auto count = 0;
+            auto outside = 0;
+            while (count <N)
+            {
+                auto n = N - count;
+                auto xs_new = random_facet_points(n, facets[j].vertices);
+                // auto vs_new = rejection_sampler(n, species[i].vdf, normal_i);
+                auto vs_new = rejection_sampler(n, vdf, species[i].vdf.max(), species[i].vdf.dim(), species[i].vdf.domain());
+
+                for(auto k=0; k<n; ++k)
+                {
+                    auto r = dist(rng);
+                    for (std::size_t l = 0; l < dim; ++l)
+                    {
+                        xs_tmp[l] = xs_new[k*dim + l] + dt*r*vs_new[k*dim + l];
+                    }
+                    if (pop.locate(xs_tmp) >= 0)
+                    {
+                        for (std::size_t l = 0; l < dim; ++l)
+                        {
+                            xs.push_back(xs_tmp[l]);
+                            vs.push_back(vs_new[k * dim + l]);
+                        }
+                    }else{
+                        outside +=1;
+                    }
+                    count += 1;
+                }
+            }
+        }
+        pop.add_particles(xs, vs, species[i].q, species[i].m);
+    }
+}
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    Sampler posSampler,
+                    Sampler velSampler)
+{
+    auto num_species = species.size();
+    std::vector<double> xs, vs;
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        auto s = species[i];
+        if (posSampler == Sampler::SRS)
+        {
+            xs = rejection_sampler(s.num, s.pdf);
+        }
+        if (velSampler == Sampler::SRS)
+        {
+            vs = rejection_sampler(s.num, s.vdf);
+        }
+        pop.add_particles(xs, vs, s.q, s.m);
+    }
+}
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    const std::string &posSampler,
+                    const std::string &velSampler)
+{
+    auto num_species = species.size();
+    std::vector<double> xs, vs;
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        auto s = species[i];
+        if (posSampler.compare("RejectionSampler") == 0)
+        {
+            xs = rejection_sampler(s.num, s.pdf);
+        }
+        if (velSampler.compare("RejectionSampler") == 0)
+        {
+            vs = rejection_sampler(s.num, s.vdf);
+        }
+        pop.add_particles(xs, vs, s.q, s.m);
+    }
+}
+
+void load_particles(Population &pop, std::vector<Species> &species,
+                    std::vector<double> (&pos_sampler) (const std::size_t, Pdf&),
+                    std::vector<double> (&vel_sampler) (const std::size_t, Pdf&))
+{
+    auto num_species = species.size();
+
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        auto s = species[i];
+        auto xs = pos_sampler(s.num, s.pdf);
+        auto vs = vel_sampler(s.num, s.vdf,);
+        pop.add_particles(xs, vs, s.q, s.m);
+    }
+}
 
 // std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> vec, double dv)
 // {
@@ -684,39 +979,6 @@ std::vector<double> RejectionSampler::sample(const std::size_t N)
 //     return xs;
 // }
 
-// std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices)
-// {
-//     auto size = facet_vertices.size();
-//     auto dim = sqrt(size);
-//     std::vector<double> xs(N * dim), v(dim);
-
-//     typedef std::mt19937_64 random_source;
-//     typedef std::uniform_real_distribution<double> distribution;
-//     random_source rng{random_seed_seq::get_instance()};
-//     distribution dist(0.0, 1.0);
-
-//     for (auto i = 0; i < N; ++i)
-//     {
-//         for (auto j = 0; j < dim; ++j)
-//         {
-//             xs[i*dim+j] = facet_vertices[j];
-//         }
-//         for (auto k = 1; k < dim; ++k)
-//         {
-//             auto r = dist(rng);
-//             if(k==dim-k+1)
-//             {
-//                 r = 1.0 - sqrt(r);
-//             }
-//             for (auto j = 0; j < dim; ++j)
-//             {
-//                 xs[i * dim + j] += r * (facet_vertices[k*dim+j] - xs[i * dim + j]);
-//             }
-//         }
-//     }
-//     return xs;
-// }
-
 // std::vector<double> maxwellian(double vth, std::vector<double> vd, const int &N)
 // {
 //     auto dim = vd.size();
@@ -818,18 +1080,20 @@ std::vector<double> RejectionSampler::sample(const std::size_t N)
 //     }
 // }
 
-void load_particles(Population &pop, std::vector<Species> &species,
-                    std::vector<Sampler*> posSampler,
-                    std::vector<Sampler*> velSampler)
-{
-    auto num_species = species.size();
-    for (std::size_t i = 0; i < num_species; ++i)
-    {
-        auto s = species[i];
-        auto xs = posSampler[i]->sample(s.num);
-        auto vs = velSampler[i]->sample(s.num);
-        pop.add_particles(xs, vs, s.q, s.m);
-    }
-}
+
+
+// void load_particles(Population &pop, std::vector<Species> &species,
+//                     std::vector<Sampler*> posSampler,
+//                     std::vector<Sampler*> velSampler)
+// {
+//     auto num_species = species.size();
+//     for (std::size_t i = 0; i < num_species; ++i)
+//     {
+//         auto s = species[i];
+//         auto xs = posSampler[i]->sample(s.num);
+//         auto vs = velSampler[i]->sample(s.num);
+//         pop.add_particles(xs, vs, s.q, s.m);
+//     }
+// }
 
 }
