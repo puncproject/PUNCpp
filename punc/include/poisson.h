@@ -1,3 +1,20 @@
+// Copyright (C) 2018, Diako Darian and Sigvald Marholm
+//
+// This file is part of PUNC++.
+//
+// PUNC++ is free software: you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later
+// version.
+//
+// PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+// details.
+//
+// You should have received a copy of the GNU General Public License along with
+// PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef POISSON_H
 #define POISSON_H
 
@@ -102,7 +119,7 @@ class PoissonSolver
 public:
     PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
-                  boost::optional<CircuitNew& > circuit=boost::none,
+                  boost::optional<Circuit& > circuit=boost::none,
                   bool remove_null_space = false,
                   std::string method = "gmres",
                   std::string preconditioner = "hypre_amg");
@@ -114,7 +131,7 @@ public:
 
     df::Function solve(const df::Function &rho,
                        std::vector<ObjectBC> &objects,
-                       CircuitNew &circuit,
+                       Circuit &circuit,
                        const df::FunctionSpace &V);
 
     double residual(const std::shared_ptr<df::Function> &phi);

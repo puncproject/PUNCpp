@@ -49,8 +49,8 @@ int main()
     double Iexp = 2.945 * Ilam;
     // double Iexp = 2.824 * Ilam;
 
-    double dt = 0.05;
-    std::size_t steps = 100;
+    double dt = 0.10;
+    std::size_t steps = 20;
 
     CreateSpecies create_species(mesh, facet_vec, X);
 
@@ -67,14 +67,14 @@ int main()
 
     // double cap_factor = 1.;
     double current_collected = Iexp/(create_species.Q/create_species.T);
-    double imposed_potential = 1.0/Vnorm;
+    double imposed_potential = 2.0/Vnorm;
     eps0 = 1.0;
 
-    std::vector<std::vector<int>> isources{{-1,0}};
-    std::vector<double> ivalues{-current_collected};
+    std::vector<std::vector<int>> isources{};//{{-1,0}};
+    std::vector<double> ivalues{};//{-current_collected};
 
     std::vector<std::vector<int>> vsources{{-1,0}};
-    std::vector<double> vvalues{0.0};
+    std::vector<double> vvalues{imposed_potential};
 
     printf("Q:  %e\n", create_species.Q);
     printf("T:  %e\n", create_species.T);
@@ -97,12 +97,12 @@ int main()
 		std::make_shared<df::MeshFunction<std::size_t>>(boundaries), ext_bnd_id);
     std::vector<df::DirichletBC> ext_bc = {bc};
 
-	ObjectBC object(V, boundaries, tags[2]);
+    ObjectBC object(V, boundaries, tags[2]);
 	// object.set_potential(0.0);
 	std::vector<ObjectBC> int_bc = {object};
 
     std::vector<std::size_t> bnd_id{tags[2]};
-    CircuitNew circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
+    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
 	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
 
     PoissonSolver poisson(V, ext_bc, circuit);
@@ -236,57 +236,22 @@ int main()
     auto time_inj = std::accumulate(inj.begin(), inj.end(), 0.0);
     auto time_pnum = std::accumulate(pnum.begin(), pnum.end(), 0.0);
 
-    std::cout<<"-----Measured time for each task----------"<<'\n';
-    std::cout<<"Dist:             "<<  time_dist<<'\n';
-    std::cout<<"reset objects:    "<< time_rsetobj <<'\n';
-    std::cout<<"pois:             "<<  time_pois<<'\n';
-    std::cout<<"efield:           "<< time_efil <<'\n';
-    std::cout<<"update:           "<< time_upd <<'\n';
-    std::cout<<"move:             "<< time_mv <<'\n';
-    std::cout<<"inject:           "<< time_inj <<'\n';
-    std::cout<<"accel:            "<< time_ace <<'\n';
-    std::cout<<"potential         "<< time_pot <<'\n';
-    std::cout<<"object potential: "<< time_objpoten <<'\n';
-    std::cout<<"particles:        "<< time_pnum <<'\n';
+    double total_time = time_dist + time_rsetobj + time_pois + time_efil + time_upd;
+    total_time += time_objpoten + time_pot + time_ace + time_mv + time_inj+time_pnum;
 
-    for(int i=0;i<KE.size(); ++i)
-    {
-        TE[i] = PE[i] + KE[i];
-    }
-    std::ofstream out;
-    out.open("PE.txt");
-    for (const auto &e : PE) out << e << "\n";
-    out.close();
-    std::ofstream out1;
-    out1.open("KE.txt");
-    for (const auto &e : KE) out1 << e << "\n";
-    out1.close();
-    std::ofstream out2;
-    out2.open("TE.txt");
-    for (const auto &e : TE) out2 << e << "\n";
-    out2.close();
-    out.open("num_e.txt");
-    for (const auto &e : num_e) out << e << "\n";
-    out.close();
-    out.open("num_i.txt");
-    for (const auto &e : num_i)
-        out << e << "\n";
-    out.close();
-    out.open("num_tot.txt");
-    for (const auto &e : num_tot)
-        out << e << "\n";
-    out.close();
-    out.open("potential.txt");
-    for (const auto &e : potential) out << e << "\n";
-    out.close();
-    out.open("current.txt");
-    for (const auto &e : current_measured)
-        out << e << "\n";
-    out.close();
-    out.open("charge.txt");
-    for (const auto &e : obj_charge)
-        out << e << "\n";
-    out.close();
-
+    std::cout << "----------------Measured time for each task----------------" << '\n';
+    std::cout<<"        Task         "<<" Time  "      <<"  "<<" Prosentage "<<'\n';
+    std::cout<<"Distribution:        "<< time_dist     <<"    "<<100*time_dist/total_time<< '\n';
+    std::cout<<"Reset objects:       "<< time_rsetobj  <<"    "<<100*time_rsetobj/total_time<<'\n';
+    std::cout<<"poisson:             "<<  time_pois    <<"    "<<100*time_pois/total_time<<'\n';
+    std::cout<<"efield:              "<< time_efil     <<"    "<<100*time_efil/total_time <<'\n';
+    std::cout<<"update:              "<< time_upd      <<"    "<<100*time_upd/total_time <<'\n';
+    std::cout<<"move:                "<< time_mv       <<"    "<<100*time_mv/total_time<<'\n';
+    std::cout<<"inject:              "<< time_inj      <<"    "<<100*time_inj/total_time <<'\n';
+    std::cout<<"accel:               "<< time_ace      <<"    "<<100*time_ace/total_time <<'\n';
+    std::cout<<"potential energy:    "<< time_pot      <<"    "<<100*time_pot/total_time <<'\n';
+    std::cout<<"object potential:    "<< time_objpoten <<"    "<<100*time_objpoten/total_time<<'\n';
+    std::cout<<"counting particles:  "<< time_pnum     <<"    "<<100*time_pnum/total_time<<'\n';
+    std::cout<<"Total time:          " << total_time   <<"    "<<100*total_time / total_time << '\n';
     return 0;
 }

@@ -1,3 +1,20 @@
+// Copyright (C) 2018, Diako Darian and Sigvald Marholm
+//
+// This file is part of PUNC++.
+//
+// PUNC++ is free software: you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later
+// version.
+//
+// PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+// details.
+//
+// You should have received a copy of the GNU General Public License along with
+// PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
 #include "../include/poisson.h"
 
 namespace punc
@@ -276,7 +293,7 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
-                             boost::optional<CircuitNew& > circuit,
+                             boost::optional<Circuit& > circuit,
                              bool remove_null_space,
                              std::string method,
                              std::string preconditioner) : ext_bc(ext_bc),
@@ -310,7 +327,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     {
         df::PETScMatrix A0;
         df::assemble(A0, *a);
-        circuit.get().apply_matrix(A0, A);
+        circuit.get().apply(A0, A);
     }else{
         df::assemble(A, *a);
     }
@@ -376,7 +393,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 
 df::Function PoissonSolver::solve(const df::Function &rho,
                                   std::vector<ObjectBC> &objects,
-                                  CircuitNew &circuit,
+                                  Circuit &circuit,
                                   const df::FunctionSpace &V)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));

@@ -1,3 +1,20 @@
+// Copyright (C) 2018, Diako Darian and Sigvald Marholm
+//
+// This file is part of PUNC++.
+//
+// PUNC++ is free software: you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later
+// version.
+//
+// PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+// details.
+//
+// You should have received a copy of the GNU General Public License along with
+// PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
 #ifndef OBJECT_H
 #define OBJECT_H
 
@@ -15,6 +32,7 @@
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
+#include <dolfin/la/PETScMatrix.h>
 
 namespace punc
 {
@@ -60,7 +78,7 @@ void compute_object_potentials(std::vector<Object> &objects,
                                const boost_matrix &inv_capacity,
                                std::shared_ptr<const df::Mesh> &mesh);
 
-class Circuit
+class CircuitCM
 {
 public:
     std::vector<Object> &objects;
@@ -68,7 +86,7 @@ public:
     const boost_matrix &inv_bias;
     double charge;
 
-    Circuit(std::vector<Object> &objects,
+    CircuitCM(std::vector<Object> &objects,
             const boost_vector &precomputed_charge,
             const boost_matrix &inv_bias,
             double charge = 0.0);
@@ -77,7 +95,7 @@ public:
     void redistribute_charge(const std::vector<double> &tot_charge);
 };
 
-void redistribute_circuit_charge(std::vector<Circuit> &circuits);
+void redistribute_circuit_charge(std::vector<CircuitCM> &circuits);
 
 std::vector<std::shared_ptr<df::Function>> solve_laplace(
     std::shared_ptr<df::FunctionSpace> &V,
@@ -130,21 +148,31 @@ public:
     double update_potential(df::Function &phi);
 };
 
-class CircuitNew
+void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group);
+
+std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects);
+
+void addrow(df::GenericMatrix& A, df::GenericMatrix& Bc,
+            const std::vector<std::size_t> &cols,
+            const std::vector<double> &vals,
+            int replace_row, const df::FunctionSpace& V);
+
+class Circuit
 {
 public:
     const df::FunctionSpace &V;
     std::vector<ObjectBC> &objects;
-    std::vector<std::vector<int>> isources, vsource;
+    std::vector<std::vector<int>> isources, vsources;
     std::vector<double> ivalues, vvalues;
     std::vector<std::size_t> bnd_id;
     double dt;
     double eps0;
-    std::size_t rows_charge, rows_potential;
+    std::vector<std::vector<int>> groups;
+    std::vector<std::size_t> rows_charge;
+    std::vector<std::size_t> rows_potential;
     std::shared_ptr<df::Form> charge_constr;
-    // df::GenericMatrix A0;
 
-    CircuitNew(const df::FunctionSpace &V,
+    Circuit(const df::FunctionSpace &V,
             std::vector<ObjectBC> &objects,
             std::vector<std::vector<int>> isources,
             std::vector<double> ivalues,
@@ -154,7 +182,7 @@ public:
             std::string method = "topological");
 
     void apply(df::GenericVector &b);
-    void apply_matrix(df::GenericMatrix &A, df::GenericMatrix &Bc);
+    void apply(df::PETScMatrix &A, df::PETScMatrix &Bc);
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
 };
