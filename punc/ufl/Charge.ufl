@@ -44,6 +44,7 @@ forms = []
 for cell in cells:
     element = FiniteElement(family, cell, degree)
     n = FacetNormal(cell)
-    forms.append(dot(grad(Coefficient(element)), n)*ds(9999))
+    eps0 = Constant(cell)
+    forms.append(eps0*dot(grad(Coefficient(element)), n)*ds(9999))
     # phi = TrialFunction(element)
     # forms.append(eps0*dot(grad(phi), n)*ds(9999))

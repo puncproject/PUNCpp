@@ -303,24 +303,25 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
                              solver(V.mesh()->mpi_comm(), method, preconditioner)
 {
     auto dim = V.mesh()->geometry().dim();
+    auto eps0_ = std::make_shared<df::Constant>(eps0);
     auto V_shared = std::make_shared<df::FunctionSpace>(V);
     if (dim == 1)
     {
-        a = std::make_shared<Potential1D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential1D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential1D::LinearForm>(V_shared);
     }
     else if (dim == 2)
     {
-        a = std::make_shared<Potential2D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential2D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential2D::LinearForm>(V_shared);
     }
     else if (dim == 3)
     {
-        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
 
-    a->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
+    // a->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
 
     if(ext_bc)
     {

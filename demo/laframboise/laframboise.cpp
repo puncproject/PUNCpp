@@ -44,18 +44,49 @@ int main()
     double Iexp = 2.945 * Ilam;
     // double Iexp = 2.824 * Ilam;
 
-    double dt = 0.10/wpe;
+    bool si_units = true;
+    bool impose_current = true; 
+    
+    CreateSpecies create_species(mesh, facet_vec, X);
+    auto pdf = [](std::vector<double> t)->double{return 1.0;};
+
+    double dt, Inorm, Vnorm, current_collected, imposed_potential;
     std::size_t steps = 1000;
 
-    CreateSpecies create_species(mesh, facet_vec, X);
-    create_species.T = 1;
-    create_species.Q = 1;
-    create_species.M = 1;
-    create_species.X = 1;
+    if (!si_units)
+    {
+        dt = 0.10;
 
-    auto pdf = [](std::vector<double> t)->double{return 1.0;};
-    create_species.create_raw(-e, me, ne, npc, vthe, vd, pdf, 1.0);
-    create_species.create_raw( e, mi, ne, npc, vthi, vd, pdf, 1.0);
+        create_species.create(-e, me, ne, npc, vthe, vd, pdf, 1.0);
+        create_species.create( e, mi, ne, npc, vthi, vd, pdf, 1.0);
+
+        Inorm  = create_species.Q/create_species.T;
+        Vnorm  = (create_species.M/create_species.Q)*(create_species.X/create_species.T)*(create_species.X/create_species.T);
+        Inorm /= fabs(Ilam);
+        Vnorm /= Vlam; 
+
+        current_collected = Iexp/(create_species.Q/create_species.T); 
+        imposed_potential = 2.0/Vnorm;
+        eps0 = 1.0; 
+
+    }else{
+         
+        dt = 0.10/wpe;
+
+        create_species.T = 1;
+        create_species.Q = 1;
+        create_species.M = 1;
+        create_species.X = 1;
+
+        create_species.create_raw(-e, me, ne, npc, vthe, vd, pdf, 1.0);
+        create_species.create_raw( e, mi, ne, npc, vthi, vd, pdf, 1.0);
+
+        Inorm  = create_species.Q/create_species.T;
+        Vnorm  = (create_species.M/create_species.Q)*(create_species.X/create_species.T)*(create_species.X/create_species.T);
+
+        current_collected = -0.133;
+        imposed_potential = 2*181;
+    }
 
     auto species = create_species.species;
 
@@ -66,23 +97,23 @@ int main()
     printf("Species 1:\n");
     printf("q: %g, m: %g, n: %g, num: %i, vth: %g\n", s.q, s.m, s.n, s.num, s.vth);
 
-    double Inorm  = create_species.Q/create_species.T;
-    double Vnorm  = (create_species.M/create_species.Q)*(create_species.X/create_species.T)*(create_species.X/create_species.T);
+    std::vector<std::vector<int>> isources, vsources;
+    std::vector<double> ivalues, vvalues;
+    if(impose_current)
+    {
+        isources = {{-1,0}};
+        ivalues = {-current_collected};
 
-    /* Inorm /= fabs(Ilam); */
-    /* Vnorm /= Vlam; */
+        vsources = {};
+        vvalues = {};
+    }else{
+        isources = {};
+        ivalues = {};
 
-    /* // double cap_factor = 1.; */
-    /* double current_collected = Iexp/(create_species.Q/create_species.T); */
-    double current_collected = -0.133;
-    double imposed_potential = 2*181;//2.0/Vnorm;
-    /* eps0 = 1.0; */
+        vsources = {{-1,0}};
+        vvalues = {imposed_potential};
+    }
 
-    std::vector<std::vector<int>> isources{{-1,0}};
-    std::vector<double> ivalues{-current_collected};
-
-    std::vector<std::vector<int>> vsources{};//{{-1,0}};
-    std::vector<double> vvalues{};//{imposed_potential};
 
     printf("Q:  %e\n", create_species.Q);
     printf("T:  %e\n", create_species.T);

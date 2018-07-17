@@ -432,30 +432,33 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     if (dim == 1)
     {
         charge_form = std::make_shared<Charge::Form_0>(mesh);
+        charge_form->set_coefficient("w0", eps0_);
         /* auto V0 = std::make_shared<Charge::Form_0_FunctionSpace_0>(V.mesh()); */
         /* charge_form = std::make_shared<Charge::Form_0>(V0, eps0_); */
     }
     else if (dim == 2)
     {
         charge_form = std::make_shared<Charge::Form_1>(mesh);
+        charge_form->set_coefficient("w0", eps0_);
         /* auto V0 = std::make_shared<Charge::Form_1_FunctionSpace_1>(V.mesh()); */
         /* charge_form = std::make_shared<Charge::Form_1>(V0, eps0_); */
     }
     else if (dim == 3)
     {
         charge_form = std::make_shared<Charge::Form_2>(mesh);
+        charge_form->set_coefficient("eps0", eps0_);
         /* auto V0 = std::make_shared<Charge::Form_2_FunctionSpace_2>(V.mesh()); */
         /* charge_form = std::make_shared<Charge::Form_2>(V0, eps0_); */
     }
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
-    charge_form->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
+    // charge_form->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
 }
 
 double ObjectBC::update_charge(df::Function &phi)
 {
     // FIXME: get rid of this line
     /* charge_form->set_coefficient("eps0", std::make_shared<df::Constant>((double)8.85e-12)); */
-    charge_form->set_coefficient("w0", std::make_shared<df::Function>(phi));
+    charge_form->set_coefficient("w1", std::make_shared<df::Function>(phi));
     charge = df::assemble(*charge_form);
     return charge;
 }
