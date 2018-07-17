@@ -294,9 +294,11 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
                              boost::optional<Circuit& > circuit,
+                             double eps0,
                              bool remove_null_space,
                              std::string method,
-                             std::string preconditioner) : ext_bc(ext_bc),
+                             std::string preconditioner) : 
+                             ext_bc(ext_bc),
                              remove_null_space(remove_null_space),
                              solver(V.mesh()->mpi_comm(), method, preconditioner)
 {
@@ -314,9 +316,11 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     }
     else if (dim == 3)
     {
-        a = std::make_shared<PotentialDG3D::BilinearForm>(V_shared, V_shared);
-        L = std::make_shared<PotentialDG3D::LinearForm>(V_shared);
+        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared);
+        L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
+
+    a->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
 
     if(ext_bc)
     {

@@ -7,7 +7,6 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
-    // std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1"};
     std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
     auto mesh = load_mesh(fname);
     auto dim = mesh->geometry().dim();
@@ -20,11 +19,7 @@ int main()
     auto facet_vec = exterior_boundaries(boundaries, ext_bnd_id);
 
     std::vector<double> Ld = get_mesh_size(mesh);
-    std::vector<double> vd(dim);
-    for (std::size_t i = 0; i<dim; ++i)
-    {
-        vd[i] = 0.0;
-    }
+    std::vector<double> vd(dim, 0);
 
     PhysicalConstants constants;
     double e = constants.e;
@@ -46,35 +41,48 @@ int main()
     double Vlam  = kB*Te/e;
     double Ilam  = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
     // double Iexp  = 1.987*Ilam;
-    // double Iexp = 2.945 * Ilam;
-    double Iexp = 2.824 * Ilam;
+    double Iexp = 2.945 * Ilam;
+    // double Iexp = 2.824 * Ilam;
 
-    double dt = 0.10;
-    std::size_t steps = 20;
+    double dt = 0.10/wpe;
+    std::size_t steps = 1000;
 
     CreateSpecies create_species(mesh, facet_vec, X);
+    create_species.T = 1;
+    create_species.Q = 1;
+    create_species.M = 1;
+    create_species.X = 1;
 
     auto pdf = [](std::vector<double> t)->double{return 1.0;};
-    create_species.create(-e, me, ne, npc, vthe, vd, pdf, 1.0);
-    create_species.create(e, mi, ne, npc, vthi, vd, pdf, 1.0);
+    create_species.create_raw(-e, me, ne, npc, vthe, vd, pdf, 1.0);
+    create_species.create_raw( e, mi, ne, npc, vthi, vd, pdf, 1.0);
 
     auto species = create_species.species;
 
+    auto s = species[0];
+    printf("Species 0:\n");
+    printf("q: %g, m: %g, n: %g, num: %i, vth: %g\n", s.q, s.m, s.n, s.num, s.vth);
+    s = species[1];
+    printf("Species 1:\n");
+    printf("q: %g, m: %g, n: %g, num: %i, vth: %g\n", s.q, s.m, s.n, s.num, s.vth);
+
     double Inorm  = create_species.Q/create_species.T;
     double Vnorm  = (create_species.M/create_species.Q)*(create_species.X/create_species.T)*(create_species.X/create_species.T);
-    Inorm /= fabs(Ilam);
-    Vnorm /= Vlam;
 
-    // double cap_factor = 1.;
-    double current_collected = Iexp/(create_species.Q/create_species.T);
-    double imposed_potential = 2.0/Vnorm;
-    eps0 = 1.0;
+    /* Inorm /= fabs(Ilam); */
+    /* Vnorm /= Vlam; */
 
-    std::vector<std::vector<int>> isources{};//{{-1,0}};
-    std::vector<double> ivalues{};//{-current_collected};
+    /* // double cap_factor = 1.; */
+    /* double current_collected = Iexp/(create_species.Q/create_species.T); */
+    double current_collected = -0.133;
+    double imposed_potential = 2*181;//2.0/Vnorm;
+    /* eps0 = 1.0; */
 
-    std::vector<std::vector<int>> vsources{{-1,0}};
-    std::vector<double> vvalues{imposed_potential};
+    std::vector<std::vector<int>> isources{{-1,0}};
+    std::vector<double> ivalues{-current_collected};
+
+    std::vector<std::vector<int>> vsources{};//{{-1,0}};
+    std::vector<double> vvalues{};//{imposed_potential};
 
     printf("Q:  %e\n", create_species.Q);
     printf("T:  %e\n", create_species.T);
@@ -97,15 +105,16 @@ int main()
 		std::make_shared<df::MeshFunction<std::size_t>>(boundaries), ext_bnd_id);
     std::vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, boundaries, tags[2]);
+    printf("eps0=%g\n", eps0);
+    ObjectBC object(V, boundaries, tags[2], eps0);
 	// object.set_potential(0.0);
 	std::vector<ObjectBC> int_bc = {object};
 
     std::vector<std::size_t> bnd_id{tags[2]};
-    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
+    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
 	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
 
-    PoissonSolver poisson(V, ext_bc, circuit);
+    PoissonSolver poisson(V, ext_bc, circuit, eps0);
     ESolver esolver(V);
     // reset_objects(int_bc);
 
@@ -149,7 +158,9 @@ int main()
         // reset_objects(int_bc);
         // rsetobj[i]= timer.elapsed();
         timer.reset();
+        /* int_bc[0].charge = 0; */
         auto phi = poisson.solve(rho, int_bc, circuit, V);
+        printf("Object charge: %g, voltage: %g\n", int_bc[0].charge, int_bc[0].potential);
         // df::File ofile("phi.pvd");
         // ofile << phi;
         pois[i] = timer.elapsed();
@@ -188,7 +199,7 @@ int main()
 
         old_charge = int_bc[0].charge;
 
-        KE[i] = accel(pop, E, (1.0-0.5*(i == 1))*dt);
+        KE[i] = accel(pop, E, (1.0-0.5*(i == 0))*dt);
         ace[i] = timer.elapsed();
         if(i==0)
         {
@@ -240,7 +251,7 @@ int main()
     total_time += time_objpoten + time_pot + time_ace + time_mv + time_inj+time_pnum;
 
     std::cout << "----------------Measured time for each task----------------" << '\n';
-    std::cout<<"        Task         "<<" Time  "      <<"  "<<" Prosentage "<<'\n';
+    std::cout<<"        Task         "<<" Time  "      <<"  "<<" Procentage "<<'\n';
     std::cout<<"Distribution:        "<< time_dist     <<"    "<<100*time_dist/total_time<< '\n';
     std::cout<<"Reset objects:       "<< time_rsetobj  <<"    "<<100*time_rsetobj/total_time<<'\n';
     std::cout<<"poisson:             "<<  time_pois    <<"    "<<100*time_pois/total_time<<'\n';

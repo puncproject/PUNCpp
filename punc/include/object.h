@@ -143,6 +143,7 @@ public:
     ObjectBC(const df::FunctionSpace &V,
              const df::MeshFunction<std::size_t> &boundaries,
              std::size_t bnd_id,
+             double eps0=1,
              std::string method = "topological");
     double update_charge(df::Function &phi);
     double update_potential(df::Function &phi);

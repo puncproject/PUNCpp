@@ -97,9 +97,9 @@ void Object::compute_interpolated_charge(const df::Function &q_rho)
     }
 }
 
-void reset_objects(std::vector<Object> &objcets)
+void reset_objects(std::vector<Object> &objects)
 {
-    for (auto& obj: objcets)
+    for (auto& obj: objects)
     {
         obj.set_potential(0.0);
     }
@@ -410,6 +410,7 @@ double ConstantBC::get_boundary_value(df::Function &phi)
 ObjectBC::ObjectBC(const df::FunctionSpace &V,
                    const df::MeshFunction<std::size_t> &boundaries,
                    std::size_t bnd_id,
+                   double eps0,
                    std::string method)
                    :ConstantBC(V, boundaries, bnd_id, method), id(bnd_id)
 {
@@ -425,25 +426,35 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
         }
     }
 
+    auto eps0_ = std::make_shared<df::Constant>(eps0);
     auto mesh = V.mesh();
     auto dim = mesh->geometry().dim();
     if (dim == 1)
     {
         charge_form = std::make_shared<Charge::Form_0>(mesh);
+        /* auto V0 = std::make_shared<Charge::Form_0_FunctionSpace_0>(V.mesh()); */
+        /* charge_form = std::make_shared<Charge::Form_0>(V0, eps0_); */
     }
     else if (dim == 2)
     {
         charge_form = std::make_shared<Charge::Form_1>(mesh);
+        /* auto V0 = std::make_shared<Charge::Form_1_FunctionSpace_1>(V.mesh()); */
+        /* charge_form = std::make_shared<Charge::Form_1>(V0, eps0_); */
     }
     else if (dim == 3)
     {
         charge_form = std::make_shared<Charge::Form_2>(mesh);
+        /* auto V0 = std::make_shared<Charge::Form_2_FunctionSpace_2>(V.mesh()); */
+        /* charge_form = std::make_shared<Charge::Form_2>(V0, eps0_); */
     }
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
+    charge_form->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
 }
 
 double ObjectBC::update_charge(df::Function &phi)
 {
+    // FIXME: get rid of this line
+    /* charge_form->set_coefficient("eps0", std::make_shared<df::Constant>((double)8.85e-12)); */
     charge_form->set_coefficient("w0", std::make_shared<df::Function>(phi));
     charge = df::assemble(*charge_form);
     return charge;
@@ -667,27 +678,29 @@ void Circuit::apply(df::GenericVector &b)
 
 void Circuit::apply(df::PETScMatrix &A, df::PETScMatrix &Bc)
 {
+    /* charge_constr->set_coefficient("eps0", ); */
+    auto eps0_ = std::make_shared<df::Constant>(eps0);
     auto dim = V.mesh()->geometry().dim();
     if (dim == 1)
     {
         auto V0 = std::make_shared<Constraint::Form_0_FunctionSpace_0>(V.mesh());
         auto V1 = std::make_shared<Constraint::Form_0_FunctionSpace_1>(V.mesh());
-        charge_constr = std::make_shared<Constraint::Form_0>(V1, V0);
+        charge_constr = std::make_shared<Constraint::Form_0>(V1, V0, eps0_);
     }
     else if (dim == 2)
     {
         auto V0 = std::make_shared<Constraint::Form_1_FunctionSpace_0>(V.mesh());
         auto V1 = std::make_shared<Constraint::Form_1_FunctionSpace_1>(V.mesh());
-        charge_constr = std::make_shared<Constraint::Form_1>(V1, V0);
+        charge_constr = std::make_shared<Constraint::Form_1>(V1, V0, eps0_);
     }
     else if (dim == 3)
     {
         auto V0 = std::make_shared<Constraint::Form_2_FunctionSpace_0>(V.mesh());
         auto V1 = std::make_shared<Constraint::Form_2_FunctionSpace_1>(V.mesh());
-        charge_constr = std::make_shared<Constraint::Form_2>(V1,V0);
+        charge_constr = std::make_shared<Constraint::Form_2>(V1,V0, eps0_);
     }
 
-    // Charge constaints
+    // Charge constraints
     for (std::size_t i = 0; i < groups.size(); ++i)
     {
         for (std::size_t j = 0; j < groups[i].size(); ++j)
@@ -710,7 +723,7 @@ void Circuit::apply(df::PETScMatrix &A, df::PETScMatrix &Bc)
         }
     }
 
-    // Potential constaints
+    // Potential constraints
     for (std::size_t i = 0; i < vsources.size(); ++i)
     {
         auto obj_a_id = vsources[i][0];
