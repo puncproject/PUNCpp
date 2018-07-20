@@ -19,12 +19,12 @@
 #define __PUNC_H
 
 /* PUNC interface */
-#include <punc/population.h>
-#include <punc/poisson.h>
-#include <punc/injector.h>
-#include <punc/object.h>
-#include <punc/diagnostics.h>
-#include <punc/distributor.h>
-#include <punc/pusher.h>
+#include "punc/population.h"
+#include "punc/poisson.h"
+#include "punc/injector.h"
+#include "punc/object.h"
+#include "punc/diagnostics.h"
+#include "punc/distributor.h"
+#include "punc/pusher.h"
 
 #endif

@@ -38,7 +38,7 @@ namespace df = dolfin;
  * @param           E       Electric field
  * @param           dt      Time-step
  * @return                  Kinetic energy at mid-step
- * @see boris(), boris_nonuniform()
+ * @see boris()
  *
  * Advances particle velocities according to
  * \f[
@@ -54,8 +54,7 @@ namespace df = dolfin;
  * velocities are at half-integer time-steps, the particles can be accelerated
  * only half a time-step the first time.
  */
-//double accel(Population &pop, const df::Function &E, double dt);
-double accel(Population &pop, const df::Function &E, const double dt);
+double accel(Population &pop, const df::Function &E, double dt);
 
 /**
  * @brief Accelerates particles in a homogeneous magnetic field
@@ -64,7 +63,7 @@ double accel(Population &pop, const df::Function &E, const double dt);
  * @param           B       Magnetic flux density
  * @param           dt      Time-step
  * @return                  Kinetic energy at mid-step
- * @see accel(), boris_nonuniform()
+ * @see accel()
  *
  * Advances particle velocities according to the Boris scheme:
  * \f[
@@ -80,10 +79,8 @@ double accel(Population &pop, const df::Function &E, const double dt);
  * velocities are at half-integer time-steps, the particles must be accelerated
  * only half a time-step the first time.
  */
-//double boris(Population &pop, const df::Function &E, 
-//             const std::vector<double> &B, double dt);
 double boris(Population &pop, const df::Function &E, 
-             const std::vector<double> &B, const double dt);
+             const std::vector<double> &B, double dt);
 
 /**
  * @brief Accelerates particles in a inhomogeneous magnetic field
@@ -92,14 +89,12 @@ double boris(Population &pop, const df::Function &E,
  * @param           B       Magnetic flux density
  * @param           dt      Time-step
  * @return                  Kinetic energy at mid-step
- * @see boris(), boris_nonuniform()
+ * @see boris()
  *
  * Same as punc::boris but for inhomogeneous magnetic field.
  */
-/* double boris_nonuniform(Population &pop, const df::Function &E, */
-/*                         const df::Function &B, double dt); */
-double boris_nonuniform(Population &pop, const df::Function &E,
-                        const df::Function &B, const double dt);
+double boris(Population &pop, const df::Function &E,
+             const df::Function &B, double dt);
 
 /**
  * @brief Move particles
@@ -112,23 +107,11 @@ double boris_nonuniform(Population &pop, const df::Function &E,
  *      \approx \dot\mathbf{x} = \mathbf{v}
  * \f]
  */
-void move(Population &pop, const double dt);
-/* void move(Population &pop, double dt); */
+void move(Population &pop, double dt);
 
 // FIXME: Make a separate function for imposing periodic BCs *after* move
 /* void move_periodic(Population &pop, double dt, const std::vector<double> &Ld); */
 void move_periodic(Population &pop, const double dt, const std::vector<double> &Ld);
-
-// FIXME: Should either be header-only inline (if needed several places)
-// or static inline inside .cpp file (otherwise)
-/**
- * @brief Cross product af two 3-vectors
- * @param   v1  vector
- * @param   v2  vector
- * @return  v1 cross v2
- */
-/* std::vector<double> cross(const std::vector<double> &v1, const std::vector<double> &v2); */
-std::vector<double> cross(std::vector<double> &v1, std::vector<double> &v2);
 
 }
 

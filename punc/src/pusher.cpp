@@ -20,6 +20,23 @@
 namespace punc
 {
 
+/*******************************************************************************
+ * LOCAL DECLARATIONS
+ ******************************************************************************/
+
+// or static inline inside .cpp file (otherwise)
+/**
+ * @brief Cross product af two 3-vectors
+ * @param   v1  vector
+ * @param   v2  vector
+ * @return  v1 cross v2
+ */
+static inline std::vector<double> cross(const std::vector<double> &v1, const std::vector<double> &v2);
+
+/******************************************************************************
+ * GLOBAL DEFINITIONS
+ *****************************************************************************/
+
 double accel(Population &pop, const df::Function &E, double dt)
 {
     auto W = E.function_space();
@@ -128,8 +145,8 @@ double accel(Population &pop, const df::Function &E, double dt)
     return KE;
 }
 
-double boris(Population &pop, const df::Function &E,
-             const std::vector<double> &B, const double dt)
+double boris(Population &pop, const df::Function &E, 
+             const std::vector<double> &B, double dt)
 {
     auto dim = B.size();
     assert(dim == 3 && "The algorithm is only valid for 3D.");
@@ -242,8 +259,8 @@ double boris(Population &pop, const df::Function &E,
     return KE;
 }
 
-double boris_nonuniform(Population &pop, const df::Function &E,
-                        const df::Function &B, const double dt)
+double boris(Population &pop, const df::Function &E,
+             const df::Function &B, double dt)
 {
     auto dim = pop.gdim;
     assert(dim == 3 && "The algorithm is only valid for 3D.");
@@ -374,7 +391,7 @@ void move_periodic(Population &pop, const double dt, const std::vector<double> &
     }
 }
 
-void move(Population &pop, const double dt)
+void move(Population &pop, double dt)
 {
     auto dim = pop.gdim;
     auto num_cells = pop.num_cells;
@@ -392,7 +409,12 @@ void move(Population &pop, const double dt)
     }
 }
 
-std::vector<double> cross(std::vector<double> &v1, std::vector<double> &v2)
+/******************************************************************************
+ * LOCAL DEFINITIONS
+ *****************************************************************************/
+
+static inline std::vector<double> cross(const std::vector<double> &v1,
+                                        const std::vector<double> &v2)
 {
     std::vector<double> r(v1.size());
     r[0] = v1[1] * v2[2] - v1[2] * v2[1];
@@ -401,4 +423,4 @@ std::vector<double> cross(std::vector<double> &v1, std::vector<double> &v2)
     return r;
 }
 
-}
+} // namespace punc
