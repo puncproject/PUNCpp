@@ -24,8 +24,8 @@ set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
 # Source code
 include_directories(ufl, include)
 file(GLOB SOURCE_FILES "src/*.cpp")
-file(GLOB HEADER_FILES "include/*.h")
-file(GLOB UFL_HEADER_FILES "include/ufl/*.h")
+file(GLOB HEADER_FILES_MAIN "include/*.h")
+file(GLOB HEADER_FILES_SECONDARY "include/punc/*.h")
 
 # Dependencies
 find_package(DOLFIN REQUIRED)
@@ -61,8 +61,8 @@ install(TARGETS punc
         RUNTIME DESTINATION bin)                 # executables
 
 # For some reason the above doesn't install header files. Do it manually.
-install(FILES ${HEADER_FILES}
-        DESTINATION include/punc)
+install(FILES ${HEADER_FILES_MAIN}
+        DESTINATION include)
 
-install(FILES ${UFL_HEADER_FILES}
-        DESTINATION include/punc/ufl)
+install(FILES ${HEADER_FILES_SECONDARY}
+        DESTINATION include/punc)

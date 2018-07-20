@@ -15,7 +15,16 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/poisson.h"
+#include "../include/punc/poisson.h"
+#include "../ufl/Potential1D.h"
+#include "../ufl/Potential2D.h"
+#include "../ufl/Potential3D.h"
+#include "../ufl/EField1D.h"
+#include "../ufl/EField2D.h"
+#include "../ufl/EField3D.h"
+#include "../ufl/Flux.h"
+#include "../ufl/Charge.h"
+#include "../ufl/Constraint.h"
 
 namespace punc
 {

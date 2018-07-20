@@ -56,9 +56,9 @@ else
     echo "Compiling UFLs"
 
     # FIXME: Should change CMakeLists.txt to take care of this.
-    cd include/ufl
+    cd ufl
     make -j $(nproc)
-    cd ../..
+    cd ..
 
     echo "Building PUNC++"
 

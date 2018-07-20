@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/pusher.h"
+#include "../include/punc/pusher.h"
 
 namespace punc
 {

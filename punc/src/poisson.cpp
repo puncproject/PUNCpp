@@ -15,7 +15,33 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/poisson.h"
+#include "../include/punc/poisson.h"
+#include "../ufl/Potential1D.h"
+#include "../ufl/Potential2D.h"
+#include "../ufl/Potential3D.h"
+#include "../ufl/PotentialDG1D.h"
+#include "../ufl/PotentialDG2D.h"
+#include "../ufl/PotentialDG3D.h"
+#include "../ufl/EField1D.h"
+#include "../ufl/EField2D.h"
+#include "../ufl/EField3D.h"
+#include "../ufl/Clement1D.h"
+#include "../ufl/Clement2D.h"
+#include "../ufl/Clement3D.h"
+#include "../ufl/Mean1D.h"
+#include "../ufl/Mean2D.h"
+#include "../ufl/Mean3D.h"
+#include "../ufl/EFieldDG01D.h"
+#include "../ufl/EFieldDG02D.h"
+#include "../ufl/EFieldDG03D.h"
+#include "../ufl/ErrorNorm1D.h"
+#include "../ufl/ErrorNorm2D.h"
+#include "../ufl/ErrorNorm3D.h"
+#include "../ufl/ErrorNormVec1D.h"
+#include "../ufl/ErrorNormVec2D.h"
+#include "../ufl/ErrorNormVec3D.h"
+#include "../ufl/Surface.h"
+#include "../ufl/Volume.h"
 
 namespace punc
 {
