@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Profile: -Wall -O3 -NDEBUG -pg (for GNU profiler)
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD TYPE Release)
+    set(CMAKE_BUILD_TYPE Release)
 endif(NOT CMAKE_BUILD_TYPE)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -23,7 +23,9 @@ set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
 
 # Source code
 include_directories(ufl, include)
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCE_FILES "src/*.cpp")
+file(GLOB HEADER_FILES "include/*.h")
+file(GLOB UFL_HEADER_FILES "include/ufl/*.h")
 
 # Dependencies
 find_package(DOLFIN REQUIRED)
@@ -44,10 +46,23 @@ if(DOXYGEN_FOUND)
 endif(DOXYGEN_FOUND)
 
 # Generate the shared library from the sources
-add_library(punc SHARED ${SOURCES})
+add_library(punc SHARED ${SOURCE_FILES})
 
 # Link punc to dolfin and its 3rd party libraries
 target_link_libraries(punc ${DOLFIN_LIBRARIES} ${DOLFIN_3RD_PARTY_LIBRARIES})
 
+SET_TARGET_PROPERTIES(PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+
 # Install target
-install(TARGETS punc DESTINATION /usr/lib)
+install(TARGETS punc
+        PUBLIC_HEADER DESTINATION include/punc   # .h files
+        LIBRARY DESTINATION lib                  # .so files
+        ARCHIVE DESTINATION lib                  # .a files
+        RUNTIME DESTINATION bin)                 # executables
+
+# For some reason the above doesn't install header files. Do it manually.
+install(FILES ${HEADER_FILES}
+        DESTINATION include/punc)
+
+install(FILES ${UFL_HEADER_FILES}
+        DESTINATION include/punc/ufl)

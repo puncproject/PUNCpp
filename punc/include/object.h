@@ -19,15 +19,15 @@
 #define OBJECT_H
 
 #include <dolfin.h>
-#include "../ufl/Potential1D.h"
-#include "../ufl/Potential2D.h"
-#include "../ufl/Potential3D.h"
-#include "../ufl/EField1D.h"
-#include "../ufl/EField2D.h"
-#include "../ufl/EField3D.h"
-#include "../ufl/Flux.h"
-#include "../ufl/Charge.h"
-#include "../ufl/Constraint.h"
+#include "ufl/Potential1D.h"
+#include "ufl/Potential2D.h"
+#include "ufl/Potential3D.h"
+#include "ufl/EField1D.h"
+#include "ufl/EField2D.h"
+#include "ufl/EField3D.h"
+#include "ufl/Flux.h"
+#include "ufl/Charge.h"
+#include "ufl/Constraint.h"
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>

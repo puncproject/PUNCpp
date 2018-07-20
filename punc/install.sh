@@ -46,7 +46,7 @@ fi
 if [ $BUILD_TYPE = "doc" ]
 then
     # Extract the most recent makefile to make documentation from
-    MAKE=$(ls -t ./build/*/Makefile | head -n 1)
+    MAKE=$(ls -t ./build/*/Makefile | grep -v latex | head -n 1)
     MAKEDIR="$(dirname "$MAKE")" 
 
     ln -sf build/html/index.html doc.html
@@ -56,9 +56,9 @@ else
     echo "Compiling UFLs"
 
     # FIXME: Should change CMakeLists.txt to take care of this.
-    cd ufl
+    cd include/ufl
     make -j $(nproc)
-    cd ..
+    cd ../..
 
     echo "Building PUNC++"
 
@@ -66,8 +66,15 @@ else
     cd build/$BUILD_TYPE
     cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ../..
     make -j $(nproc)
+    make install DESTDIR=..
 
-    echo "Installing PUNC++ to system. Ctrl+C to skip."
+    # while true
+    # do
+    #     read -p "Install PUNC++ to system? [y/n] " inp
+    #     case $inp in
+    #         [Yy]* ) sudo make install; break ;;
+    #         [Nn]* ) break ;;
+    #     esac
+    # done
 
-    sudo make install
 fi

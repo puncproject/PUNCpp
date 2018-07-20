@@ -19,7 +19,7 @@
 #define DIAGNOSTICS_H
 
 #include "population.h"
-#include "../ufl/Energy.h"
+#include "ufl/Energy.h"
 
 namespace punc
 {

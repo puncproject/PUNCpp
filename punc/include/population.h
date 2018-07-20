@@ -44,12 +44,15 @@ struct PhysicalConstants
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad;
 };
 
+/**
+ * @brief A simulation particle
+ */
 struct Particle
 {
-    std::vector<double> x;
-    std::vector<double> v;
-    double q;
-    double m;
+    std::vector<double> x;  ///< Position
+    std::vector<double> v;  ///< Velocity
+    double q;               ///< Charge
+    double m;               ///< Mass
 };
 
 class Species
@@ -125,13 +128,17 @@ class Cell
     : id(id), neighbors(neighbors) {};
 };
 
+/**
+ * @brief A collection of Particles
+ */
 class Population
 {
   public:
-    std::shared_ptr<const df::Mesh> mesh;
-    std::size_t num_cells;
-    std::vector<Cell> cells;
-    std::size_t gdim, tdim;
+    std::shared_ptr<const df::Mesh> mesh;   ///< df::Mesh of the domain
+    std::vector<Cell> cells;                ///< All df::Cells in the domain
+    std::size_t num_cells;                  ///< Number of cells in the domain
+    std::size_t gdim;                       ///< Number of geometric dimensions
+    std::size_t tdim;                       ///< Number of topological dimensions
 
     Population(std::shared_ptr<const df::Mesh> &mesh,
                const df::MeshFunction<std::size_t> &bnd);
@@ -141,9 +148,9 @@ class Population
     signed long int locate(std::vector<double> &p);
     signed long int relocate(std::vector<double> &p, signed long int cell_id);
     void update(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
-    std::size_t num_of_particles();
-    std::size_t num_of_positives();
-    std::size_t num_of_negatives();
+    std::size_t num_of_particles();         ///< Returns number of particles
+    std::size_t num_of_positives();         ///< Returns number of positively charged particles
+    std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
     void save_file(const std::string &fname);
     void load_file(const std::string &fname);
     void save_vel(const std::string &fname);
@@ -151,4 +158,4 @@ class Population
 
 }
 
-#endif
+#endif // POPULATION_H

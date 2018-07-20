@@ -4,10 +4,19 @@ project(${PROJECT_NAME})
 
 file(GLOB RUN "laframboise.cpp")
 
-# link to punc:
-add_library(libpunc SHARED IMPORTED)
-set_property(TARGET libpunc PROPERTY IMPORTED_LOCATION "/usr/lib/libpunc.so")
-include_directories(../../punc/include)
+find_library(PUNC punc
+             HINTS "../../punc/build/usr/local/lib"
+                   "../../punc/build/usr/local/include"
+                   "../../punc/build/usr/local/include/punc")
+
+find_path(PUNC_INCLUDE_DIR punc
+             HINTS "../../punc/build/usr/local"
+                   "../../punc/build/usr/local/include"
+                   "../../punc/build/usr/local/include/punc")
+
+message(STATUS "PUNC dir: ${PUNC}")
+include_directories(${PUNC_INCLUDE_DIR}/punc)
+
 
 set (PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -21,7 +30,7 @@ find_package(DOLFIN REQUIRED)
 include(${DOLFIN_USE_FILE})
 
 # Default build type (can be overridden by user)
-if (NOT CMAKE_BUILD_TYPE)
+if (NOT CMAKE_BUILD_TYP)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
       "Choose the type of build, options are: Debug MinSizeRel Release RelWithDebInfo." FORCE)
 endif()
@@ -39,4 +48,4 @@ add_executable(${PROJECT_NAME} ${RUN})
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${DOLFIN_LIBRARIES}
-${DOLFIN_3RD_PARTY_LIBRARIES} libpunc)
+    ${DOLFIN_3RD_PARTY_LIBRARIES} ${PUNC})
