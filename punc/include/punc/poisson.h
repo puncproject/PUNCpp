@@ -88,15 +88,36 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
 
 df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
 
-class PoissonSolver
-{
+class PoissonSolver {
+private:
+    boost::optional<std::vector<df::DirichletBC> &> ext_bc; /// < Exterior boundaries
+    bool remove_null_space;                                 /// < Whether or not to remove null space
+    std::unique_ptr<df::PETScKrylovSolver> solver;          /// < Linear algebra solver
+    std::shared_ptr<df::Form> a;                            /// < Bilinear form
+    std::shared_ptr<df::Form> L;                            /// < Linear form
+    df::PETScMatrix A;                                      /// < Stiffness matrix
+    df::PETScVector b;                                      /// < Load vector
+    std::shared_ptr<df::VectorSpaceBasis> null_space;
+    std::size_t num_bcs = 0;                                ///< Number of boundaries
+
 public:
+    /**
+     * @brief Constructor 
+     * @param V                 The function space of rho and phi
+     * @param ext_bc            Exterior Dirichlet boundary conditions
+     * @param circuit           Circuits between objects
+     * @param eps0              Vacuum permittivity in simulation parameters
+     *                          (depends on normalization scheme)
+     * @param method            Method of linear algebra solver
+     * @param preconditioner    Preconditioner for matrix equation
+     */
     PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
                   boost::optional<Circuit& > circuit=boost::none,
+                  double eps0 = 1,
                   bool remove_null_space = false,
-                  std::string method = "gmres",
-                  std::string preconditioner = "hypre_amg");
+                  std::string method = "",
+                  std::string preconditioner = "");
 
     df::Function solve(const df::Function &rho);
 
@@ -110,15 +131,6 @@ public:
 
     double residual(const std::shared_ptr<df::Function> &phi);
 
-private:
-    boost::optional<std::vector<df::DirichletBC> &> ext_bc;
-    bool remove_null_space;
-    df::PETScKrylovSolver solver;
-    std::shared_ptr<df::Form> a, L;
-    df::PETScMatrix A;
-    df::PETScVector b;
-    std::shared_ptr<df::VectorSpaceBasis> null_space;
-    std::size_t num_bcs = 0;
 };
 
 double errornorm(const df::Function &phi, const df::Function &phi_e);
@@ -181,4 +193,4 @@ class ClementInterpolant
 
 }
 
-#endif
+#endif // POISSON_H

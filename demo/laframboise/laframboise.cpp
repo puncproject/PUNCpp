@@ -3,29 +3,34 @@
 
 using namespace punc;
 
-int main()
-{
+using std::cout;
+using std::endl;
+using std::size_t;
+using std::vector;
+using std::accumulate;
+using std::string;
+
+int main(){
     df::set_log_level(df::WARNING);
 
-    // std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1"};
-    std::string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
+    //
+    // CREATE MESH
+    //
+    string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
     auto mesh = load_mesh(fname);
     auto dim = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
-    std::size_t ext_bnd_id = tags[1];
+    size_t ext_bnd_id = tags[1];
 
     auto facet_vec = exterior_boundaries(boundaries, ext_bnd_id);
 
-    std::vector<double> Ld = get_mesh_size(mesh);
-    std::vector<double> vd(dim);
-    for (std::size_t i = 0; i<dim; ++i)
-    {
-        vd[i] = 0.0;
-    }
+    vector<double> Ld = get_mesh_size(mesh);
 
+    //
+    // CREATE SPECIES
+    //
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
@@ -33,225 +38,249 @@ int main()
     double kB = constants.k_B;
     double eps0 = constants.eps0;
 
-    int npc = 32;
+    int npc = 4;
     double ne = 1.0e10;
     double debye = 1.0;
     double Rp = 1.0*debye;
-    double X = Rp;
     double Te = e*e*debye*debye*ne/(eps0*kB);
     double wpe = sqrt(ne*e*e/(eps0*me));
     double vthe = debye*wpe;
     double vthi = vthe/sqrt(1836.);
+    vector<double> vd(dim, 0);
 
-    double Vlam  = kB*Te/e;
-    double Ilam  = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
-    // double Iexp  = 1.987*Ilam;
-    double Iexp = 2.945 * Ilam;
-    // double Iexp = 2.824 * Ilam;
+    auto pdf = [](vector<double> t)->double{return 1.0;};
 
-    double dt = 0.10;
-    std::size_t steps = 20;
 
-    CreateSpecies create_species(mesh, facet_vec, X);
-
-    auto pdf = [](std::vector<double> t)->double{return 1.0;};
-    create_species.create(-e, me, ne, npc, vthe, vd, pdf, 1.0);
-    create_species.create(e, mi, ne, npc, vthi, vd, pdf, 1.0);
-
+    CreateSpecies create_species(mesh, facet_vec);
+    create_species.create_raw(-e, me, ne, npc, vthe, vd, pdf, 1.0);
+    create_species.create_raw( e, mi, ne, npc, vthi, vd, pdf, 1.0);
     auto species = create_species.species;
 
-    double Inorm  = create_species.Q/create_species.T;
-    double Vnorm  = (create_species.M/create_species.Q)*(create_species.X/create_species.T)*(create_species.X/create_species.T);
-    Inorm /= fabs(Ilam);
-    Vnorm /= Vlam;
+    //
+    // IMPOSE CIRCUITRY
+    //
+    double V0 = kB*Te/e;
+    double I0 = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
 
-    // double cap_factor = 1.;
-    double current_collected = Iexp/(create_species.Q/create_species.T);
-    double imposed_potential = 2.0/Vnorm;
-    eps0 = 1.0;
+    bool impose_current = true; 
+    double imposed_current = 2.945*I0;
+    double imposed_potential = 2*V0;
 
-    std::vector<std::vector<int>> isources{};//{{-1,0}};
-    std::vector<double> ivalues{};//{-current_collected};
+    vector<vector<int>> isources, vsources;
+    vector<double> ivalues, vvalues;
 
-    std::vector<std::vector<int>> vsources{{-1,0}};
-    std::vector<double> vvalues{imposed_potential};
+    if(impose_current){
 
-    printf("Q:  %e\n", create_species.Q);
-    printf("T:  %e\n", create_species.T);
+        isources = {{-1,0}};
+        ivalues = {-imposed_current};
 
-    printf("Inorm:  %e\n", Inorm);
-    printf("Vnorm:  %e\n", Vnorm);
+        vsources = {};
+        vvalues = {};
 
-    printf("Laframboise voltage:  %e\n", Vlam);
-    printf("Laframboise current:  %e\n", Ilam);
-    printf("Expected current:     %e\n", Iexp);
-    printf("Imposed potential:    %e\n", imposed_potential);
-    printf("Imposed current:    %e\n", -current_collected);
+    } else {
 
+        isources = {};
+        ivalues = {};
+
+        vsources = {{-1,0}};
+        vvalues = {imposed_potential};
+    }
+
+    //
+    // TIME STEP
+    //
+    size_t steps = 10;
+    double dt = 0.2/wpe;
+
+    //
+    // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
+    //
     auto V = function_space(mesh);
     auto Q = DG0_space(mesh);
     auto dv_inv = element_volume(V);
 
     auto u0 = std::make_shared<df::Constant>(0.0);
     df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-		std::make_shared<df::MeshFunction<std::size_t>>(boundaries), ext_bnd_id);
-    std::vector<df::DirichletBC> ext_bc = {bc};
+		std::make_shared<df::MeshFunction<size_t>>(boundaries), ext_bnd_id);
+    vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, boundaries, tags[2]);
-	// object.set_potential(0.0);
-	std::vector<ObjectBC> int_bc = {object};
+    ObjectBC object(V, boundaries, tags[2], eps0);
+	vector<ObjectBC> int_bc = {object};
 
-    std::vector<std::size_t> bnd_id{tags[2]};
-    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt);
-	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
+    vector<size_t> bnd_id{tags[2]};
+    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
 
-    PoissonSolver poisson(V, ext_bc, circuit);
+    //
+    // CREATE SOLVERS
+    //
+    PoissonSolver poisson(V, ext_bc, circuit, eps0);
     ESolver esolver(V);
-    // reset_objects(int_bc);
 
+    //
+    // LOAD PARTICLES
+    //
     Population pop(mesh, boundaries);
-
     load_particles(pop, species);
 
-    std::vector<double> KE(steps);
-    std::vector<double> PE(steps);
-    std::vector<double> TE(steps);
-    std::vector<double> num_e(steps);
-    std::vector<double> num_i(steps);
-    std::vector<double> num_tot(steps);
-    // std::vector<double> num_particles_outside(steps - 1);
-    // std::vector<double> num_injected_particles(steps - 1);
-    std::vector<double> potential(steps, 0.0);
-    std::vector<double> current_measured(steps, 0.0);
-    std::vector<double> obj_charge(steps, 0.0);
+    //
+    // CREATE HISTORY VARIABLES
+    //
+    double KE               = 0;
+    double PE               = 0;
+    double num_e            = pop.num_of_negatives();
+    double num_i            = pop.num_of_positives();
+    double num_tot          = pop.num_of_particles();
+    double potential        = 0;
+    double current_measured = 0;
+    double old_charge       = 0;
 
-    double old_charge = 0.0;
+    cout << "Num positives:  " << num_i;
+    cout << ", num negatives: " << num_e;
+    cout << " total: " << num_tot << endl;
+
+    //
+    // CREATE TIMER VARIABLES
+    //
     Timer timer;
-    std::vector<double> dist(steps),rsetobj(steps),pois(steps),efil(steps),upd(steps);
-    std::vector<double> objpoten(steps),pot(steps),ace(steps),mv(steps), inj(steps), pnum(steps);
-    boost::optional<double> opt = NAN;
-    num_i[0] = pop.num_of_positives();
-    num_e[0] = pop.num_of_negatives();
-    auto num3 = pop.num_of_particles();
-    std::cout << "Num positives:  " << num_i[0];
-    std::cout << ", num negatives: " << num_e[0];
-    std::cout << " total: " << num3 << '\n';
+    vector<double> t_dist(steps);
+    vector<double> t_rsetobj(steps);
+    vector<double> t_pois(steps);
+    vector<double> t_efil(steps);
+    vector<double> t_upd(steps);
+    vector<double> t_objpoten(steps);
+    vector<double> t_pot(steps);
+    vector<double> t_ace(steps);
+    vector<double> t_mv(steps);
+    vector<double> t_inj(steps);
+    vector<double> t_pnum(steps);
 
     std::ofstream file;
 
-    for(int i=0; i<steps;++i)
+    for(size_t i=0; i<steps;++i)
     {
-        std::cout<<"step: "<< i<<'\n';
+        cout << "Step: " << i << endl;
+
+        // DISTRIBUTE
+
         // auto rho = distribute(V, pop, dv_inv);
         auto rho = distribute_dg0(Q, pop);
-        dist[i] = timer.elapsed();
+        t_dist[i] = timer.elapsed();
         timer.reset();
+
+        // SOLVE POISSON
+
         // reset_objects(int_bc);
-        // rsetobj[i]= timer.elapsed();
+        // t_rsetobj[i]= timer.elapsed();
         timer.reset();
+        /* int_bc[0].charge = 0; */
+        /* int_bc[0].charge -= current_collected*dt; */
         auto phi = poisson.solve(rho, int_bc, circuit, V);
-        // df::File ofile("phi.pvd");
-        // ofile << phi;
-        pois[i] = timer.elapsed();
+        t_pois[i] = timer.elapsed();
         timer.reset();
 
-        for(auto& o: int_bc)
-        {
-            // printf("Object charge before: %e\n", o.charge);
-            auto _charge = o.update_charge(phi);
-            // printf("Object charge after: %e\n", o.charge);
-        }
+        for(auto& o: int_bc) o.update_charge(phi);
 
-        potential[i] = int_bc[0].update_potential(phi)*Vnorm;
-        // printf("Object potential: %e\n", potential[i]);
+        potential = int_bc[0].update_potential(phi);
         auto E = esolver.solve(phi);
-        efil[i] = timer.elapsed();
+        t_efil[i] = timer.elapsed();
         timer.reset();
 
         // compute_object_potentials(int_bc, E, inv_capacity, mesh);
-        // objpoten[i] = timer.elapsed();
+        // t_objpoten[i] = timer.elapsed();
         // timer.reset();
         //
-        // potential[i] = int_bc[0].potential*Vnorm;
+        // potential[i] = int_bc[0].potential;
 
         // auto phi1 = poisson.solve(rho, int_bc);
-        // pois[i] += timer.elapsed();
+        // t_pois[i] += timer.elapsed();
         // timer.reset();
         //
         // auto E1 = esolver.solve(phi1);
-        // efil[i] += timer.elapsed();
+        // t_efil[i] += timer.elapsed();
         // timer.reset();
 
-        PE[i] = particle_potential_energy(pop, phi);
-        pot[i] = timer.elapsed();
+        PE = particle_potential_energy(pop, phi);
+        t_pot[i] = timer.elapsed();
+
+        // PUSH PARTICLES
+
         timer.reset();
 
         old_charge = int_bc[0].charge;
 
-        KE[i] = accel(pop, E, (1.0-0.5*(i == 1))*dt);
-        ace[i] = timer.elapsed();
-        if(i==0)
-        {
-            KE[i] = kinetic_energy(pop);
-        }
+        KE = accel(pop, E, (1.0-0.5*(i == 0))*dt);
+        t_ace[i] = timer.elapsed();
+        if(i==0) KE = kinetic_energy(pop);
         timer.reset();
         move(pop, dt);
-        mv[i] = timer.elapsed();
+        t_mv[i] = timer.elapsed();
         timer.reset();
 
         pop.update(int_bc);
-        upd[i]= timer.elapsed();
+        t_upd[i]= timer.elapsed();
 
-        current_measured[i] = ((int_bc[0].charge - old_charge) / dt) * Inorm;
-        // printf("Current: %e\n", current_measured[i]);
-        // int_bc[0].charge -= current_collected*dt;
-        // obj_charge[i] = int_bc[0].charge;
+        current_measured = ((int_bc[0].charge - old_charge) / dt);
+
+
+        // INJECT PARTICLES
 
         timer.reset();
-
         inject_particles(pop, species, facet_vec, dt);
-        inj[i] = timer.elapsed();
+        t_inj[i] = timer.elapsed();
+        
+        // COUNT PARTICLES
 
         timer.reset();
-        num_e[i] = pop.num_of_negatives();
-        num_i[i] = pop.num_of_positives();
-        num_tot[i] = pop.num_of_particles();
-        pnum[i] = timer.elapsed();
+        num_e     = pop.num_of_negatives();
+        num_i     = pop.num_of_positives();
+        num_tot   = pop.num_of_particles();
+        t_pnum[i] = timer.elapsed();
+
         timer.reset();
+
+        // WRITE HISTORY
 
         file.open("history.dat", std::ofstream::out | std::ofstream::app);
-        file << i << "\t" << num_e[i] << "\t" << num_i[i] << "\t" << KE[i] << "\t" << PE[i] << "\t" << potential[i] << "\t" << current_measured[i] << '\n';
+        file << i << "\t";
+        file << i*dt << "\t";
+        file << num_e << "\t";
+        file << num_i << "\t";
+        file << KE << "\t";
+        file << PE << "\t";
+        file << potential << "\t";
+        file << current_measured << endl;
         file.close();
     }
 
-    auto time_dist = std::accumulate(dist.begin(), dist.end(), 0.0);
-    auto time_rsetobj = std::accumulate(rsetobj.begin(), rsetobj.end(), 0.0);
-    auto time_pois = std::accumulate(pois.begin(), pois.end(), 0.0);
-    auto time_efil = std::accumulate(efil.begin(), efil.end(), 0.0);
-    auto time_upd = std::accumulate(upd.begin(), upd.end(), 0.0);
-    auto time_objpoten = std::accumulate(objpoten.begin(), objpoten.end(), 0.0);
-    auto time_pot = std::accumulate(pot.begin(), pot.end(), 0.0);
-    auto time_ace = std::accumulate(ace.begin(), ace.end(), 0.0);
-    auto time_mv = std::accumulate(mv.begin(), mv.end(), 0.0);
-    auto time_inj = std::accumulate(inj.begin(), inj.end(), 0.0);
-    auto time_pnum = std::accumulate(pnum.begin(), pnum.end(), 0.0);
+    auto time_dist     = accumulate(t_dist.begin()    , t_dist.end()    , 0.0);
+    auto time_rsetobj  = accumulate(t_rsetobj.begin() , t_rsetobj.end() , 0.0);
+    auto time_pois     = accumulate(t_pois.begin()    , t_pois.end()    , 0.0);
+    auto time_efil     = accumulate(t_efil.begin()    , t_efil.end()    , 0.0);
+    auto time_upd      = accumulate(t_upd.begin()     , t_upd.end()     , 0.0);
+    auto time_objpoten = accumulate(t_objpoten.begin(), t_objpoten.end(), 0.0);
+    auto time_pot      = accumulate(t_pot.begin()     , t_pot.end()     , 0.0);
+    auto time_ace      = accumulate(t_ace.begin()     , t_ace.end()     , 0.0);
+    auto time_mv       = accumulate(t_mv.begin()      , t_mv.end()      , 0.0);
+    auto time_inj      = accumulate(t_inj.begin()     , t_inj.end()     , 0.0);
+    auto time_pnum     = accumulate(t_pnum.begin()    , t_pnum.end()    , 0.0);
 
     double total_time = time_dist + time_rsetobj + time_pois + time_efil + time_upd;
     total_time += time_objpoten + time_pot + time_ace + time_mv + time_inj+time_pnum;
 
-    std::cout << "----------------Measured time for each task----------------" << '\n';
-    std::cout<<"        Task         "<<" Time  "      <<"  "<<" Prosentage "<<'\n';
-    std::cout<<"Distribution:        "<< time_dist     <<"    "<<100*time_dist/total_time<< '\n';
-    std::cout<<"Reset objects:       "<< time_rsetobj  <<"    "<<100*time_rsetobj/total_time<<'\n';
-    std::cout<<"poisson:             "<<  time_pois    <<"    "<<100*time_pois/total_time<<'\n';
-    std::cout<<"efield:              "<< time_efil     <<"    "<<100*time_efil/total_time <<'\n';
-    std::cout<<"update:              "<< time_upd      <<"    "<<100*time_upd/total_time <<'\n';
-    std::cout<<"move:                "<< time_mv       <<"    "<<100*time_mv/total_time<<'\n';
-    std::cout<<"inject:              "<< time_inj      <<"    "<<100*time_inj/total_time <<'\n';
-    std::cout<<"accel:               "<< time_ace      <<"    "<<100*time_ace/total_time <<'\n';
-    std::cout<<"potential energy:    "<< time_pot      <<"    "<<100*time_pot/total_time <<'\n';
-    std::cout<<"object potential:    "<< time_objpoten <<"    "<<100*time_objpoten/total_time<<'\n';
-    std::cout<<"counting particles:  "<< time_pnum     <<"    "<<100*time_pnum/total_time<<'\n';
-    std::cout<<"Total time:          " << total_time   <<"    "<<100*total_time / total_time << '\n';
+    cout << "----------------Measured time for each task----------------" << endl;
+    cout << "        Task         " << " Time  "     << "  "   << " Procentage "               << endl;
+    cout << "Distribution:        " << time_dist     << "    " << 100*time_dist/total_time     << endl;
+    cout << "Reset objects:       " << time_rsetobj  << "    " << 100*time_rsetobj/total_time  << endl;
+    cout << "poisson:             " << time_pois     << "    " << 100*time_pois/total_time     << endl;
+    cout << "efield:              " << time_efil     << "    " << 100*time_efil/total_time     << endl;
+    cout << "update:              " << time_upd      << "    " << 100*time_upd/total_time      << endl;
+    cout << "move:                " << time_mv       << "    " << 100*time_mv/total_time       << endl;
+    cout << "inject:              " << time_inj      << "    " << 100*time_inj/total_time      << endl;
+    cout << "accel:               " << time_ace      << "    " << 100*time_ace/total_time      << endl;
+    cout << "potential energy:    " << time_pot      << "    " << 100*time_pot/total_time      << endl;
+    cout << "object potential:    " << time_objpoten << "    " << 100*time_objpoten/total_time << endl;
+    cout << "counting particles:  " << time_pnum     << "    " << 100*time_pnum/total_time     << endl;
+    cout << "Total time:          " << total_time    << "    " << 100*total_time / total_time  << endl;
+
     return 0;
 }

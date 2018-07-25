@@ -7,8 +7,8 @@ forms = []
 for cell in cells:
     CG = FiniteElement(family, cell, degree)
     R  = FiniteElement("Real", cell, 0)
-  
+
     n   = FacetNormal(cell)
     mu  = TestFunction(R)
     phi = TrialFunction(CG)
-    forms.append(inner(mu, dot(grad(phi), n))*ds(9999))
+    forms.append(inner(mu, dot(grad(phi), n))*Constant(cell)*ds(9999))

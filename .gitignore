@@ -2,7 +2,10 @@ punc/doc.html
 **/build
 **/mesh
 **/Results
-**swp
+**.swp
+**.pvd
+**.vtu
+**.dat
 .vscode
 
 # This part should perhaps be cleaned up
