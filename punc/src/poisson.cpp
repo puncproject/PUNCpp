@@ -299,8 +299,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
                              std::string method,
                              std::string preconditioner) : 
                              ext_bc(ext_bc),
-                             remove_null_space(remove_null_space),
-                             solver(V.mesh()->mpi_comm(), method, preconditioner)
+                             remove_null_space(remove_null_space)
 {
     auto dim = V.mesh()->geometry().dim();
     auto eps0_ = std::make_shared<df::Constant>(eps0);
@@ -321,7 +320,23 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
 
-    // a->set_coefficient("eps0", std::make_shared<df::Constant>(eps0));
+    bool has_charge_constraints = circuit && circuit.get().has_charge_constraints();
+    if(has_charge_constraints){
+        if(method=="" && preconditioner==""){
+            method = "bicgstab";
+            preconditioner = "ilu";
+        } else {
+            // FIXME: Write proper status/warning/error message system
+            std::cerr << "Some linear algebra solvers/preconditioners may not work for circuits with charge constraints.\n";
+        }
+    } else {
+        if(method=="" && preconditioner==""){
+            method = "gmres";
+            preconditioner = "hypre_amg";
+        }
+    }
+
+    solver = std::make_unique<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
 
     if(ext_bc)
     {
@@ -342,10 +357,10 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         ext_bc.get()[i].apply(A);
     }
 
-    solver.parameters["absolute_tolerance"] = 1e-14;
-    solver.parameters["relative_tolerance"] = 1e-12;
-    solver.parameters["maximum_iterations"] = 1000;
-    solver.set_reuse_preconditioner(true);
+    solver->parameters["absolute_tolerance"] = 1e-14;
+    solver->parameters["relative_tolerance"] = 1e-12;
+    solver->parameters["maximum_iterations"] = 1000;
+    solver->set_reuse_preconditioner(true);
 
     if (remove_null_space)
     {
@@ -374,7 +389,7 @@ df::Function PoissonSolver::solve(const df::Function &rho)
         null_space->orthogonalize(b);
     }
     df::Function phi(rho.function_space());
-    solver.solve(A, *phi.vector(), b);
+    solver->solve(A, *phi.vector(), b);
     return phi;
  }
 
@@ -392,7 +407,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
         bc.apply(A, b);
     }
     df::Function phi(rho.function_space());
-    solver.solve(A, *phi.vector(), b);
+    solver->solve(A, *phi.vector(), b);
     return phi;
 }
 
@@ -416,7 +431,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
     circuit.apply(b);
     auto V_shared = std::make_shared<df::FunctionSpace>(V);
     df::Function phi(V_shared);
-    solver.solve(A, *phi.vector(), b);
+    solver->solve(A, *phi.vector(), b);
     return phi;
 }
 

@@ -116,15 +116,15 @@ df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
 
 class PoissonSolver {
 private:
-    boost::optional<std::vector<df::DirichletBC> &> ext_bc; ///< Exterior boundaries
-    bool remove_null_space;          ///< Whether or not to remove null space
-    df::PETScKrylovSolver solver;    ///< Linear algebra solver
-    std::shared_ptr<df::Form> a;     ///< Bilinear form
-    std::shared_ptr<df::Form> L;     ///< Linear form
-    df::PETScMatrix A;               ///< Stiffness matrix
-    df::PETScVector b;               ///< Load vector
+    boost::optional<std::vector<df::DirichletBC> &> ext_bc; /// < Exterior boundaries
+    bool remove_null_space;                                 /// < Whether or not to remove null space
+    std::unique_ptr<df::PETScKrylovSolver> solver;          /// < Linear algebra solver
+    std::shared_ptr<df::Form> a;                            /// < Bilinear form
+    std::shared_ptr<df::Form> L;                            /// < Linear form
+    df::PETScMatrix A;                                      /// < Stiffness matrix
+    df::PETScVector b;                                      /// < Load vector
     std::shared_ptr<df::VectorSpaceBasis> null_space;
-    std::size_t num_bcs = 0;         ///< Number of boundaries
+    std::size_t num_bcs = 0;                                ///< Number of boundaries
 
 public:
     /**
@@ -142,8 +142,8 @@ public:
                   boost::optional<Circuit& > circuit=boost::none,
                   double eps0 = 1,
                   bool remove_null_space = false,
-                  std::string method = "gmres",
-                  std::string preconditioner = "hypre_amg");
+                  std::string method = "",
+                  std::string preconditioner = "");
 
     df::Function solve(const df::Function &rho);
 
@@ -219,4 +219,4 @@ class ClementInterpolant
 
 }
 
-#endif
+#endif // POISSON_H

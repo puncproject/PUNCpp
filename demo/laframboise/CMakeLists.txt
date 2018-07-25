@@ -29,7 +29,7 @@ endif()
 # Do not throw error for 'multi-line comments' (these are typical in
 # rst which includes LaTeX)
 include(CheckCXXCompilerFlag)
-#add_compile_options(-Wall -Wextra -Wpedantic)
+add_compile_options(-Wall)
 CHECK_CXX_COMPILER_FLAG("-Wno-comment -O3" HAVE_NO_MULTLINE)
 if (HAVE_NO_MULTLINE)
   set(CMAKE_CXX_FLAGS "-Wno-comment -O3 ${CMAKE_CXX_FLAGS}")

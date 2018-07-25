@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.5)
 project(punc)
 
 # USE C++17
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -19,7 +18,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_FLAGS_DEBUG "-O1 ${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_PROFILE "-pg ${CMAKE_CXX_FLAGS_PROFILE} ${CMAKE_CXX_FLAGS_RELEASE}")
-set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
+#set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
+add_compile_options(-Wall)
 
 # Source code
 include_directories(ufl, include)
@@ -51,3 +51,4 @@ target_link_libraries(punc ${DOLFIN_LIBRARIES} ${DOLFIN_3RD_PARTY_LIBRARIES})
 
 # Install target
 install(TARGETS punc DESTINATION /usr/lib)
+set_target_properties(punc PROPERTIES CXX_STANDARD 17)

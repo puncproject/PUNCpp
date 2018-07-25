@@ -96,7 +96,7 @@ class CreateSpecies
     double epsilon_0 = boost::units::si::constants::codata::epsilon_0*boost::units::si::meter/boost::units::si::farad;
 
     CreateSpecies(std::shared_ptr<const df::Mesh> &mesh,
-                  std::vector<Facet> &facets, double X);
+                  std::vector<Facet> &facets, double X=1);
 
     void create_raw(double q, double m, double n, int npc, double vth,
                     std::vector<double> &vd,

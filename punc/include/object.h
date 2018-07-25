@@ -149,15 +149,6 @@ public:
     double update_potential(df::Function &phi);
 };
 
-void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group);
-
-std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects);
-
-void addrow(df::GenericMatrix& A, df::GenericMatrix& Bc,
-            const std::vector<std::size_t> &cols,
-            const std::vector<double> &vals,
-            int replace_row, const df::FunctionSpace& V);
-
 class Circuit
 {
 public:
@@ -186,7 +177,14 @@ public:
     void apply(df::PETScMatrix &A, df::PETScMatrix &Bc);
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
+
+    /**
+     * @brief  Whether or not this Circuit has charge constraints.
+     * @return Whether or not this Circuit has charge constraints.
+     */
+    bool has_charge_constraints() const;
 };
+
 
 }
 
