@@ -25,23 +25,28 @@ int main()
     bool remove_null_space = true;
     std::vector<double> Ld = get_mesh_size(mesh);
     std::vector<bool> periodic(D);
-    std::vector<double> vd(D);
+    std::vector<double> vd(D, 0.0);
     for (std::size_t i = 0; i<D; ++i)
     {
         periodic[i] = true;
-        vd[i] = 0.0;
+        // vd[i] = 0.0;
     }
 
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
     auto V = function_space(mesh, constr);
-    PoissonSolver poisson(V, boost::none, boost::none, remove_null_space);
-    ESolver esolver(V);
+
+    PhysicalConstants constants;
+    double e = constants.e;
+    double me = constants.m_e;
+    double mi = constants.m_i;
+    double eps0 = constants.eps0;
 
     auto dv_inv = element_volume(V, true);
 
     double vth = 0.0;
-    int npc = 64;
+    int npc = 4;
+    double ne = 100;
 
     CreateSpecies create_species(mesh, facet_vec, Ld[0]);
 
@@ -51,19 +56,35 @@ int main()
     auto pdfe = [A, mode, Ld](std::vector<double> t)->double{return 1.0+A*sin(2*mode*M_PI*t[0]/Ld[0]);};
     auto pdfi = [](std::vector<double> t)->double{return 1.0;};
 
-    PhysicalConstants constants;
-    double e = constants.e;
-    double me = constants.m_e;
-    double mi = constants.m_i;
+    bool si_units = true;
+    if (!si_units)
+    {
+        create_species.create(-e, me, ne, npc, vth, vd, pdfe, pdf_max);
+        create_species.create(e, mi, ne, npc, vth, vd, pdfi, 1.0);
+        eps0 = 1.0;
+    }
+    else
+    {
+        double wpe = sqrt(ne * e * e / (eps0 * me));
+        dt /= wpe;
+        create_species.T = 1;
+        create_species.Q = 1;
+        create_species.M = 1;
+        create_species.X = 1;
 
-    create_species.create(-e, me, 100, npc, vth, vd, pdfe, pdf_max);
-    create_species.create(e, mi, 100, npc, vth, vd, pdfi, 1.0);
+        create_species.create_raw(-e, me, ne, npc, vth, vd, pdfe, pdf_max);
+        create_species.create_raw(e, mi, ne, npc, vth, vd, pdfi, 1.0);
+    }
 
     auto species = create_species.species;
     
     Population pop(mesh, boundaries);
 
+    PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);
+    ESolver esolver(V);
+
     load_particles(pop, species);
+
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
     auto num3 = pop.num_of_particles();
