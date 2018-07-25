@@ -51,7 +51,7 @@ int main()
     auto pdf = [](std::vector<double> t)->double{return 1.0;};
 
     double dt, Inorm, Vnorm, current_collected, imposed_potential;
-    std::size_t steps = 1000;
+    std::size_t steps = 15000;
 
     if (!si_units)
     {
@@ -71,7 +71,7 @@ int main()
 
     }else{
          
-        dt = 0.10/wpe;
+        dt = 0.02/wpe;
 
         create_species.T = 1;
         create_species.Q = 1;
@@ -103,10 +103,14 @@ int main()
     {
         isources = {{-1,0}};
         ivalues = {-current_collected};
+        /* isources = {}; */
+        /* ivalues = {}; */
 
         vsources = {};
         vvalues = {};
+
     }else{
+
         isources = {};
         ivalues = {};
 
@@ -145,7 +149,7 @@ int main()
     Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
 	// boost_matrix inv_capacity = capacitance_matrix(V, int_bc, boundaries, ext_bnd_id);
 
-    PoissonSolver poisson(V, ext_bc, circuit, eps0);
+    PoissonSolver poisson(V, ext_bc, circuit, eps0, false, "bicgstab", "ilu");
     ESolver esolver(V);
     // reset_objects(int_bc);
 
@@ -179,6 +183,7 @@ int main()
 
     std::ofstream file;
 
+    printf("Initial charge: %g\n", int_bc[0].charge);
     for(int i=0; i<steps;++i)
     {
         std::cout<<"step: "<< i<<'\n';
@@ -190,17 +195,20 @@ int main()
         // rsetobj[i]= timer.elapsed();
         timer.reset();
         /* int_bc[0].charge = 0; */
+        /* int_bc[0].charge -= current_collected*dt; */
         auto phi = poisson.solve(rho, int_bc, circuit, V);
         printf("Object charge: %g, voltage: %g\n", int_bc[0].charge, int_bc[0].potential);
-        // df::File ofile("phi.pvd");
-        // ofile << phi;
+        if(i==50){
+            df::File ofile("phi.pvd");
+            ofile << phi;
+        }
         pois[i] = timer.elapsed();
         timer.reset();
 
         for(auto& o: int_bc)
         {
             // printf("Object charge before: %e\n", o.charge);
-            auto _charge = o.update_charge(phi);
+            /* auto _charge = o.update_charge(phi); */
             // printf("Object charge after: %e\n", o.charge);
         }
 
@@ -232,16 +240,19 @@ int main()
 
         KE[i] = accel(pop, E, (1.0-0.5*(i == 0))*dt);
         ace[i] = timer.elapsed();
-        if(i==0)
-        {
-            KE[i] = kinetic_energy(pop);
-        }
+        if(i==0) KE[i] = kinetic_energy(pop);
         timer.reset();
         move(pop, dt);
         mv[i] = timer.elapsed();
         timer.reset();
 
+        double charge_before = int_bc[0].charge;
         pop.update(int_bc);
+        double charge_after = int_bc[0].charge;
+        double delta_charge = charge_after-charge_before;
+        long int delta_particles = delta_charge/species[1].q;
+        printf("Ions minus electrons accumulated by object: %d\n", delta_particles);
+        /* pop.update(); */
         upd[i]= timer.elapsed();
 
         current_measured[i] = ((int_bc[0].charge - old_charge) / dt) * Inorm;

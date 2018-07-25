@@ -220,7 +220,9 @@ signed long int Population::relocate(std::vector<double> &p, signed long int cel
     }
 }
 
-// FIXME: Consider using default argument rather than boost::optional
+// FIXME: Consider using default argument rather than boost::optional.
+// Empty default vector would be nice, but compiler may not be okay with
+// temporaries.
 void Population::update(boost::optional<std::vector<ObjectBC>& > objects)
 {
     std::size_t num_objects = 0;
