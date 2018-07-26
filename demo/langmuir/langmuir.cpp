@@ -3,6 +3,49 @@
 
 using namespace punc;
 
+class LangmuirWave2D : public Pdf
+{
+  private:
+    std::shared_ptr<const df::Mesh> mesh;
+    double amplitude, mode;
+    const std::vector<double> Ld;
+    int dim_;
+    std::vector<double> domain_;
+
+  public:
+    LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+                   double amplitude, double mode,
+                   const std::vector<double> &Ld);
+
+    double operator()(const std::vector<double> &x);
+    double max() { return 1.0 + amplitude; }
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; }
+};
+
+LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+                               double amplitude, double mode,
+                               const std::vector<double> &Ld)
+    : mesh(mesh), amplitude(amplitude), mode(mode),
+      Ld(Ld)
+{
+    dim_ = mesh->geometry().dim();
+    auto coordinates = mesh->coordinates();
+    auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
+    auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
+    domain_.resize(2 * dim_);
+    for (int i = 0; i < dim_; ++i)
+    {
+        domain_[i] = Ld_min;
+        domain_[i + dim_] = Ld_max;
+    }
+}
+
+double LangmuirWave2D::operator()(const std::vector<double> &x)
+{
+    return (locate(mesh, x) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+}
+
 int main()
 {
     df::set_log_level(df::WARNING);
@@ -13,24 +56,16 @@ int main()
 
     std::string fname{"../../mesh/2D/nothing_in_square"};
     auto mesh = load_mesh(fname);
-    auto D = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
+    auto dim = mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
     std::size_t ext_bnd_id = tags[1];
 
-    auto facet_vec = exterior_boundaries(boundaries, ext_bnd_id);
-
     bool remove_null_space = true;
     std::vector<double> Ld = get_mesh_size(mesh);
-    std::vector<bool> periodic(D);
-    std::vector<double> vd(D, 0.0);
-    for (std::size_t i = 0; i<D; ++i)
-    {
-        periodic[i] = true;
-        // vd[i] = 0.0;
-    }
+    std::vector<bool> periodic(dim, true);
+    std::vector<double> vd(dim, 0.0);
 
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
@@ -48,13 +83,15 @@ int main()
     int npc = 4;
     double ne = 100;
 
-    CreateSpecies create_species(mesh, facet_vec, Ld[0]);
+    CreateSpecies create_species(mesh, Ld[0]);
 
     double A = 0.5, mode = 1.0;
-    double pdf_max = 1.0+A;
 
-    auto pdfe = [A, mode, Ld](std::vector<double> t)->double{return 1.0+A*sin(2*mode*M_PI*t[0]/Ld[0]);};
-    auto pdfi = [](std::vector<double> t)->double{return 1.0;};
+    LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
+    UniformPosition pdfi(mesh);             // Ion position distribution
+
+    Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
+    Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
 
     bool si_units = true;
     if (!si_units)
@@ -77,7 +114,7 @@ int main()
     }
 
     auto species = create_species.species;
-    
+
     Population pop(mesh, boundaries);
 
     PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);

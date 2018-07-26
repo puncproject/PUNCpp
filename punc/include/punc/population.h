@@ -19,7 +19,6 @@
 #define POPULATION_H
 
 #include "poisson.h"
-#include "injector.h"
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>
@@ -31,8 +30,6 @@ namespace punc
 
 namespace df = dolfin;
 
-struct Facet;
-
 struct PhysicalConstants
 {
     double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
@@ -42,6 +39,39 @@ struct PhysicalConstants
 
     double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad;
+};
+
+signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<double> &x);
+
+class Pdf : public df::Expression
+{
+private:
+    double vth_;
+    std::vector<double> vd_;
+    
+public:
+  bool has_cdf;
+  virtual double operator()(const std::vector<double> &x) = 0;
+  virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
+  {
+      double vn = 0.0;
+      for (int i = 0; i < dim(); ++i)
+      {
+          vn += x[i] * n[i];
+      }
+      return (vn > 0.0) * vn * this->operator()(x); 
+    };
+    virtual int dim() = 0;
+    virtual double max() = 0;
+    virtual std::vector<double> domain() = 0;
+    virtual double vth(){return vth_;}
+    virtual std::vector<double> vd(){return vd_;}
+    virtual void set_vth(double v) {vth_= v;}
+    virtual void set_vd(std::vector<double> &v) { vd_ = v; }
+    virtual double flux(const std::vector<double> &n) { return 0.0;}   
+    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; } 
+    virtual void set_flux_normal(std::vector<double> &n) {}
+    virtual std::vector<double> cdf(const std::size_t N) {return {};}
 };
 
 /**
@@ -55,40 +85,26 @@ struct Particle
     double m;               ///< Mass
 };
 
-class Species
+/**
+ * @brief Complete specification of a species.
+ */
+class Species 
 {
-  public:
-    double q;
-    double m;
-    double n;
-    int num;
-    double vth;
-    std::vector<double> vd;
-    std::function<double(std::vector<double> &)> pdf;
-    double pdf_max;
-    std::function<double(std::vector<double> &)> vdf;
+public:
+    double q; ///< Charge
+    double m; ///< Mass
+    double n; ///< Density
+    int num;  ///< Initial number of particles
+    Pdf &pdf;  ///< Position distribution function (initially)
+    Pdf &vdf;  ///< Velocity distribution function (initially and at boundary)
 
-    std::shared_ptr<Flux> flux;
-
-    Species(double q, double m, double n, int num, double vth,
-            std::vector<double> &vd,
-            std::function<double(std::vector<double> &)> pdf,
-            double pdf_max, std::vector<Facet> &facets,
-            VDFType vdf_type=VDFType::Maxwellian) : q(q), m(m), n(n), num(num),
-            vth(vth), vd(vd), pdf(pdf), pdf_max(pdf_max)
-    {
-        if (vdf_type==VDFType::Maxwellian)
-        {
-            this->flux = std::make_shared<MaxwellianFlux>(vth, vd, facets);
-            this->vdf = maxwellian_vdf(vth, vd);
-        }
-    }
+    Species(double q, double m, double n, int num, Pdf &pdf, Pdf &vdf) :
+            q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
 };
 
 class CreateSpecies
 {
   public:
-    std::vector<Facet> facets;
     double X;
     int D;
     double volume, num_cells;
@@ -98,18 +114,13 @@ class CreateSpecies
     double M = std::numeric_limits<double>::quiet_NaN();
     double epsilon_0 = boost::units::si::constants::codata::epsilon_0*boost::units::si::meter/boost::units::si::farad;
 
-    CreateSpecies(std::shared_ptr<const df::Mesh> &mesh,
-                  std::vector<Facet> &facets, double X=1);
+    CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X = 1.0);
 
-    void create_raw(double q, double m, double n, int npc, double vth,
-                    std::vector<double> &vd,
-                    std::function<double(std::vector<double> &)> pdf,
-                    double pdf_max);
+    void create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, int npc = 4,
+                    int num = 0);
 
-    void create(double q, double m, double n, int npc, double vth,
-                std::vector<double> &vd,
-                std::function<double(std::vector<double> &)> pdf,
-                double pdf_max);
+    void create(double q, double m, double n, Pdf &pdf, Pdf &vdf, int npc = 4,
+                int num = 0);
 };
 
 class Cell

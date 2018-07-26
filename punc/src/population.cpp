@@ -20,76 +20,97 @@
 namespace punc
 {
 
-CreateSpecies::CreateSpecies(std::shared_ptr<const df::Mesh> &mesh,
-                             std::vector<Facet> &facets, double X)
-                             : facets(facets), X(X)
+signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<double> &x)
 {
-    this->D = mesh->geometry().dim();
-    this->volume = punc::volume(mesh);
-    this->num_cells = mesh->num_cells();
+    auto dim = mesh->geometry().dim();
+    auto tree = mesh->bounding_box_tree();
+    df::Point p(dim, x.data());
+    unsigned int cell_id = tree->compute_first_entity_collision(p);
+
+    if (cell_id == UINT32_MAX)
+    {
+        return -1;
+    }
+    else
+    {
+        return cell_id;
+    }
 }
 
-void CreateSpecies::create_raw(double q, double m, double n, int npc,
-                               double vth, std::vector<double> &vd,
-                               std::function<double(std::vector<double> &)> pdf,
-                               double pdf_max)
+CreateSpecies::CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X)
+                             : X(X)
 {
-    double num = npc * this->num_cells;
-    double w = (n / num) * this->volume;
+    D = mesh->geometry().dim();
+    volume = punc::volume(mesh);
+    num_cells = mesh->num_cells();
+}
+
+void CreateSpecies::create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, 
+                               int npc, int num)
+{
+    if (num==0)
+    {
+        num = npc * num_cells;
+    }
+    double w = (n / num) * volume;
     q *= w;
     m *= w;
     n /= w;
 
-    Species s(q, m, n, num, vth, vd, pdf, pdf_max, facets);
+    Species s(q, m, n, num, pdf, vdf);
     species.emplace_back(s);
 }
 
-void CreateSpecies::create(double q, double m, double n, int npc, double vth,
-                         std::vector<double> &vd,
-                         std::function<double(std::vector<double> &)> pdf,
-                         double pdf_max)
+void CreateSpecies::create(double q, double m, double n, Pdf &pdf, Pdf &vdf,
+                           int npc, int num)
 {
-    if (std::isnan(this->T))
+    if (std::isnan(T))
     {
         double wp = sqrt((n * q * q) / (epsilon_0 * m));
-        this->T = 1.0 / wp;
+        T = 1.0 / wp;
     }
-    if (std::isnan(this->M))
+    if (std::isnan(M))
     {
-        double num = npc * this->num_cells;
-        double w =  (n / num) * this->volume;
-        this->Q *= w;
+        if (num==0)
+        {
+            num = npc * num_cells;
+        }
+        double w =  (n / num) * volume;
+        Q *= w;
         
-        this->M = (this->T * this->T * this->Q * this->Q) /
-                  (this->epsilon_0 * pow(this->X, this->D));
+        M = (T * T * Q * Q) /
+                  (epsilon_0 * pow(X, D));
     }
-    q /= this->Q;
-    m /= this->M;
-    n *= pow(this->X, this->D);
-    if (vth == 0.0)
+
+    q /= Q;
+    m /= M;
+    n *= pow(X, D);
+
+    vdf.set_vth(vdf.vth()/(X / T));
+
+    std::vector<double> tmp_v(D);
+    auto tmp_vd = vdf.vd();
+
+    for (int i = 0; i < D; ++i)
     {
-        vth = std::numeric_limits<double>::epsilon();
+ 
+        tmp_v[i] = tmp_vd[i] / (X/T);
     }
-    vth /= (this->X / this->T);
-    for (int i = 0; i < this->D; ++i)
-    {
-        vd[i] /= (this->X / this->T);
-    }
-    this->create_raw(q, m, n, npc, vth, vd, pdf, pdf_max);
+    vdf.set_vd(tmp_v);
+
+    create_raw(q, m, n, pdf, vdf, npc, num);
 }
 
 Population::Population(std::shared_ptr<const df::Mesh> &mesh,
-                       const df::MeshFunction<std::size_t> &bnd)
+                       const df::MeshFunction<std::size_t> &bnd):mesh(mesh)
 {
-    this->mesh = mesh;
     num_cells = mesh->num_cells();
-    std::vector<Cell> cells(num_cells);
-    this->cells = cells;
-    this->tdim = mesh->topology().dim();
-    this->gdim = mesh->geometry().dim();
+    cells.resize(num_cells);
+    tdim = mesh->topology().dim();
+    gdim = mesh->geometry().dim();
 
-    this->mesh->init(0, this->tdim);
-    for (df::MeshEntityIterator e(*(this->mesh), this->tdim); !e.end(); ++e)
+    mesh->init(0, tdim);
+    for (df::MeshEntityIterator e(*(mesh), tdim); !e.end(); ++e)
     {
         std::vector<std::size_t> neighbors;
         auto cell_id = e->index();
@@ -111,10 +132,10 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
         neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
 
         Cell cell(cell_id, neighbors);
-        this->cells[cell_id] = cell;
+        cells[cell_id] = cell;
     }
 
-    this->init_localizer(bnd);
+    init_localizer(bnd);
 }
 
 void Population::init_localizer(const df::MeshFunction<std::size_t> &bnd)

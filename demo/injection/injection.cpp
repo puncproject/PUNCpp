@@ -7,21 +7,21 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
+    Timer timer;
+
     double dt = 0.1;
     std::size_t steps = 100;
-    int gdim = 2;
+    int dim = 3;
 
     std::string fname;
-    if (gdim==2)
+    if (dim==2)
     {
         fname = "../../mesh/2D/nothing_in_square";
-    }else if (gdim==3){
+    }else if (dim==3){
         fname = "../../mesh/3D/nothing_in_cube";
     }
 
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -31,27 +31,38 @@ int main()
 
     std::vector<double> Ld = get_mesh_size(mesh);
     std::vector<double> vd(dim, 0.0);
-    for (std::size_t i = 0; i<dim; ++i)
-    {
-        vd[i] = 0.0;
-    }
-
     double vth = 1.0;
 
     int npc = 100;
     double ne = 100;
-    CreateSpecies create_species(mesh, ext_bnd, Ld[0]);
+    CreateSpecies create_species(mesh, Ld[0]);
 
-    auto pdf = [](std::vector<double> t)->double{return 1.0;};
+    UniformPosition pdf(mesh); // Position distribution
+    Maxwellian vdf(vth, vd);   // Velocity distribution 
 
-    // PhysicalConstants constants;
-    // double e = constants.e;
-    // double me = constants.m_e;
-    // double mi = constants.m_i;
-    // create_species.create(-e, me, ne, npc, vth, vd, pdf, 1.0);
-    // create_species.create(e, mi, 100, npc, vth, vd, pdf, 1.0);
+    PhysicalConstants constants;
+    double e = constants.e;
+    double me = constants.m_e;
+    double mi = constants.m_i;
+    double eps0 = constants.eps0;
 
-    create_species.create_raw(-1., 1., ne, npc, vth, vd, pdf, 1.0);
+    bool si_units = true;
+    if (!si_units)
+    {
+        create_species.create(-e, me, ne, pdf, vdf, npc);
+        eps0 = 1.0;
+    }
+    else
+    {
+        double wpe = sqrt(ne * e * e / (eps0 * me));
+        dt /= wpe;
+        create_species.T = 1;
+        create_species.Q = 1;
+        create_species.M = 1;
+        create_species.X = 1;
+
+        create_species.create_raw(-e, me, ne, pdf, vdf, npc);
+    }
 
     auto species = create_species.species;
     Population pop(mesh, boundaries);
@@ -78,22 +89,45 @@ int main()
     num_i[0] = pop.num_of_positives();
     num_tot[0] = pop.num_of_particles();
 
-    for(int i=1; i<steps;++i)
+    std::vector<double> t_move(steps), t_update(steps), t_inject(steps);
+
+    for(int i = 1; i < steps; ++i)
     {
         auto tot_num0 = pop.num_of_particles();
+
+        timer.reset();
         move(pop, dt);
+        t_move[i] = timer.elapsed();
+        
+        timer.reset();
         pop.update();
+        t_update[i] = timer.elapsed();
+
         auto tot_num1 = pop.num_of_particles();
         num_particles_outside[i-1] = tot_num0-tot_num1;
+        
+        timer.reset();
         inject_particles(pop, species, ext_bnd, dt);
+        t_inject[i] = timer.elapsed();
+        
         auto tot_num2 = pop.num_of_particles();
         num_injected_particles[i-1] = tot_num2 - tot_num1;
         num_e[i] = pop.num_of_negatives();
         num_i[i] = pop.num_of_positives();
         num_tot[i] = pop.num_of_particles();
+
         std::cout<<"step: "<< i<< ", total number of particles: "<<num_tot[i]<<'\n';
     }
 
+    auto time_move = std::accumulate(t_move.begin(), t_move.end(), 0.0);
+    auto time_update = std::accumulate(t_update.begin(), t_update.end(), 0.0);
+    auto time_inject = std::accumulate(t_inject.begin(), t_inject.end(), 0.0);
+    
+    std::cout << "-----Measured time for each task----------" << '\n';
+    std::cout << "Move:      " << time_move << '\n';
+    std::cout << "Update:    " << time_update << '\n';
+    std::cout << "Inject:    " << time_inject << '\n';
+    
     std::string file_name{"vels_post.txt"};
     pop.save_vel(file_name);
 

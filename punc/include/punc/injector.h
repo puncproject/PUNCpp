@@ -19,6 +19,7 @@
 #define INJECTOR_H
 
 #include <dolfin.h>
+#include "population.h"
 #include <boost/math/special_functions/erf.hpp>
 #include <chrono>
 #include <random>
@@ -27,9 +28,6 @@ namespace punc
 {
 
 namespace df = dolfin;
-
-class Population;
-class Species;
 
 class Timer
 {
@@ -68,8 +66,6 @@ struct random_seed_seq
     std::random_device device;
 };
 
-std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> vec, double dv);
-
 struct Facet
 {
     double area;
@@ -81,103 +77,90 @@ struct Facet
 std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
                                        std::size_t ext_bnd_id);
 
-class ORS
-{
-public:
-    std::function<double(std::vector<double> &)> vdf;
-    int dim, nbins, num_edges;
-    std::vector<double> dv;
-    std::vector<std::vector<double>> sp;
-
-    std::vector<double> pdf_max;
-    std::vector<double> cdf;
-
-    typedef std::mt19937_64 random_source;
-    typedef std::uniform_real_distribution<double> distribution;
-    random_source rng;
-    distribution dist;
-
-    ORS(double vth, std::vector<double> &vd,
-        std::function<double(std::vector<double> &)> vdf, int num_sp=60);
-    std::vector<double> sample(const std::size_t N);
-};
-
-enum VDFType {Generic, Maxwellian};
-
-class Flux
-{
-public:
-    std::vector<double> num_particles;
-    virtual std::vector<double> sample(const std::size_t N, const std::size_t f){
-        std::vector<double> x;
-        return x;};
-};
-
-class GenericFlux
-{
-public:
-
-    int dim, nbins, num_edges;
-    std::vector<double> dv;
-    std::vector<std::vector<double>> sp;
-
-    std::vector<double> pdf_max;
-    std::vector<double> cdf;
-    std::vector<std::function<double(std::vector<double> &)>> vdf;
-    std::vector<double> num_particles;
-
-    typedef std::mt19937_64 random_source;
-    typedef std::uniform_real_distribution<double> distribution;
-    random_source rng;
-    distribution dist;
-
-    GenericFlux();
-    GenericFlux(double vth, std::vector<double> &vd,
-        const std::vector<std::vector<double>> &cutoffs,
-        int num_sp,
-        std::vector<Facet> &facets);
-    std::vector<double> sample(const std::size_t N, const std::size_t f);
-};
-
-class MaxwellianFlux : public Flux
+class UniformPosition : public Pdf
 {
 private:
-    std::vector<Facet> facets;
-
-    int nsp;
-    int dim;
-    double v0, dv;
-
-    std::vector<double> pdf_max;
-    std::vector<double> cdf;
-    std::vector<std::function<double(double)>> vdf;
-    std::vector<std::function<double(double, int)>> maxwellian;
-
-    typedef std::mt19937_64 random_source;
-    typedef std::uniform_real_distribution<double> distribution;
-    distribution dist;
-    random_source rng;
-
+    std::shared_ptr<const df::Mesh> mesh;
+    int dim_;
+    std::vector<double> domain_;
 public:
-    MaxwellianFlux(double vth, std::vector<double> &vd, std::vector<Facet> &facets);
-    std::vector<double> sample(const std::size_t N, const std::size_t f) override;
+    UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
+    {
+        dim_ = mesh->geometry().dim();
+        auto coordinates = mesh->coordinates();
+        auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
+        auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
+        domain_.resize(2 * dim_);
+        for (int i = 0; i < dim_; ++i)
+        {
+            domain_[i] = Ld_min;
+            domain_[i + dim_] = Ld_max;
+        }
+    }
+    double operator()(const std::vector<double> &x) 
+    { 
+        return (locate(mesh, x) >= 0) * 1.0; 
+    };
+    double max() { return 1.0;};
+    int dim() { return dim_; };
+    std::vector<double> domain() { return domain_; };
 };
 
-signed long int locate(std::shared_ptr<const df::Mesh> mesh, std::vector<double> x);
+class Maxwellian : public Pdf
+{
+private:
+    double vth_;
+    std::vector<double> vd_;
+    int dim_;
+    std::vector<double> domain_;
+    double vth2, factor;
+    std::vector<double> n_;
+    bool has_flux = false;
+    bool has_cdf = true;
+public:
+    Maxwellian(double vth, std::vector<double> &vd, double vdf_range = 5.0);
+    double operator()(const std::vector<double> &v);
+    double operator()(const std::vector<double> &x, const std::vector<double> &n);
+    double max() { return factor; };
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; };
+    double vth() { return vth_; };
+    std::vector<double> vd() { return vd_; };
+    void set_vth(double v) { vth_ = v; };
+    void set_vd(std::vector<double> &v) { vd_ = v; };
+    double flux(const std::vector<double> &n) { return 0; };
+    void set_flux_normal(std::vector<double> &n)
+    {
+        has_flux = true;
+        n_ = n;
+    }
+    double flux_num(const std::vector<double> &n, double S);
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    std::vector<double> cdf(const std::size_t N);
+};
 
-std::function<double(std::vector<double> &)> create_mesh_pdf(std::function<double(std::vector<double> &)> pdf,
-                                                             std::shared_ptr<const df::Mesh> mesh);
-
-std::vector<double> random_domain_points(
-    std::function<double(std::vector<double> &)> pdf,
-    double pdf_max, int N,
-    std::shared_ptr<const df::Mesh> mesh);
-
-std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices);
-
-std::vector<double> maxwellian(double vth, std::vector<double> vd, const int &N);
-
-std::function<double(std::vector<double> &)> maxwellian_vdf(double vth, std::vector<double> &vd);
+class Kappa : public Pdf
+{
+private:
+    double vth_;
+    std::vector<double> vd_;
+    double k;
+    int dim_;
+    std::vector<double> domain_;
+    double vth2, factor;
+public:
+    Kappa(double vth, std::vector<double> &vd, double k, double vdf_range = 7.0);
+    double operator()(const std::vector<double> &v);
+    double max() { return factor; }
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; }
+    double vth() { return vth_; }
+    std::vector<double> vd() { return vd_; };
+    void set_vth(double v) { vth_ = v; }
+    void set_vd(std::vector<double> &v) { vd_ = v; }
+    double flux(const std::vector<double> &n) { return 0; }
+    double flux_num(const std::vector<double> &n, double S) { return 0; }
+};
 
 void inject_particles(Population &pop, std::vector<Species> &species,
                       std::vector<Facet> &facets, const double dt);
