@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		diagnostics.cpp
+ * @brief		Kinetic and potential energy calculations
+ *
+ * Functions for calculating the kinetic and potential energies.
+ */
+
 #include "../include/punc/diagnostics.h"
 #include "../ufl/Energy.h"
 
@@ -133,4 +140,4 @@ double particle_potential_energy(Population &pop, const df::Function &phi)
     return PE;
 }
 
-}
+} // namespace punc

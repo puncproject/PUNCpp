@@ -48,7 +48,6 @@ int main(){
     double vthi = vthe/sqrt(1836.);
     vector<double> vd(dim, 0);
 
-    // auto pdf = [](vector<double> t)->double{return 1.0;};
     UniformPosition pdfe(mesh); // Electron position distribution
     UniformPosition pdfi(mesh); // Ion position distribution
 
