@@ -43,21 +43,23 @@ struct PhysicalConstants
 
 signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<double> &x);
 
-class Pdf 
+class Pdf : public df::Expression
 {
 private:
     double vth_;
     std::vector<double> vd_;
+    
 public:
-    virtual double operator()(const std::vector<double> &x) = 0;
-    virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
-    { 
-        double vn = 0.0;
-        for (int i = 0; i < dim(); ++i)
-        {
-            vn += x[i]*n[i];
-        }
-        return (vn > 0.0) * vn * this->operator()(x); 
+  bool has_cdf;
+  virtual double operator()(const std::vector<double> &x) = 0;
+  virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
+  {
+      double vn = 0.0;
+      for (int i = 0; i < dim(); ++i)
+      {
+          vn += x[i] * n[i];
+      }
+      return (vn > 0.0) * vn * this->operator()(x); 
     };
     virtual int dim() = 0;
     virtual double max() = 0;
@@ -66,8 +68,10 @@ public:
     virtual std::vector<double> vd(){return vd_;}
     virtual void set_vth(double v) {vth_= v;}
     virtual void set_vd(std::vector<double> &v) { vd_ = v; }
-    virtual double flux(const std::vector<double> &n) { return 0.0;}   // { return 0.0; };
-    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; } // { return 0.0; };
+    virtual double flux(const std::vector<double> &n) { return 0.0;}   
+    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; } 
+    virtual void set_flux_normal(std::vector<double> &n) {}
+    virtual std::vector<double> cdf(const std::size_t N) {return {};}
 };
 
 struct Particle

@@ -77,6 +77,35 @@ struct Facet
 std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
                                        std::size_t ext_bnd_id);
 
+class UniformPosition : public Pdf
+{
+private:
+    std::shared_ptr<const df::Mesh> mesh;
+    int dim_;
+    std::vector<double> domain_;
+public:
+    UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
+    {
+        dim_ = mesh->geometry().dim();
+        auto coordinates = mesh->coordinates();
+        auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
+        auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
+        domain_.resize(2 * dim_);
+        for (int i = 0; i < dim_; ++i)
+        {
+            domain_[i] = Ld_min;
+            domain_[i + dim_] = Ld_max;
+        }
+    }
+    double operator()(const std::vector<double> &x) 
+    { 
+        return (locate(mesh, x) >= 0) * 1.0; 
+    };
+    double max() { return 1.0;};
+    int dim() { return dim_; };
+    std::vector<double> domain() { return domain_; };
+};
+
 class Maxwellian : public Pdf
 {
 private:
@@ -85,19 +114,29 @@ private:
     int dim_;
     std::vector<double> domain_;
     double vth2, factor;
-
+    std::vector<double> n_;
+    bool has_flux = false;
+    bool has_cdf = true;
 public:
     Maxwellian(double vth, std::vector<double> &vd, double vdf_range = 5.0);
     double operator()(const std::vector<double> &v);
-    double max();
-    int dim();
-    std::vector<double> domain(); 
-    double vth();
-    std::vector<double> vd(); 
-    void set_vth(double v);
-    void set_vd(std::vector<double> &v);
-    double flux(const std::vector<double> &n);
+    double operator()(const std::vector<double> &x, const std::vector<double> &n);
+    double max() { return factor; };
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; };
+    double vth() { return vth_; };
+    std::vector<double> vd() { return vd_; };
+    void set_vth(double v) { vth_ = v; };
+    void set_vd(std::vector<double> &v) { vd_ = v; };
+    double flux(const std::vector<double> &n) { return 0; };
+    void set_flux_normal(std::vector<double> &n)
+    {
+        has_flux = true;
+        n_ = n;
+    }
     double flux_num(const std::vector<double> &n, double S);
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    std::vector<double> cdf(const std::size_t N);
 };
 
 class Kappa : public Pdf
@@ -109,233 +148,25 @@ private:
     int dim_;
     std::vector<double> domain_;
     double vth2, factor;
-
 public:
     Kappa(double vth, std::vector<double> &vd, double k, double vdf_range = 7.0);
     double operator()(const std::vector<double> &v);
-    double max();
-    int dim();
-    std::vector<double> domain();
-    double vth();
-    std::vector<double> vd();
-    void set_vth(double v);
-    void set_vd(std::vector<double> &v);
-    double flux(const std::vector<double> &n);
-    double flux_num(const std::vector<double> &n, double S);
+    double max() { return factor; }
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; }
+    double vth() { return vth_; }
+    std::vector<double> vd() { return vd_; };
+    void set_vth(double v) { vth_ = v; }
+    void set_vd(std::vector<double> &v) { vd_ = v; }
+    double flux(const std::vector<double> &n) { return 0; }
+    double flux_num(const std::vector<double> &n, double S) { return 0; }
 };
-
-class UniformPosition : public Pdf 
-{
-private:
-    std::shared_ptr<const df::Mesh> mesh;
-    int dim_;
-    std::vector<double> domain_;
-
-public:
-    UniformPosition(std::shared_ptr<const df::Mesh> mesh);
-    double operator()(const std::vector<double> &x);
-    double max();
-    int dim();
-    std::vector<double> domain();
-};
-
-class LangmuirWave2D : public Pdf
-{
-private:
-    std::shared_ptr<const df::Mesh> mesh;
-    double amplitude, mode;
-    const std::vector<double> Ld;
-    int dim_;
-    std::vector<double> domain_;
-
-public:
-  LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
-                 double amplitude, double mode,
-                 const std::vector<double> &Ld);
-
-    double operator()(const std::vector<double> &x);
-    double max();
-    int dim();
-    std::vector<double> domain();
-};
-
-enum Sampler
-{
-    SRS,
-    ORS
-};
-
-// class Sampler
-// {
-//   public:
-//     virtual std::vector<double> sample(const std::size_t N) = 0;
-//     virtual std::vector<double> sample(const std::size_t N, const std::vector<double> &normal) = 0;
-// };
-
-class RejectionSampler 
-{
-  private:
-    Pdf &pdf;
-
-    typedef std::uniform_real_distribution<double> rand_uniform;
-    typedef std::vector<std::uniform_real_distribution<double>> rand_uniform_vec;
-
-    rand_uniform rand;
-    rand_uniform_vec rand_vec;
-
-    int dim;
-    std::vector<double> domain;
-
-  public:
-    RejectionSampler(Pdf &pdf);
-    std::vector<double> sample(const std::size_t N);
-    std::vector<double> sample(const std::size_t N, const std::vector<double> &normal);
-};
-
-std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf);
-
-// std::vector<double> rejection_sampler(const std::size_t N, 
-//                                       double (&pdf) (std::vector<double>&), 
-//                                       double pdf_max, int dim, 
-//                                       std::vector<double> &domain);
-
-
-std::vector<double> rejection_sampler(const std::size_t N, 
-                                      std::function<double(std::vector<double> &)> pdf, 
-                                      double pdf_max, int dim, 
-                                      std::vector<double> domain);
-
-std::vector<double> rejection_sampler(const std::size_t N, Pdf &pdf, const std::vector<double> &normal);
-
-std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices);
 
 void inject_particles(Population &pop, std::vector<Species> &species,
                       std::vector<Facet> &facets, const double dt);
 
-void load_particles(Population &pop, std::vector<Species> &species,
-                    Sampler posSampler,
-                    Sampler velSampler);
+void load_particles(Population &pop, std::vector<Species> &species);
 
-void load_particles(Population &pop, std::vector<Species> &species,
-                    const std::string &posSampler,
-                    const std::string &velSampler);
-
-void load_particles(Population &pop, std::vector<Species> &species,
-                    std::vector<double> (&pos_sampler) (const std::size_t, Pdf&),
-                    std::vector<double> (&vel_sampler) (const std::size_t, Pdf&));
-                    
-// std::vector<std::vector<double>> combinations(std::vector<std::vector<double>> vec, double dv);
-
-// class ORS : Sampler {
-// public:
-//     std::function<double(std::vector<double> &)> vdf;
-//     int dim, nbins, num_edges;
-//     std::vector<double> dv;
-//     std::vector<std::vector<double>> sp;
-
-//     std::vector<double> pdf_max;
-//     std::vector<double> cdf;
-
-//     typedef std::mt19937_64 random_source;
-//     typedef std::uniform_real_distribution<double> distribution;
-//     random_source rng;
-//     distribution dist;
-
-//     // ORS(double vth, std::vector<double> &vd,
-//     //     std::function<double(std::vector<double> &)> vdf, int num_sp=60);
-//     ORS(const Pdf &pdf, int num_sp=60);
-//     std::vector<double> sample(std::size_t N);
-//     std::vector<double> sample(std::size_t N, const vector<double> &n);
-// };
-
-// enum VDFType {Generic, Maxwellian};
-
-// class Flux
-// {
-// public:
-//     std::vector<double> num_particles;
-//     virtual std::vector<double> sample(const std::size_t N, const std::size_t f){
-//         std::vector<double> x;
-//         return x;};
-// };
-
-// class GenericFlux
-// {
-// public:
-
-//     int dim, nbins, num_edges;
-//     std::vector<double> dv;
-//     std::vector<std::vector<double>> sp;
-
-//     std::vector<double> pdf_max;
-//     std::vector<double> cdf;
-//     std::vector<std::function<double(std::vector<double> &)>> vdf;
-//     std::vector<double> num_particles;
-
-//     typedef std::mt19937_64 random_source;
-//     typedef std::uniform_real_distribution<double> distribution;
-//     random_source rng;
-//     distribution dist;
-
-//     GenericFlux();
-//     GenericFlux(double vth, std::vector<double> &vd,
-//         const std::vector<std::vector<double>> &cutoffs,
-//         int num_sp,
-//         std::vector<Facet> &facets);
-//     std::vector<double> sample(const std::size_t N, const std::size_t f);
-// };
-
-// class MaxwellianFlux : public Flux
-// {
-// private:
-//     std::vector<Facet> facets;
-
-//     int nsp;
-//     int dim;
-//     double v0, dv;
-
-//     std::vector<double> pdf_max;
-//     std::vector<double> cdf;
-//     std::vector<std::function<double(double)>> vdf;
-//     std::vector<std::function<double(double, int)>> maxwellian;
-
-//     typedef std::mt19937_64 random_source;
-//     typedef std::uniform_real_distribution<double> distribution;
-//     distribution dist;
-//     random_source rng;
-
-// public:
-//     MaxwellianFlux(double vth, std::vector<double> &vd, std::vector<Facet> &facets);
-//     std::vector<double> sample(const std::size_t N, const std::size_t f) override;
-// };
-
-// std::function<double(std::vector<double> &)> create_mesh_pdf(std::function<double(std::vector<double> &)> pdf,
-//                                                              std::shared_ptr<const df::Mesh> mesh);
-
-// std::vector<double> random_domain_points(
-//     std::function<double(std::vector<double> &)> pdf,
-//     double pdf_max, int N,
-//     std::shared_ptr<const df::Mesh> mesh);
-
-// std::vector<double> random_facet_points(const int N, std::vector<double> &facet_vertices);
-
-// std::vector<double> maxwellian(double vth, std::vector<double> vd, const int &N);
-
-// std::function<double(std::vector<double> &)> maxwellian_vdf(double vth, std::vector<double> &vd);
-
-// void inject_particles(Population &pop, std::vector<Species> &species,
-//                       std::vector<Facet> &facets, const double dt);
-// void inject_particles(Population &pop, std::vector<Species> &species,
-//                       std::vector<Facet> &facets, const double dt,
-//                       const std::string &sampler);
-
-// void load_particles(Population &pop, std::vector<Species> &species,
-//                     std::vector<Sampler*> posSampler,
-//                     std::vector<Sampler*> velSampler);
-
-// void load_particles(Population &pop, std::vector<Species> &species,
-//                     const std::string &posSampler,
-//                     const std::string &velSampler);
 }
 
 #endif

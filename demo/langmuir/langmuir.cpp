@@ -3,6 +3,49 @@
 
 using namespace punc;
 
+class LangmuirWave2D : public Pdf
+{
+  private:
+    std::shared_ptr<const df::Mesh> mesh;
+    double amplitude, mode;
+    const std::vector<double> Ld;
+    int dim_;
+    std::vector<double> domain_;
+
+  public:
+    LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+                   double amplitude, double mode,
+                   const std::vector<double> &Ld);
+
+    double operator()(const std::vector<double> &x);
+    double max() { return 1.0 + amplitude; }
+    int dim() { return dim_; }
+    std::vector<double> domain() { return domain_; }
+};
+
+LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+                               double amplitude, double mode,
+                               const std::vector<double> &Ld)
+    : mesh(mesh), amplitude(amplitude), mode(mode),
+      Ld(Ld)
+{
+    dim_ = mesh->geometry().dim();
+    auto coordinates = mesh->coordinates();
+    auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
+    auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
+    domain_.resize(2 * dim_);
+    for (int i = 0; i < dim_; ++i)
+    {
+        domain_[i] = Ld_min;
+        domain_[i + dim_] = Ld_max;
+    }
+}
+
+double LangmuirWave2D::operator()(const std::vector<double> &x)
+{
+    return (locate(mesh, x) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+}
+
 int main()
 {
     df::set_log_level(df::WARNING);
@@ -13,8 +56,7 @@ int main()
 
     std::string fname{"../../mesh/2D/nothing_in_square"};
     auto mesh = load_mesh(fname);
-    auto D = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
+    auto dim = mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -22,13 +64,8 @@ int main()
 
     bool remove_null_space = true;
     std::vector<double> Ld = get_mesh_size(mesh);
-    std::vector<bool> periodic(D);
-    std::vector<double> vd(D);
-    for (std::size_t i = 0; i<D; ++i)
-    {
-        periodic[i] = true;
-        vd[i] = 0.0;
-    }
+    std::vector<bool> periodic(dim, true);
+    std::vector<double> vd(dim, 0.0);
 
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
@@ -51,14 +88,6 @@ int main()
     Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
     Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
 
-    // RejectionSampler ePosSampler(pdfe);
-    // RejectionSampler iPosSampler(pdfi);
-    // RejectionSampler eVelSampler(vdfe);
-    // RejectionSampler iVelSampler(vdfi);
-
-    // std::vector<Sampler*> posSampler{&ePosSampler, &iPosSampler};
-    // std::vector<Sampler*> velSampler{&eVelSampler, &iVelSampler};
-
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
@@ -71,8 +100,7 @@ int main()
 
     Population pop(mesh, boundaries);
 
-    load_particles(pop, species, "RejectionSampler", "RejectionSampler");
-    // load_particles(pop, species, rejection_sampler, rejection_sampler);
+    load_particles(pop, species);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
