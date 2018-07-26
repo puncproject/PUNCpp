@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/injector.h"
+#include "../include/punc/injector.h"
 
 namespace punc
 {

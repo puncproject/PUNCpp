@@ -96,8 +96,8 @@ int main()
     bool si_units = true;
     if (!si_units)
     {
-        create_species.create(-e, me, ne, npc, vth, vd, pdfe, pdf_max);
-        create_species.create(e, mi, ne, npc, vth, vd, pdfi, 1.0);
+        create_species.create(-e, me, ne, pdfe, vdfe, npc);
+        create_species.create(e, mi, ne, pdfi, vdfi, npc);
         eps0 = 1.0;
     }
     else
@@ -109,8 +109,8 @@ int main()
         create_species.M = 1;
         create_species.X = 1;
 
-        create_species.create_raw(-e, me, ne, npc, vth, vd, pdfe, pdf_max);
-        create_species.create_raw(e, mi, ne, npc, vth, vd, pdfi, 1.0);
+        create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
+        create_species.create_raw(e, mi, ne, pdfi, vdfi, npc);
     }
 
     auto species = create_species.species;

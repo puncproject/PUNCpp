@@ -1,3 +1,4 @@
+
 // Copyright (C) 2018, Diako Darian and Sigvald Marholm
 //
 // This file is part of PUNC++.

@@ -48,12 +48,17 @@ int main(){
     double vthi = vthe/sqrt(1836.);
     vector<double> vd(dim, 0);
 
-    auto pdf = [](vector<double> t)->double{return 1.0;};
+    // auto pdf = [](vector<double> t)->double{return 1.0;};
+    UniformPosition pdfe(mesh); // Electron position distribution
+    UniformPosition pdfi(mesh); // Ion position distribution
+
+    Maxwellian vdfe(vthe, vd); // Velocity distribution for electrons
+    Maxwellian vdfi(vthi, vd); // Velocity distribution for ions
 
 
-    CreateSpecies create_species(mesh, facet_vec);
-    create_species.create_raw(-e, me, ne, npc, vthe, vd, pdf, 1.0);
-    create_species.create_raw( e, mi, ne, npc, vthi, vd, pdf, 1.0);
+    CreateSpecies create_species(mesh);
+    create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
+    create_species.create_raw( e, mi, ne, pdfi, vdfi, npc);
     auto species = create_species.species;
 
     //
