@@ -43,7 +43,7 @@ namespace df = dolfin;
  * approximated value for the volume of the Voronoi cell defined at \f$x_j\f$ is
  * given by 
  * \f[
- *      \operatorname{Vol}(R_j) = \frac{1}{D+1}\sum_{i=1}^{k}\operatorname{Vol}(T_k),
+ *      \mathrm{Vol}(R_j) = \frac{1}{D+1}\sum_{i=1}^{k}\mathrm{Vol}(T_k),
  * \f]
  * where \f$T_k\in M_j\f$ has \f$x_j\f$ as one of its vertices.
  */
@@ -57,11 +57,11 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi = fa
  * @return      rho       Function - the volume charge density 
  * @see distribute_dg0()
  * 
- * Calculates the volume charge density in \f$\operatorname{CG}_1\f$ function 
+ * Calculates the volume charge density in \f$\mathrm{CG}_1\f$ function 
  * space. The volume charge density at each mesh vertex \f$\mathbf{x}_j\f$, is 
  * calculated by interpolating the charge of each particle inside all the cells 
  * sharing vertex \f$\mathbf{x}_j\f$, i.e. the patch \f$\mathcal{M}_j\f$. The
- * interpolation is done by evaluating the \f$\operatorname{CG}_1\f$ basis 
+ * interpolation is done by evaluating the \f$\mathrm{CG}_1\f$ basis 
  * function \f$\psi_j\f$, at the particle position \f$\mathbf{x}_{p}\f$. The 
  * interpolated charge at each mesh vertex is divided by a proper volume 
  * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to obtain the volume 
@@ -82,13 +82,13 @@ df::Function distribute(const df::FunctionSpace &V,
  * @return      rho       Function - the volume charge density 
  * @see distribute()
  * 
- * Calculates the volume charge density in \f$\operatorname{DG}_0\f$ function 
+ * Calculates the volume charge density in \f$\mathrm{DG}_0\f$ function 
  * space. The volume charge density in each cell \f$T_k\f$, is simply 
  * calculated by adding together the charge of each particle inside the cell, 
  * and then dividing the total charge inside the cell by the volume of the cell:
  * 
  * \f[
- *       \rho_{k} = \frac{1}{\operatorname{Vol}(T_k)}\sum_{p}q_p,
+ *       \rho_{k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p}q_p,
  * \f]
  */
 df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop);
