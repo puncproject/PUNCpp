@@ -39,6 +39,42 @@ namespace punc
  */
 static inline std::vector<double> cross(const std::vector<double> &v1,
                                         const std::vector<double> &v2);
+/**
+ * @brief Get the linear expansion coefficients for a function at a cell
+ * @param[out]  coefficients    Expansion coefficients
+ * @param       coords          The (x,y,z) coordinates of the vertices
+ * @param       values          The function values at the vertices
+ *
+ * A linear function on a tetrahedral cell can be written as a function of
+ * barycentric coordinates (lambda_1, labmda_2, lambda_3, lambda_4):
+ *
+ *      f(lambda_1, lambda_2, lambda_3, lambda_4) = f_1*lambda_1
+ *                                                + f_2*lambda_2
+ *                                                + f_3*lambda_3
+ *                                                + f_4*lambda_4
+ *
+ * Where f_i is the value of f at vertex i. If A is the matrix converting from
+ * cartesian coordinates x_j to barycentric coordinates lambda_i;
+ *
+ *      lambda_i = sum_j A_ij x_j
+ *
+ * where the vector x = (1, x, y, z) (mind the 1 as the first element) one can
+ * write:
+ *
+ *      f(x) = sum_j c_j x_j
+ *
+ * where
+ * 
+ *      c_j = sum_i A_ij f_j    // FIXME: Do proper LaTeX-ninja
+ *
+ * This function returns the coefficients c_j, which can be reused on all
+ * particles in the same cell.
+ *
+ * To use this with vector functions, one must use it once per component of
+ * the vector as values.
+ */
+static inline get_expcoeffs_3d(double *coeffs,
+        const double *coords, const double *values);
 
 /*******************************************************************************
  * GLOBAL DEFINITIONS
@@ -101,6 +137,65 @@ double accel(Population &pop, const df::Function &E, double dt)
             for (std::size_t j = 0; j < v_dim; j++)
             {
                 pop.cells[cell_id].particles[p_id].v[j] += Ei[j];
+            }
+        }
+    }
+    return KE;
+}
+
+double accel_cg1(Population &pop, const df::Function &E, double dt) {
+
+    auto W = E.function_space();
+    auto mesh = W->mesh();
+    auto element = W->element();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim/g_dim; // Number of vertices
+
+    double KE = 0.0;
+
+    std::vector<double> vertex_coordinates(t_dim);
+    double Ei[v_dim];
+    double coeffs[s_dim];
+    double values[s_dim];
+
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e){
+
+        auto cell_id = e->index();
+        df::Cell _cell(*mesh, cell_id);
+        _cell.get_vertex_coordinates(vertex_coordinates);
+
+        ufc::cell ufc_cell;
+        _cell.get_cell_data(ufc_cell);
+
+        E.restrict(values, *element, _cell, vertex_coordinates.data(), ufc_cell);
+
+        for(std::size_t j=0; j<v_dim; j++){
+            get_expcoeffs_3d(&coeffs[n_dim*j],
+                    vertex_coordinates.data(), &values[n_dim*j]);
+        }
+
+        std::size_t num_particles = pop.cells[cell_id].particles.size();
+        for(auto &particle : pop.cells[cell_id].particles) {
+
+            double m = particle.m;
+            double q = particle.q;
+            auto &vel = particle.v;
+            
+            for (std::size_t j = 0; j < v_dim; j++){
+                double *coeffs_d = &coeffs[n_dim*j];
+                Ei[j]  = coeffs_d[0];
+                Ei[j] += coeffs_d[1]*particle.x[0];
+                Ei[j] += coeffs_d[2]*particle.x[1];
+                Ei[j] += coeffs_d[3]*particle.x[2];
+            }
+
+            for (std::size_t j = 0; j < v_dim; j++) {
+                Ei[j] *= dt * (q / m);
+                KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
+                particle.v[j] += Ei[j];
             }
         }
     }
@@ -383,6 +478,76 @@ static inline std::vector<double> cross(const std::vector<double> &v1,
     r[1] = -v1[0] * v2[2] + v1[2] * v2[0];
     r[2] = v1[0] * v2[1] - v1[1] * v2[0];
     return r;
+}
+
+static inline get_expcoeffs_3d(double *coeffs,
+        const double *coords, const double *values){
+
+    double x1 = coords[0];
+    double y1 = coords[1];
+    double z1 = coords[2];
+    double x2 = coords[3];
+    double y2 = coords[4];
+    double z2 = coords[5];
+    double x3 = coords[6];
+    double y3 = coords[7];
+    double z3 = coords[8];
+    double x4 = coords[9];
+    double y4 = coords[10];
+    double z4 = coords[11];
+
+    // I'm using lots of intermediate variables to make it possible for me to
+    // write almost mathematical notation, and easier to compare with
+    // literature. The compiler should optimize these away.
+    // See 9.1.6 in
+    // https://www.colorado.edu/engineering/CAS/courses.d/AFEM.d/AFEM.Ch09.d/AFEM.Ch09.pdf
+
+    double x12 = x1-x2;   double y12 = y1-y2;   double z12 = z1-z2;
+    double x13 = x1-x3;   double y13 = y1-y3;   double z13 = z1-z3;
+    double x14 = x1-x4;   double y14 = y1-y4;   double z14 = z1-z4;
+    double x21 = x2-x1;   double y21 = y2-y1;   double z21 = z2-z1;
+    double x23 = x2-x3;   double y23 = y2-y3;   double z23 = z2-z3;
+    double x24 = x2-x4;   double y24 = y2-y4;   double z24 = z2-z4;
+    double x31 = x3-x1;   double y31 = y3-y1;   double z31 = z3-z1;
+    double x32 = x3-x2;   double y32 = y3-y2;   double z32 = z3-z2;
+    double x34 = x3-x4;   double y34 = y3-y4;   double z34 = z3-z4;
+    double x41 = x4-x1;   double y41 = y4-y1;   double z41 = z4-z1;
+    double x42 = x4-x2;   double y42 = y4-y2;   double z42 = z4-z2;
+    double x43 = x4-x3;   double y43 = y4-y3;   double z43 = z4-z3;
+
+    double V01 = (x2*(y3*z4-y4*z3) + x3*(y4*z2-y2*z4) + x4*(y2*z3-y3*z2))/6.0;
+    double V02 = (x1*(y4*z3-y3*z4) + x3*(y1*z4-y4*z1) + x4*(y3*z1-y1*z3))/6.0;
+    double V03 = (x1*(y2*z4-y4*z2) + x2*(y4*z1-y1*z4) + x4*(y1*z2-y2*z1))/6.0;
+    double V04 = (x1*(y3*z2-y2*z3) + x2*(y1*z3-y3*z1) + x3*(y2*z1-y1*z2))/6.0;
+    double V = V01 + V02 + V03 + V04;
+    double V6 = 6*V;
+
+    double A11 = V01/V;
+    double A12 = V02/V;
+    double A13 = V03/V;
+    double A14 = V04/V;
+
+    double A21 = (y42*z32 - y32*z42)/V6;  // a1 / 6V
+    double A22 = (y31*z43 - y34*z13)/V6;  // a2 / 6V
+    double A23 = (y24*z14 - y14*z24)/V6;  // a3 / 6V
+    double A24 = (y13*z21 - y12*z31)/V6;  // a4 / 6V
+
+    double A31 = (x32*z42 - x42*z32)/V6;  // b1 / 6V
+    double A32 = (x43*z31 - x13*z34)/V6;  // b2 / 6V
+    double A33 = (x14*z24 - x24*z14)/V6;  // b3 / 6V
+    double A34 = (x21*z13 - x31*z12)/V6;  // b4 / 6V
+
+    double A41 = (x42*y32 - x32*y42)/V6;  // c1 / 6V
+    double A42 = (x31*y43 - x34*y13)/V6;  // c2 / 6V
+    double A43 = (x24*y14 - x14*y24)/V6;  // c3 / 6V
+    double A44 = (x13*y21 - x12*y31)/V6;  // c4 / 6V
+
+    const double *f = values;
+    coeffs[0] = A11*f[0] + A21*f[1] + A31*f[2] + A41*f[3];
+    coeffs[1] = A12*f[0] + A22*f[1] + A32*f[2] + A42*f[3];
+    coeffs[2] = A13*f[0] + A23*f[1] + A33*f[2] + A43*f[3];
+    coeffs[3] = A14*f[0] + A24*f[1] + A34*f[2] + A44*f[3];
+
 }
 
 } // namespace punc
