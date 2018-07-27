@@ -81,20 +81,20 @@ class UniformPosition : public Pdf
 {
 private:
     std::shared_ptr<const df::Mesh> mesh;
-    int dim_;
-    std::vector<double> domain_;
+    int _dim;
+    std::vector<double> _domain;
 public:
     UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
     {
-        dim_ = mesh->geometry().dim();
+        _dim = mesh->geometry().dim();
         auto coordinates = mesh->coordinates();
         auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
         auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-        domain_.resize(2 * dim_);
-        for (int i = 0; i < dim_; ++i)
+        _domain.resize(2 * _dim);
+        for (int i = 0; i < _dim; ++i)
         {
-            domain_[i] = Ld_min;
-            domain_[i + dim_] = Ld_max;
+            _domain[i] = Ld_min;
+            _domain[i + _dim] = Ld_max;
         }
     }
     double operator()(const std::vector<double> &x) 
@@ -102,17 +102,17 @@ public:
         return (locate(mesh, x) >= 0) * 1.0; 
     };
     double max() { return 1.0;};
-    int dim() { return dim_; };
-    std::vector<double> domain() { return domain_; };
+    int dim() { return _dim; };
+    std::vector<double> domain() { return _domain; };
 };
 
 class Maxwellian : public Pdf
 {
 private:
-    double vth_;
-    std::vector<double> vd_;
-    int dim_;
-    std::vector<double> domain_;
+    double _vth;
+    std::vector<double> _vd;
+    int _dim;
+    std::vector<double> _domain;
     double vth2, factor;
     std::vector<double> n_;
     bool has_flux = false;
@@ -122,12 +122,12 @@ public:
     double operator()(const std::vector<double> &v);
     double operator()(const std::vector<double> &x, const std::vector<double> &n);
     double max() { return factor; };
-    int dim() { return dim_; }
-    std::vector<double> domain() { return domain_; };
-    double vth() { return vth_; };
-    std::vector<double> vd() { return vd_; };
-    void set_vth(double v) { vth_ = v; };
-    void set_vd(std::vector<double> &v) { vd_ = v; };
+    int dim() { return _dim; }
+    std::vector<double> domain() { return _domain; };
+    double vth() { return _vth; };
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; };
+    void set_vd(std::vector<double> &v) { _vd = v; };
     double flux(const std::vector<double> &n) { return 0; };
     void set_flux_normal(std::vector<double> &n)
     {
@@ -142,24 +142,48 @@ public:
 class Kappa : public Pdf
 {
 private:
-    double vth_;
-    std::vector<double> vd_;
+    double _vth;
+    std::vector<double> _vd;
     double k;
-    int dim_;
-    std::vector<double> domain_;
+    int _dim;
+    std::vector<double> _domain;
     double vth2, factor;
 public:
     Kappa(double vth, std::vector<double> &vd, double k, double vdf_range = 7.0);
     double operator()(const std::vector<double> &v);
     double max() { return factor; }
-    int dim() { return dim_; }
-    std::vector<double> domain() { return domain_; }
-    double vth() { return vth_; }
-    std::vector<double> vd() { return vd_; };
-    void set_vth(double v) { vth_ = v; }
-    void set_vd(std::vector<double> &v) { vd_ = v; }
+    int dim() { return _dim; }
+    std::vector<double> domain() { return _domain; }
+    double vth() { return _vth; }
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; }
+    void set_vd(std::vector<double> &v) { _vd = v; }
     double flux(const std::vector<double> &n) { return 0; }
     double flux_num(const std::vector<double> &n, double S) { return 0; }
+};
+
+class Cairns : public Pdf
+{
+  private:
+    double _vth;
+    std::vector<double> _vd;
+    double alpha;
+    int _dim;
+    std::vector<double> _domain;
+    double vth2, factor;
+
+  public:
+    Cairns(double vth, std::vector<double> &vd, double alpha, double vdf_range = 7.0);
+    double operator()(const std::vector<double> &v);
+    double max();
+    int dim() { return _dim; }
+    std::vector<double> domain() { return _domain; }
+    double vth() { return _vth; }
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; }
+    void set_vd(std::vector<double> &v) { _vd = v; }
+    double flux(const std::vector<double> &n) { return 0; }
+    double flux_num(const std::vector<double> &n, double S);
 };
 
 void inject_particles(Population &pop, std::vector<Species> &species,

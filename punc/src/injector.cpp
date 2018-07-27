@@ -102,31 +102,31 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
 }
 
 Maxwellian::Maxwellian(double vth, std::vector<double> &vd, 
-                       double vdf_range) : vth_(vth), vd_(vd), dim_(vd.size())
+                       double vdf_range) : _vth(vth), _vd(vd), _dim(vd.size())
 {
-    if (vth_ == 0.0)
+    if (_vth == 0.0)
     {
-        vth_ = std::numeric_limits<double>::epsilon();
+        _vth = std::numeric_limits<double>::epsilon();
         vdf_range = 1.0;
     }
-    domain_.resize(2 * dim_);
-    n_.resize(dim_);
-    for (int i = 0; i < dim_; ++i)
+    _domain.resize(2 * _dim);
+    n_.resize(_dim);
+    for (int i = 0; i < _dim; ++i)
     {
-        domain_[i] = -vdf_range * vth_;
-        domain_[i + dim_] = vdf_range * vth_;
+        _domain[i] = -vdf_range * _vth;
+        _domain[i + _dim] = vdf_range * _vth;
         n_[i] = 1.0;
     }
-    vth2 = vth_ * vth_;
-    factor = (1.0 / (pow(sqrt(2. * M_PI * vth2), dim_)));
+    vth2 = _vth * _vth;
+    factor = (1.0 / (pow(sqrt(2. * M_PI * vth2), _dim)));
 }
 
 double Maxwellian::operator()(const std::vector<double> &v)
 {
     double v_sqrt = 0.0;
-    for (int i = 0; i < dim_; ++i)
+    for (int i = 0; i < _dim; ++i)
     {
-        v_sqrt += (v[i] - vd_[i]) * (v[i] - vd_[i]);
+        v_sqrt += (v[i] - _vd[i]) * (v[i] - _vd[i]);
     }
     return factor * exp(-0.5 * v_sqrt / vth2);
 }
@@ -143,25 +143,25 @@ double Maxwellian::operator()(const std::vector<double> &x, const std::vector<do
 
 double Maxwellian::flux_num(const std::vector<double> &n, double S) 
 {
-    auto vdn = std::inner_product(n.begin(), n.end(), vd_.begin(), 0.0);
+    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
 
-    auto num_particles = S * (vth_ / (sqrt(2 * M_PI)) *
-                        exp(-0.5 * (vdn / vth_) * (vdn / vth_)) +
-                        0.5 * vdn * (1. + erf(vdn / (sqrt(2) * vth_))));
+    auto num_particles = S * (_vth / (sqrt(2 * M_PI)) *
+                        exp(-0.5 * (vdn / _vth) * (vdn / _vth)) +
+                        0.5 * vdn * (1. + erf(vdn / (sqrt(2) * _vth))));
     return num_particles; 
 }
 
 void Maxwellian::eval(df::Array<double> &values, const df::Array<double> &x) const
 {
     double vn, v_sqrt = 0.0;
-    for (int i = 0; i < dim_; ++i)
+    for (int i = 0; i < _dim; ++i)
     {
-        v_sqrt += (x[i] - vd_[i]) * (x[i] - vd_[i]);
+        v_sqrt += (x[i] - _vd[i]) * (x[i] - _vd[i]);
     }
     if (has_flux)
     {
         vn = 0.0;
-        for (int i = 0; i < dim_; ++i)
+        for (int i = 0; i < _dim; ++i)
         {
             vn += x[i] * n_[i];
         }
@@ -177,46 +177,107 @@ std::vector<double> Maxwellian::cdf(const std::size_t N)
     rand_uniform rand(0.0, 1.0);
 
     double r;
-    std::vector<double> vs(N * dim_);
-    for (auto j = 0; j < dim_; ++j)
+    std::vector<double> vs(N * _dim);
+    for (auto j = 0; j < _dim; ++j)
     {
         for (std::size_t i = 0; i < N; ++i)
         {
             r = rand(rng);
-            vs[i*dim_+j] = vd_[j] - sqrt(2.0)*vth_*boost::math::erfc_inv(2*r);
+            vs[i*_dim+j] = _vd[j] - sqrt(2.0)*_vth*boost::math::erfc_inv(2*r);
         }
     }
     return vs;
 }
 
 Kappa::Kappa(double vth, std::vector<double> &vd, double k, double vdf_range) 
-            : vth_(vth), vd_(vd), k(k)
+            : _vth(vth), _vd(vd), k(k)
 {
-    if (vth_ == 0.0)
+    assert(k > 1.5 && "kappa must be bigger than 3/2");
+    if (_vth == 0.0)
     {
-        vth_ = std::numeric_limits<double>::epsilon();
+        _vth = std::numeric_limits<double>::epsilon();
         vdf_range = 1.0;
     }
-    dim_ = vd.size();
-    domain_.resize(2 * dim_);
-    for (int i = 0; i < dim_; ++i)
+    _dim = vd.size();
+    _domain.resize(2 * _dim);
+    for (int i = 0; i < _dim; ++i)
     {
-        domain_[i] = -vdf_range * vth_;
-        domain_[i + dim_] = vdf_range * vth_;
+        _domain[i] = -vdf_range * _vth;
+        _domain[i + _dim] = vdf_range * _vth;
     }
-    vth2 = vth_ * vth_;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), dim_)) *
-                ((tgamma(k + 0.5 * (dim_ - 1.0))) / (tgamma(k - 0.5)));
+    vth2 = _vth * _vth;
+    factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), _dim)) *
+                ((tgamma(k + 0.5 * (_dim - 1.0))) / (tgamma(k - 0.5)));
 }
 
 double Kappa::operator()(const std::vector<double> &v)
 {
-    double v_sqrt = 0.0;
-    for (int i = 0; i < dim_; ++i)
+    double v2 = 0.0;
+    for (int i = 0; i < _dim; ++i)
     {
-        v_sqrt += (v[i] - vd_[i]) * (v[i] - vd_[i]);
+        v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
     }
-    return factor * pow(1.0 + v_sqrt / ((2 * k - 3.) * vth2), -(k + 0.5 * (dim_ - 1.)));
+    return factor * pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+}
+
+Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, double vdf_range)
+    : _vth(vth), _vd(vd), alpha(alpha)
+{
+    if (_vth == 0.0)
+    {
+        _vth = std::numeric_limits<double>::epsilon();
+        vdf_range = 1.0;
+    }
+    _dim = vd.size();
+    _domain.resize(2 * _dim);
+    for (int i = 0; i < _dim; ++i)
+    {
+        _domain[i] = -vdf_range * _vth;
+        _domain[i + _dim] = vdf_range * _vth;
+    }
+    vth2 = _vth * _vth;
+    factor = (1.0 / (pow(sqrt(2 * M_PI * vth2), _dim) * (1 + _dim * (_dim + 2) * alpha)));
+}
+
+double Cairns::operator()(const std::vector<double> &v)
+{
+    double v2 = 0.0;
+    for (int i = 0; i < _dim; ++i)
+    {
+        v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
+    }
+    double v4 = v2 * v2;
+    return factor * (1 + alpha * v4 / pow(vth2, 2)) * exp(-0.5 * v2 / vth2);
+}
+
+double Cairns::max()
+{
+    if (alpha < 0.25)
+    {
+        return factor;
+    }
+    else
+    {
+        std::vector<double> v_max(_dim);
+        v_max = _vd;
+        v_max[0] += _vth * sqrt(2.0 + sqrt(4.0 - 1.0 / alpha));
+        double max = (*this)(v_max);
+        max = factor > max ? factor : max;
+        return max;
+    }
+}
+
+double Cairns::flux_num(const std::vector<double> &n, double S)
+{
+    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
+
+    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) *
+                        exp(-0.5 * (vdn / _vth) * (vdn / _vth)) *
+                        ( 1 + (_dim + 1) * (_dim + 3) * alpha +
+                        (vdn / _vth) * (vdn / _vth) * alpha )  / 
+                        (1 + _dim * (_dim + 2) * alpha) +
+                        0.5 * vdn * (1. + erf(vdn / (sqrt(2) * _vth))));
+    return num_particles;
 }
 
 std::vector<double> rejection_sampler(const std::size_t N,

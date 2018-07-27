@@ -92,7 +92,7 @@ class PoissonSolver {
 private:
     boost::optional<std::vector<df::DirichletBC> &> ext_bc; /// < Exterior boundaries
     bool remove_null_space;                                 /// < Whether or not to remove null space
-    std::unique_ptr<df::PETScKrylovSolver> solver;          /// < Linear algebra solver
+    std::shared_ptr<df::PETScKrylovSolver> solver;          /// < Linear algebra solver
     std::shared_ptr<df::Form> a;                            /// < Bilinear form
     std::shared_ptr<df::Form> L;                            /// < Linear form
     df::PETScMatrix A;                                      /// < Stiffness matrix

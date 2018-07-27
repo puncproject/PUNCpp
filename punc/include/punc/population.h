@@ -46,8 +46,8 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<d
 class Pdf : public df::Expression
 {
 private:
-    double vth_;
-    std::vector<double> vd_;
+    double _vth;
+    std::vector<double> _vd;
     
 public:
   bool has_cdf;
@@ -64,10 +64,10 @@ public:
     virtual int dim() = 0;
     virtual double max() = 0;
     virtual std::vector<double> domain() = 0;
-    virtual double vth(){return vth_;}
-    virtual std::vector<double> vd(){return vd_;}
-    virtual void set_vth(double v) {vth_= v;}
-    virtual void set_vd(std::vector<double> &v) { vd_ = v; }
+    virtual double vth(){return _vth;}
+    virtual std::vector<double> vd(){return _vd;}
+    virtual void set_vth(double v) {_vth= v;}
+    virtual void set_vd(std::vector<double> &v) { _vd = v; }
     virtual double flux(const std::vector<double> &n) { return 0.0;}   
     virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; } 
     virtual void set_flux_normal(std::vector<double> &n) {}

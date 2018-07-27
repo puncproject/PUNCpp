@@ -1,4 +1,3 @@
-
 // Copyright (C) 2018, Diako Darian and Sigvald Marholm
 //
 // This file is part of PUNC++.
@@ -363,7 +362,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         }
     }
 
-    solver = std::make_unique<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
+    solver = std::make_shared<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
 
     if(ext_bc)
     {
