@@ -131,7 +131,7 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
         std::sort(neighbors.begin(), neighbors.end());
         neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
 
-        Cell cell(cell_id, neighbors);
+        Cell cell(mesh, cell_id, neighbors);
         cells[cell_id] = cell;
     }
 

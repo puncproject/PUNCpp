@@ -217,6 +217,58 @@ double accel_cg1(Population &pop, const df::Function &E, double dt) {
     return KE;
 }
 
+double accel_cg_new(Population &pop, const df::Function &E, double dt)
+{
+
+    auto W = E.function_space();
+    auto mesh = W->mesh();
+    auto element = W->element();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / g_dim; // Number of vertices
+
+    double KE = 0.0;
+
+    std::vector<double> vertex_coordinates(t_dim);
+    double Ei[v_dim];
+    double coeffs[n_dim];
+    double values[s_dim];
+
+    for (auto &cell : pop.cells)
+    {
+        E.restrict(values, *element, cell, cell.vertex_coordinates.data(), cell.ufc_cell);
+
+        for (auto &particle : cell.particles)
+        {
+            double m = particle.m;
+            double q = particle.q;
+            auto &vel = particle.v;
+
+            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(), 
+                                  particle.x.data(), n_dim, n_dim);
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] = 0.0;
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {
+                    Ei[j] += coeffs[i] * values[j * n_dim + i];
+                }
+            }
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] *= dt * (q / m);
+                KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
+                particle.v[j] += Ei[j];
+            }
+        }
+    }
+    return KE;
+}
+
 double accel_cg_2d(Population &pop, const df::Function &E, double dt)
 {
 
@@ -638,6 +690,7 @@ static inline std::vector<double> cross(const std::vector<double> &v1,
     r[2] = v1[0] * v2[1] - v1[1] * v2[0];
     return r;
 }
+
 static inline void get_coord_transform_1d(double *transform,
                                           const double *coords)
 {

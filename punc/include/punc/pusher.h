@@ -58,6 +58,8 @@ double accel(Population &pop, const df::Function &E, double dt);
 
 double accel_cg1(Population &pop, const df::Function &E, double dt);
 
+double accel_cg_new(Population &pop, const df::Function &E, double dt); 
+
 double accel_cg_2d(Population &pop, const df::Function &E, double dt);
 
 double accel_cg(Population &pop, const df::Function &E, double dt);

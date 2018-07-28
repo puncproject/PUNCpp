@@ -80,7 +80,7 @@ int main()
     auto dv_inv = element_volume(V, true);
 
     double vth = 0.0;
-    int npc = 4;
+    int npc = 64;
     double ne = 100;
 
     CreateSpecies create_species(mesh, Ld[0]);
@@ -135,7 +135,7 @@ int main()
     double KE0 = kinetic_energy(pop);
 
     std::vector<double> t_accel(steps);
-    
+
     auto t0 = timer.elapsed();
     printf("Time - initilazation: %e\n", t0);
     timer.reset();
@@ -147,7 +147,7 @@ int main()
         auto E = esolver.solve(phi);
         PE[i - 1] = particle_potential_energy(pop, phi);
         timer.reset();
-        KE[i - 1] = accel_cg_2d(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+        KE[i - 1] = accel_cg_new(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
         t_accel[i] = timer.elapsed();
         move_periodic(pop, dt, Ld);
         pop.update();
