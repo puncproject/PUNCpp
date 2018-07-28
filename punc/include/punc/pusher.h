@@ -56,6 +56,12 @@ namespace df = dolfin;
  */
 double accel(Population &pop, const df::Function &E, double dt);
 
+double accel_cg1(Population &pop, const df::Function &E, double dt);
+
+double accel_cg_2d(Population &pop, const df::Function &E, double dt);
+
+double accel_cg(Population &pop, const df::Function &E, double dt);
+
 /**
  * @brief Accelerates particles in a homogeneous magnetic field
  * @param[in,out]   pop     Population

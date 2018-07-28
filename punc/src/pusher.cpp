@@ -73,8 +73,24 @@ static inline std::vector<double> cross(const std::vector<double> &v1,
  * To use this with vector functions, one must use it once per component of
  * the vector as values.
  */
-static inline get_expcoeffs_3d(double *coeffs,
-        const double *coords, const double *values);
+static inline void get_expcoeffs_3d(double *coeffs, const double *coords, 
+                                    const double *values);
+
+static inline void get_expcoeffs_2d(double *coeffs, const double *coords, 
+                                    const double *values);
+
+static inline void get_coord_transform_1d(double *transform,
+                                          const double *coords);
+
+static inline void get_coord_transform_2d(double *transform,
+                                          const double *coords);
+
+static inline void get_coord_transform_3d(double *transform,
+                                          const double *coords);
+
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t m,
+                                         std::size_t n);
 
 /*******************************************************************************
  * GLOBAL DEFINITIONS
@@ -177,7 +193,6 @@ double accel_cg1(Population &pop, const df::Function &E, double dt) {
                     vertex_coordinates.data(), &values[n_dim*j]);
         }
 
-        std::size_t num_particles = pop.cells[cell_id].particles.size();
         for(auto &particle : pop.cells[cell_id].particles) {
 
             double m = particle.m;
@@ -193,6 +208,150 @@ double accel_cg1(Population &pop, const df::Function &E, double dt) {
             }
 
             for (std::size_t j = 0; j < v_dim; j++) {
+                Ei[j] *= dt * (q / m);
+                KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
+                particle.v[j] += Ei[j];
+            }
+        }
+    }
+    return KE;
+}
+
+double accel_cg_2d(Population &pop, const df::Function &E, double dt)
+{
+
+    auto W = E.function_space();
+    auto mesh = W->mesh();
+    auto element = W->element();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / g_dim; // Number of vertices
+
+    double KE = 0.0;
+
+    std::vector<double> vertex_coordinates(t_dim);
+    double Ei[v_dim];
+    double coeffs[n_dim];
+    double values[s_dim];
+    double coordinates[s_dim];
+    double transform[n_dim * n_dim];
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
+    {
+
+        auto cell_id = e->index();
+        df::Cell _cell(*mesh, cell_id);
+
+        const std::size_t num_vertices = _cell.num_vertices();
+        const unsigned int *vertices = _cell.entities(0);
+
+        for (std::size_t i = 0; i < num_vertices; i++)
+        {
+            for (std::size_t j = 0; j < g_dim; j++)
+            {
+                coordinates[i * g_dim + j] = mesh->geometry().x(vertices[i])[j];
+            }
+        }
+
+        ufc::cell ufc_cell;
+        _cell.get_cell_data(ufc_cell);
+
+        E.restrict(values, *element, _cell, &coordinates[0], ufc_cell);
+
+        get_coord_transform_2d(&transform[0], &coordinates[0]);
+
+        for (auto &particle : pop.cells[cell_id].particles)
+        {
+
+            double m = particle.m;
+            double q = particle.q;
+            auto &vel = particle.v;
+
+            matrix_vector_product(&coeffs[0], &transform[0], particle.x.data(),
+                                  n_dim, n_dim);
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] = 0.0;
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {
+                    Ei[j] += coeffs[i] * values[j * n_dim + i];
+                }
+            }
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] *= dt * (q / m);
+                KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
+                particle.v[j] += Ei[j];
+            }
+        }
+    }
+    return KE;
+}
+
+double accel_cg(Population &pop, const df::Function &E, double dt)
+{
+
+    auto W = E.function_space();
+    auto mesh = W->mesh();
+    auto element = W->element();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / g_dim; // Number of vertices
+
+    double KE = 0.0;
+
+    std::vector<double> vertex_coordinates(t_dim);
+    double Ei[v_dim];
+    double coeffs[n_dim];
+    double values[s_dim];
+    double coordinates[s_dim];
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
+    {
+
+        auto cell_id = e->index();
+        df::Cell _cell(*mesh, cell_id);
+
+        const std::size_t num_vertices = _cell.num_vertices();
+        const unsigned int *vertices = _cell.entities(0);
+
+        for (std::size_t i = 0; i < num_vertices; i++)
+        {
+            for (std::size_t j = 0; j < g_dim; j++)
+            {
+                coordinates[i * g_dim + j] = mesh->geometry().x(vertices[i])[j];
+            }
+        }
+
+        ufc::cell ufc_cell;
+        _cell.get_cell_data(ufc_cell);
+
+        E.restrict(values, *element, _cell, &coordinates[0], ufc_cell);
+
+        for (auto &particle : pop.cells[cell_id].particles)
+        {
+
+            double m = particle.m;
+            double q = particle.q;
+            auto &vel = particle.v;
+
+            get_expcoeffs_3d(&coeffs[0], &coordinates[0], particle.x.data());
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] = 0.0;
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {
+                    Ei[j] += coeffs[i] * values[j * n_dim + i];
+                }
+            }
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
                 Ei[j] *= dt * (q / m);
                 KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
                 particle.v[j] += Ei[j];
@@ -479,9 +638,171 @@ static inline std::vector<double> cross(const std::vector<double> &v1,
     r[2] = v1[0] * v2[1] - v1[1] * v2[0];
     return r;
 }
+static inline void get_coord_transform_1d(double *transform,
+                                          const double *coords)
+{
+    double x1 = coords[0];
+    double x2 = coords[1];
 
-static inline get_expcoeffs_3d(double *coeffs,
-        const double *coords, const double *values){
+    double det = x2 - x1;
+
+    transform[0] = x2 / det;
+    transform[1] = -1.0 / det;
+    transform[2] = -x1 / det;
+    transform[3] = 1.0 / det;
+}
+
+static inline void get_coord_transform_2d(double *transform,
+                                          const double *coords)
+{
+    double x1 = coords[0];
+    double y1 = coords[1];
+    double x2 = coords[2];
+    double y2 = coords[3];
+    double x3 = coords[4];
+    double y3 = coords[5];
+
+    double det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+
+    transform[0] = (x2 * y3 - x3 * y2) / det;
+    transform[1] = (y2 - y3) / det;
+    transform[2] = (x3 - x2) / det;
+    transform[3] = (x3 * y1 - x1 * y3) / det;
+    transform[4] = (y3 - y1) / det;
+    transform[5] = (x1 - x3) / det;
+    transform[6] = (x1 * y2 - x2 * y1) / det;
+    transform[7] = (y1 - y2) / det;
+    transform[8] = (x2 - x1) / det;
+}
+
+static inline void get_coord_transform_3d(double *transform,
+                                          const double *coords)
+{
+    double x1 = coords[0];
+    double y1 = coords[1];
+    double z1 = coords[2];
+    double x2 = coords[3];
+    double y2 = coords[4];
+    double z2 = coords[5];
+    double x3 = coords[6];
+    double y3 = coords[7];
+    double z3 = coords[8];
+    double x4 = coords[9];
+    double y4 = coords[10];
+    double z4 = coords[11];
+
+    double x12 = x1 - x2;
+    double y12 = y1 - y2;
+    double z12 = z1 - z2;
+    double x13 = x1 - x3;
+    double y13 = y1 - y3;
+    double z13 = z1 - z3;
+    double x14 = x1 - x4;
+    double y14 = y1 - y4;
+    double z14 = z1 - z4;
+    double x21 = x2 - x1;
+    double y21 = y2 - y1;
+    double z21 = z2 - z1;
+
+    double x24 = x2 - x4;
+    double y24 = y2 - y4;
+    double z24 = z2 - z4;
+    double x31 = x3 - x1;
+    double y31 = y3 - y1;
+    double z31 = z3 - z1;
+    double x32 = x3 - x2;
+    double y32 = y3 - y2;
+    double z32 = z3 - z2;
+    double x34 = x3 - x4;
+    double y34 = y3 - y4;
+    double z34 = z3 - z4;
+
+    double x42 = x4 - x2;
+    double y42 = y4 - y2;
+    double z42 = z4 - z2;
+    double x43 = x4 - x3;
+    double y43 = y4 - y3;
+    double z43 = z4 - z3;
+
+    double V01 = (x2 * (y3 * z4 - y4 * z3) + x3 * (y4 * z2 - y2 * z4) + x4 * (y2 * z3 - y3 * z2)) / 6.0;
+    double V02 = (x1 * (y4 * z3 - y3 * z4) + x3 * (y1 * z4 - y4 * z1) + x4 * (y3 * z1 - y1 * z3)) / 6.0;
+    double V03 = (x1 * (y2 * z4 - y4 * z2) + x2 * (y4 * z1 - y1 * z4) + x4 * (y1 * z2 - y2 * z1)) / 6.0;
+    double V04 = (x1 * (y3 * z2 - y2 * z3) + x2 * (y1 * z3 - y3 * z1) + x3 * (y2 * z1 - y1 * z2)) / 6.0;
+    double V = V01 + V02 + V03 + V04;
+    double V6 = 6 * V;
+
+    transform[0] = V01 / V;
+    transform[4] = V02 / V;
+    transform[8] = V03 / V;
+    transform[12] = V04 / V;
+
+    transform[1] = (y42 * z32 - y32 * z42) / V6;  // a1 / 6V
+    transform[5] = (y31 * z43 - y34 * z13) / V6;  // a2 / 6V
+    transform[9] = (y24 * z14 - y14 * z24) / V6;  // a3 / 6V
+    transform[13] = (y13 * z21 - y12 * z31) / V6; // a4 / 6V
+
+    transform[2] = (x32 * z42 - x42 * z32) / V6;  // b1 / 6V
+    transform[6] = (x43 * z31 - x13 * z34) / V6;  // b2 / 6V
+    transform[10] = (x14 * z24 - x24 * z14) / V6; // b3 / 6V
+    transform[14] = (x21 * z13 - x31 * z12) / V6; // b4 / 6V
+
+    transform[3] = (x42 * y32 - x32 * y42) / V6;  // c1 / 6V
+    transform[7] = (x31 * y43 - x34 * y13) / V6;  // c2 / 6V
+    transform[11] = (x24 * y14 - x14 * y24) / V6; // c3 / 6V
+    transform[15] = (x13 * y21 - x12 * y31) / V6; // c4 / 6V
+}
+
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t n,
+                                         std::size_t m)
+{
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        y[i] = A[i * m];
+    }
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        for (std::size_t j = 0; j < m - 1; ++j)
+        {
+            y[i] += A[i * m + j + 1] * x[j];
+        }
+    }
+}
+
+static inline void get_expcoeffs_2d(double *coeffs,
+                                    const double *coords, const double *values)
+{
+    double x1 = coords[0];
+    double y1 = coords[1];
+    double x2 = coords[2];
+    double y2 = coords[3];
+    double x3 = coords[4];
+    double y3 = coords[5];
+
+    double det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+
+    double A11 = x2 * y3 - x3 * y2;
+    double A12 = y2 - y3;
+    double A13 = x3 - x2;
+    double A21 = x3 * y1 - x1 * y3;
+    double A22 = y3 - y1;
+    double A23 = x1 - x3;
+    double A31 = x1 * y2 - x2 * y1;
+    double A32 = y1 - y2;
+    double A33 = x2 - x1;
+
+    coeffs[0] = (A11 + values[0] * A12 + values[1] * A13) / det;
+    coeffs[1] = (A21 + values[0] * A22 + values[1] * A23) / det;
+    coeffs[2] = (A31 + values[0] * A32 + values[1] * A33) / det;
+
+    // coeffs[0] = ((y2-y3)*(values[0]-x3)+(x3-x2)*(values[1]-y3))/det;
+    // coeffs[1] = ((y3-y1)*(values[0]-x3)+(x1-x3)*(values[1]-y3))/det;
+    // coeffs[2] = 1.0 - coeffs[0] - coeffs[1];
+}
+
+static inline void get_expcoeffs_3d(double *coeffs,
+                                    const double *coords, const double *values)
+{
 
     double x1 = coords[0];
     double y1 = coords[1];
@@ -502,52 +823,75 @@ static inline get_expcoeffs_3d(double *coeffs,
     // See 9.1.6 in
     // https://www.colorado.edu/engineering/CAS/courses.d/AFEM.d/AFEM.Ch09.d/AFEM.Ch09.pdf
 
-    double x12 = x1-x2;   double y12 = y1-y2;   double z12 = z1-z2;
-    double x13 = x1-x3;   double y13 = y1-y3;   double z13 = z1-z3;
-    double x14 = x1-x4;   double y14 = y1-y4;   double z14 = z1-z4;
-    double x21 = x2-x1;   double y21 = y2-y1;   double z21 = z2-z1;
-    double x23 = x2-x3;   double y23 = y2-y3;   double z23 = z2-z3;
-    double x24 = x2-x4;   double y24 = y2-y4;   double z24 = z2-z4;
-    double x31 = x3-x1;   double y31 = y3-y1;   double z31 = z3-z1;
-    double x32 = x3-x2;   double y32 = y3-y2;   double z32 = z3-z2;
-    double x34 = x3-x4;   double y34 = y3-y4;   double z34 = z3-z4;
-    double x41 = x4-x1;   double y41 = y4-y1;   double z41 = z4-z1;
-    double x42 = x4-x2;   double y42 = y4-y2;   double z42 = z4-z2;
-    double x43 = x4-x3;   double y43 = y4-y3;   double z43 = z4-z3;
+    double x12 = x1 - x2;
+    double y12 = y1 - y2;
+    double z12 = z1 - z2;
+    double x13 = x1 - x3;
+    double y13 = y1 - y3;
+    double z13 = z1 - z3;
+    double x14 = x1 - x4;
+    double y14 = y1 - y4;
+    double z14 = z1 - z4;
+    double x21 = x2 - x1;
+    double y21 = y2 - y1;
+    double z21 = z2 - z1;
+    //double x23 = x2-x3;   double y23 = y2-y3;   double z23 = z2-z3;
+    double x24 = x2 - x4;
+    double y24 = y2 - y4;
+    double z24 = z2 - z4;
+    double x31 = x3 - x1;
+    double y31 = y3 - y1;
+    double z31 = z3 - z1;
+    double x32 = x3 - x2;
+    double y32 = y3 - y2;
+    double z32 = z3 - z2;
+    double x34 = x3 - x4;
+    double y34 = y3 - y4;
+    double z34 = z3 - z4;
+    //double x41 = x4-x1;   double y41 = y4-y1;   double z41 = z4-z1;
+    double x42 = x4 - x2;
+    double y42 = y4 - y2;
+    double z42 = z4 - z2;
+    double x43 = x4 - x3;
+    double y43 = y4 - y3;
+    double z43 = z4 - z3;
 
-    double V01 = (x2*(y3*z4-y4*z3) + x3*(y4*z2-y2*z4) + x4*(y2*z3-y3*z2))/6.0;
-    double V02 = (x1*(y4*z3-y3*z4) + x3*(y1*z4-y4*z1) + x4*(y3*z1-y1*z3))/6.0;
-    double V03 = (x1*(y2*z4-y4*z2) + x2*(y4*z1-y1*z4) + x4*(y1*z2-y2*z1))/6.0;
-    double V04 = (x1*(y3*z2-y2*z3) + x2*(y1*z3-y3*z1) + x3*(y2*z1-y1*z2))/6.0;
+    double V01 = (x2 * (y3 * z4 - y4 * z3) + x3 * (y4 * z2 - y2 * z4) + x4 * (y2 * z3 - y3 * z2)) / 6.0;
+    double V02 = (x1 * (y4 * z3 - y3 * z4) + x3 * (y1 * z4 - y4 * z1) + x4 * (y3 * z1 - y1 * z3)) / 6.0;
+    double V03 = (x1 * (y2 * z4 - y4 * z2) + x2 * (y4 * z1 - y1 * z4) + x4 * (y1 * z2 - y2 * z1)) / 6.0;
+    double V04 = (x1 * (y3 * z2 - y2 * z3) + x2 * (y1 * z3 - y3 * z1) + x3 * (y2 * z1 - y1 * z2)) / 6.0;
     double V = V01 + V02 + V03 + V04;
-    double V6 = 6*V;
+    double V6 = 6 * V;
 
-    double A11 = V01/V;
-    double A12 = V02/V;
-    double A13 = V03/V;
-    double A14 = V04/V;
+    double A11 = V01 / V;
+    double A12 = V02 / V;
+    double A13 = V03 / V;
+    double A14 = V04 / V;
 
-    double A21 = (y42*z32 - y32*z42)/V6;  // a1 / 6V
-    double A22 = (y31*z43 - y34*z13)/V6;  // a2 / 6V
-    double A23 = (y24*z14 - y14*z24)/V6;  // a3 / 6V
-    double A24 = (y13*z21 - y12*z31)/V6;  // a4 / 6V
+    double A21 = (y42 * z32 - y32 * z42) / V6; // a1 / 6V
+    double A22 = (y31 * z43 - y34 * z13) / V6; // a2 / 6V
+    double A23 = (y24 * z14 - y14 * z24) / V6; // a3 / 6V
+    double A24 = (y13 * z21 - y12 * z31) / V6; // a4 / 6V
 
-    double A31 = (x32*z42 - x42*z32)/V6;  // b1 / 6V
-    double A32 = (x43*z31 - x13*z34)/V6;  // b2 / 6V
-    double A33 = (x14*z24 - x24*z14)/V6;  // b3 / 6V
-    double A34 = (x21*z13 - x31*z12)/V6;  // b4 / 6V
+    double A31 = (x32 * z42 - x42 * z32) / V6; // b1 / 6V
+    double A32 = (x43 * z31 - x13 * z34) / V6; // b2 / 6V
+    double A33 = (x14 * z24 - x24 * z14) / V6; // b3 / 6V
+    double A34 = (x21 * z13 - x31 * z12) / V6; // b4 / 6V
 
-    double A41 = (x42*y32 - x32*y42)/V6;  // c1 / 6V
-    double A42 = (x31*y43 - x34*y13)/V6;  // c2 / 6V
-    double A43 = (x24*y14 - x14*y24)/V6;  // c3 / 6V
-    double A44 = (x13*y21 - x12*y31)/V6;  // c4 / 6V
+    double A41 = (x42 * y32 - x32 * y42) / V6; // c1 / 6V
+    double A42 = (x31 * y43 - x34 * y13) / V6; // c2 / 6V
+    double A43 = (x24 * y14 - x14 * y24) / V6; // c3 / 6V
+    double A44 = (x13 * y21 - x12 * y31) / V6; // c4 / 6V
 
     const double *f = values;
-    coeffs[0] = A11*f[0] + A21*f[1] + A31*f[2] + A41*f[3];
-    coeffs[1] = A12*f[0] + A22*f[1] + A32*f[2] + A42*f[3];
-    coeffs[2] = A13*f[0] + A23*f[1] + A33*f[2] + A43*f[3];
-    coeffs[3] = A14*f[0] + A24*f[1] + A34*f[2] + A44*f[3];
-
+    coeffs[0] = A11 + A21 * f[0] + A31 * f[1] + A41 * f[2];
+    coeffs[1] = A12 + A22 * f[0] + A32 * f[1] + A42 * f[2];
+    coeffs[2] = A13 + A23 * f[0] + A33 * f[1] + A43 * f[2];
+    coeffs[3] = A14 + A24 * f[0] + A34 * f[1] + A44 * f[2];
+    // coeffs[0] = A11*f[0] + A21*f[1] + A31*f[2] + A41*f[3];
+    // coeffs[1] = A12*f[0] + A22*f[1] + A32*f[2] + A42*f[3];
+    // coeffs[2] = A13*f[0] + A23*f[1] + A33*f[2] + A43*f[3];
+    // coeffs[3] = A14*f[0] + A24*f[1] + A34*f[2] + A44*f[3];
 }
 
 } // namespace punc

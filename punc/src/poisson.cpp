@@ -363,7 +363,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         }
     }
 
-    solver = std::make_unique<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
+    solver = std::make_shared<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
 
     if(ext_bc)
     {

@@ -134,22 +134,31 @@ int main()
     std::vector<double> TE(steps-1);
     double KE0 = kinetic_energy(pop);
 
+    std::vector<double> t_accel(steps);
+    
     auto t0 = timer.elapsed();
     printf("Time - initilazation: %e\n", t0);
     timer.reset();
-    for(int i=1; i<steps;++i)
+    for (int i = 1; i < steps; ++i)
     {
-        std::cout<<"step: "<< i<<'\n';
+        std::cout << "step: " << i << '\n';
         auto rho = distribute(V, pop, dv_inv);
         auto phi = poisson.solve(rho);
         auto E = esolver.solve(phi);
         PE[i - 1] = particle_potential_energy(pop, phi);
-        KE[i-1] = accel(pop, E, (1.0-0.5*(i == 1))*dt);
+        timer.reset();
+        KE[i - 1] = accel_cg_2d(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+        t_accel[i] = timer.elapsed();
         move_periodic(pop, dt, Ld);
         pop.update();
     }
-    t0 = timer.elapsed();
-    printf("Time - loop: %e\n", t0);
+    auto tot_time = std::accumulate(t_accel.begin(), t_accel.end(), 0.0);
+
+    std::cout << "-----Measured time for the task----------" << '\n';
+    std::cout << "Accel:      " << tot_time << '\n';
+
+    // t0 = timer.elapsed();
+    // printf("Time - loop: %e\n", t0);
     KE[0] = KE0;
     for(int i=0;i<KE.size(); ++i)
     {
