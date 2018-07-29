@@ -31,6 +31,12 @@ df::Function distribute(const df::FunctionSpace &V,
                         Population &pop,
                         const std::vector<double> &dv_inv);
 
+df::Function distribute_new(const df::FunctionSpace &V,
+                        Population &pop,
+                        const std::vector<double> &dv_inv);
+
+df::Function distribute_dg0_new(const df::FunctionSpace &Q, Population &pop);
+
 df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop);
 }
 

@@ -27,9 +27,14 @@ namespace df = dolfin;
 
 double kinetic_energy(Population &pop);
 
+double kinetic_energy_new(Population &pop);
+
 double mesh_potential_energy(df::Function &phi, df::Function &rho);
 
 double particle_potential_energy(Population &pop, const df::Function &phi);
+
+double particle_potential_energy_new(Population &pop, const df::Function &phi);
+
 }
 
 #endif

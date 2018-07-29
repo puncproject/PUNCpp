@@ -20,6 +20,10 @@
 namespace punc
 {
 
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t m,
+                                         std::size_t n);
+
 std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 {
     auto num_dofs = V.dim();
@@ -115,6 +119,74 @@ df::Function distribute(const df::FunctionSpace &V,
     return rho;
 }
 
+df::Function distribute_new(const df::FunctionSpace &V,
+                        Population &pop,
+                        const std::vector<double> &dv_inv)
+{
+    auto mesh = V.mesh();
+    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
+    auto rho_vec = rho.vector();
+    std::size_t len_rho = rho_vec->size();
+    std::vector<double> rho0(len_rho);
+    rho_vec->get_local(rho0);
+
+    auto element = V.element();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / v_dim;
+
+    double cell_coords[n_dim];
+
+    for(auto &cell: pop.cells)
+    {
+        auto dof_id = V.dofmap()->cell_dofs(cell.id);
+        std::vector<double> accum(n_dim, 0.0);
+        for (auto &particle : cell.particles)
+        {
+            matrix_vector_product(&cell_coords[0], cell.basis_matrix.data(),
+                                  particle.x.data(), n_dim, n_dim);
+
+            for (std::size_t i = 0; i < n_dim; ++i)
+            {
+                accum[i] += particle.q * cell_coords[i];
+            }
+        }
+
+        for (std::size_t i = 0; i < s_dim; ++i)
+        {
+            rho0[dof_id[i]] += accum[i];
+        }
+    }
+    for (std::size_t i = 0; i < len_rho; ++i)
+    {
+        rho0[i] *= dv_inv[i];
+    }
+    rho.vector()->set_local(rho0);
+    return rho;
+}
+
+df::Function distribute_dg0_new(const df::FunctionSpace &Q, Population &pop)
+{
+    df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
+    auto rho_vec = rho.vector();
+    std::size_t len_rho = rho_vec->size();
+    std::vector<double> rho0(len_rho);
+    rho_vec->get_local(rho0);
+
+    for(auto &cell: pop.cells)
+    {
+        auto dof_id = Q.dofmap()->cell_dofs(cell.id);
+        double accum = 0.0;
+        for (auto &particle : cell.particles)
+        {
+            accum += particle.q;
+        }
+        rho0[dof_id[0]] = accum / cell.volume();
+    }
+    rho.vector()->set_local(rho0);
+    return rho;
+}
+
 df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop)
 {
     auto mesh = Q.mesh();
@@ -142,6 +214,23 @@ df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop)
     }
     rho.vector()->set_local(rho0);
     return rho;
-}                            
+}
+
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t n,
+                                         std::size_t m)
+{
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        y[i] = A[i * m];
+    }
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        for (std::size_t j = 0; j < m - 1; ++j)
+        {
+            y[i] += A[i * m + j + 1] * x[j];
+        }
+    }
+}
 
 }

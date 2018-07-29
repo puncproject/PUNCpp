@@ -115,12 +115,15 @@ double boris(Population &pop, const df::Function &E,
  *      \approx \dot\mathbf{x} = \mathbf{v}
  * \f]
  */
-void move(Population &pop, double dt);
+void move(Population &pop, const double dt);
+
+void move_new(Population &pop, const double dt);
 
 // FIXME: Make a separate function for imposing periodic BCs *after* move
 /* void move_periodic(Population &pop, double dt, const std::vector<double> &Ld); */
 void move_periodic(Population &pop, const double dt, const std::vector<double> &Ld);
 
+void move_periodic_new(Population &pop, const double dt, const std::vector<double> &Ld);
 }
 
 #endif // PUSHER_H

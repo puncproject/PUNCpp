@@ -168,7 +168,7 @@ double accel_cg1(Population &pop, const df::Function &E, double dt) {
     auto g_dim = mesh->geometry().dim();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
-    auto n_dim = s_dim/g_dim; // Number of vertices
+    auto n_dim = s_dim/v_dim; // Number of vertices
 
     double KE = 0.0;
 
@@ -227,7 +227,7 @@ double accel_cg_new(Population &pop, const df::Function &E, double dt)
     auto g_dim = mesh->geometry().dim();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
-    auto n_dim = s_dim / g_dim; // Number of vertices
+    auto n_dim = s_dim / v_dim; // Number of vertices
 
     double KE = 0.0;
 
@@ -279,7 +279,7 @@ double accel_cg_2d(Population &pop, const df::Function &E, double dt)
     auto g_dim = mesh->geometry().dim();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
-    auto n_dim = s_dim / g_dim; // Number of vertices
+    auto n_dim = s_dim / v_dim; // Number of vertices
 
     double KE = 0.0;
 
@@ -353,7 +353,7 @@ double accel_cg(Population &pop, const df::Function &E, double dt)
     auto g_dim = mesh->geometry().dim();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
-    auto n_dim = s_dim / g_dim; // Number of vertices
+    auto n_dim = s_dim / v_dim; // Number of vertices
 
     double KE = 0.0;
 
@@ -640,6 +640,39 @@ double boris(Population &pop, const df::Function &E,
     return KE;
 }
 
+void move(Population &pop, const double dt)
+{
+    auto dim = pop.gdim;
+    auto num_cells = pop.num_cells;
+    for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)
+    {
+        std::size_t num_particles = pop.cells[cell_id].particles.size();
+        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
+        {
+            auto particle = pop.cells[cell_id].particles[p_id];
+            for (std::size_t j = 0; j < dim; ++j)
+            {
+                pop.cells[cell_id].particles[p_id].x[j] += dt * pop.cells[cell_id].particles[p_id].v[j];
+            }
+        }
+    }
+}
+
+void move_new(Population &pop, const double dt)
+{
+    auto dim = pop.gdim;
+    for(auto &cell: pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            for (std::size_t j = 0; j < dim; ++j)
+            {
+                particle.x[j] += dt * particle.v[j];
+            }
+        }
+    }
+}
+
 void move_periodic(Population &pop, const double dt, const std::vector<double> &Ld)
 {
     auto dim = Ld.size();
@@ -659,19 +692,17 @@ void move_periodic(Population &pop, const double dt, const std::vector<double> &
     }
 }
 
-void move(Population &pop, double dt)
+void move_periodic_new(Population &pop, const double dt, const std::vector<double> &Ld)
 {
-    auto dim = pop.gdim;
-    auto num_cells = pop.num_cells;
-    for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)
+    auto dim = Ld.size();
+    for (auto &cell : pop.cells)
     {
-        std::size_t num_particles = pop.cells[cell_id].particles.size();
-        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
+        for (auto &particle : cell.particles)
         {
-            auto particle = pop.cells[cell_id].particles[p_id];
             for (std::size_t j = 0; j < dim; ++j)
             {
-                pop.cells[cell_id].particles[p_id].x[j] += dt * pop.cells[cell_id].particles[p_id].v[j];
+                particle.x[j] += dt * particle.v[j];
+                particle.x[j] -= Ld[j] * floor(particle.x[j] / Ld[j]);
             }
         }
     }

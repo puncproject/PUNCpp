@@ -20,7 +20,11 @@
 
 namespace punc
 {
-    
+
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t m,
+                                         std::size_t n);
+
 double kinetic_energy(Population &pop)
 {
     double KE = 0.0;
@@ -40,6 +44,24 @@ double kinetic_energy(Population &pop)
         }
     }
 	return KE;
+}
+
+double kinetic_energy_new(Population &pop)
+{
+    double KE = 0.0;
+    for(auto &cell: pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            auto m = particle.m;
+            auto v = particle.v;
+            for (std::size_t i = 0; i < pop.gdim; ++i)
+            {
+                KE += 0.5 * m * v[i] * v[i];
+            }
+        }
+    }
+    return KE;
 }
 
 double mesh_potential_energy(df::Function &phi, df::Function &rho)
@@ -131,6 +153,58 @@ double particle_potential_energy(Population &pop, const df::Function &phi)
         }
     }
     return PE;
+}
+
+double particle_potential_energy_new(Population &pop, const df::Function &phi)
+{
+    auto V = phi.function_space();
+    auto mesh = V->mesh();
+    auto element = V->element();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / v_dim; // Number of vertices
+
+    double phi_x, PE = 0.0;
+
+    double coeffs[n_dim];
+    double values[s_dim];
+    for (auto &cell : pop.cells)
+    {
+        phi.restrict(values, *element, cell, cell.vertex_coordinates.data(), cell.ufc_cell);
+
+        for (auto &particle : cell.particles)
+        {
+            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
+                                  particle.x.data(), n_dim, n_dim);
+            phi_x = 0.0;
+            for (std::size_t i = 0; i < n_dim; ++i)
+            {
+                phi_x += coeffs[i] * values[i];
+            }
+    
+            PE += 0.5 * particle.q * phi_x;
+        }
+    }
+    return PE;
+}
+
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t n,
+                                         std::size_t m)
+{
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        y[i] = A[i * m];
+    }
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        for (std::size_t j = 0; j < m - 1; ++j)
+        {
+            y[i] += A[i * m + j + 1] * x[j];
+        }
+    }
 }
 
 }
