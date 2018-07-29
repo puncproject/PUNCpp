@@ -27,8 +27,8 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
                                        std::size_t ext_bnd_id)
 {
     auto mesh = boundaries.mesh();
-    auto gdim = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto t_dim = mesh->topology().dim();
     auto values = boundaries.values();
     auto length = boundaries.size();
     int num_facets = 0;
@@ -42,28 +42,28 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     std::vector<Facet> ext_facets;
  
     double area = 0.0;
-    std::vector<double> normal(gdim);
-    std::vector<double> vertices(gdim * gdim);
-    std::vector<double> basis(gdim * gdim);
-    std::vector<double> vertex(gdim);
+    std::vector<double> normal(g_dim);
+    std::vector<double> vertices(g_dim * g_dim);
+    std::vector<double> basis(g_dim * g_dim);
+    std::vector<double> vertex(g_dim);
     double norm;
     int j;
-    mesh->init(tdim - 1, tdim);
+    mesh->init(t_dim - 1, t_dim);
     df::SubsetIterator facet_iter(boundaries, ext_bnd_id);
     for (; !facet_iter.end(); ++facet_iter)
     {
-        df::Cell cell(*mesh, facet_iter->entities(tdim)[0]);
-        auto cell_facet = cell.entities(tdim - 1);
-        std::size_t num_facets = cell.num_entities(tdim - 1);
+        df::Cell cell(*mesh, facet_iter->entities(t_dim)[0]);
+        auto cell_facet = cell.entities(t_dim - 1);
+        std::size_t num_facets = cell.num_entities(t_dim - 1);
         for (std::size_t i = 0; i < num_facets; ++i)
         {
             if (cell_facet[i] == facet_iter->index())
             {
                 area = cell.facet_area(i);
-                for (std::size_t j = 0; j < gdim; ++j)
+                for (std::size_t j = 0; j < g_dim; ++j)
                 {
                     normal[j] = -1 * cell.normal(i, j);
-                    basis[j * gdim] = normal[j];
+                    basis[j * g_dim] = normal[j];
                 }
             }
         }
@@ -72,25 +72,25 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
         j = 0;
         for (df::VertexIterator v(*facet_iter); !v.end(); ++v)
         {
-            for (std::size_t i = 0; i < gdim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
-                vertices[j * gdim + i] = v->x(i);
+                vertices[j * g_dim + i] = v->x(i);
             }
             j += 1;
         }
         norm = 0.0;
-        for (std::size_t i = 0; i < gdim; ++i)
+        for (std::size_t i = 0; i < g_dim; ++i)
         {
-            vertex[i] = vertices[i] - vertices[gdim + i];
+            vertex[i] = vertices[i] - vertices[g_dim + i];
             norm += vertex[i] * vertex[i];
         }
-        for (std::size_t i = 0; i < gdim; ++i)
+        for (std::size_t i = 0; i < g_dim; ++i)
         {
             vertex[i] /= sqrt(norm);
-            basis[i * gdim + 1] = vertex[i];
+            basis[i * g_dim + 1] = vertex[i];
         }
 
-        if (gdim == 3)
+        if (g_dim == 3)
         {
             basis[2] = normal[1] * vertex[2] - normal[2] * vertex[1];
             basis[5] = normal[2] * vertex[0] - normal[0] * vertex[2];
@@ -258,8 +258,8 @@ std::vector<double> random_facet_points(const std::size_t N,
                                         const std::vector<double> &vertices)
 {
     auto size = vertices.size();
-    auto dim = sqrt(size);
-    std::vector<double> xs(N * dim);
+    auto g_dim = sqrt(size);
+    std::vector<double> xs(N * g_dim);
 
     std::mt19937_64 rng{random_seed_seq::get_instance()};
     rand_uniform rand(0.0, 1.0);
@@ -268,16 +268,16 @@ std::vector<double> random_facet_points(const std::size_t N,
     for (std::size_t i = 0; i < N; ++i)
     {
         r = rand(rng);
-        for (int j = 0; j < dim; ++j)
+        for (int j = 0; j < g_dim; ++j)
         {
-            xs[i*dim + j] = (1.0 - r) * vertices[j] + r * vertices[j + dim];
+            xs[i*g_dim + j] = (1.0 - r) * vertices[j] + r * vertices[j + g_dim];
         }
-        for (int j = 1; j < dim-1; ++j)
+        for (int j = 1; j < g_dim-1; ++j)
         {
             r = sqrt(rand(rng));
-            for (int k = 0; k < dim; ++k)
+            for (int k = 0; k < g_dim; ++k)
             {
-                xs[i*dim+k] = r * xs[i*dim+k] + (1.0 - r) * vertices[(j + 1) * dim + k];
+                xs[i*g_dim+k] = r * xs[i*g_dim+k] + (1.0 - r) * vertices[(j + 1) * g_dim + k];
             }
         }
     }
@@ -290,10 +290,10 @@ void inject_particles(Population &pop, std::vector<Species> &species,
     std::mt19937_64 rng{random_seed_seq::get_instance()};
     rand_uniform rand(0.0, 1.0);
 
-    auto dim = pop.gdim;
+    auto g_dim = pop.g_dim;
     auto num_species = species.size();
     auto num_facets = facets.size();
-    std::vector<double> xs_tmp(dim);
+    std::vector<double> xs_tmp(g_dim);
 
     for (std::size_t i = 0; i < num_species; ++i)
     {
@@ -322,16 +322,16 @@ void inject_particles(Population &pop, std::vector<Species> &species,
                 for(auto k=0; k<n; ++k)
                 {
                     auto r = rand(rng);
-                    for (std::size_t l = 0; l < dim; ++l)
+                    for (std::size_t l = 0; l < g_dim; ++l)
                     {
-                        xs_tmp[l] = xs_new[k*dim + l] + dt*r*vs_new[k*dim + l];
+                        xs_tmp[l] = xs_new[k*g_dim + l] + dt*r*vs_new[k*g_dim + l];
                     }
                     if (pop.locate(xs_tmp) >= 0)
                     {
-                        for (std::size_t l = 0; l < dim; ++l)
+                        for (std::size_t l = 0; l < g_dim; ++l)
                         {
                             xs.push_back(xs_tmp[l]);
-                            vs.push_back(vs_new[k * dim + l]);
+                            vs.push_back(vs_new[k * g_dim + l]);
                         }
                     }
                     count += 1;

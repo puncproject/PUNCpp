@@ -54,7 +54,7 @@ int main()
     df::set_log_level(df::WARNING);
     Timer timer;
     timer.reset();
-    double dt = 0.25;
+    double dt = 0.1;
     std::size_t steps = 30;
 
     std::string fname{"../../mesh/2D/nothing_in_square"};

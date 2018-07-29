@@ -100,7 +100,7 @@ double accel(Population &pop, const df::Function &E, double dt)
 {
     auto W = E.function_space();
     auto mesh = W->mesh();
-    auto tdim = mesh->topology().dim(); // FIXME: Shouldn't this be geometric dimension?
+    auto t_dim = mesh->topology().dim(); // FIXME: Shouldn't this be geometric dimension?
     auto element = W->element();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
@@ -109,10 +109,10 @@ double accel(Population &pop, const df::Function &E, double dt)
 
     std::vector<double> basis_matrix(v_dim*s_dim);
     std::vector<double> coefficients(s_dim, 0.0);
-    std::vector<double> vertex_coordinates(tdim);
+    std::vector<double> vertex_coordinates(t_dim);
     std::vector<double> Ei(v_dim);
 
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
     {
         auto cell_id = e->index();
         df::Cell _cell(*mesh, cell_id);
@@ -207,7 +207,7 @@ double accel_cg1(Population &pop, const df::Function &E, double dt) {
                 Ei[j] += coeffs_d[3]*particle.x[2];
             }
 
-            for (std::size_t j = 0; j < v_dim; j++) {
+            for (std::size_t j = 0; j < g_dim; j++) {
                 Ei[j] *= dt * (q / m);
                 KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
                 particle.v[j] += Ei[j];
@@ -258,7 +258,7 @@ double accel_cg_new(Population &pop, const df::Function &E, double dt)
                 }
             }
 
-            for (std::size_t j = 0; j < v_dim; j++)
+            for (std::size_t j = 0; j < g_dim; j++)
             {
                 Ei[j] *= dt * (q / m);
                 KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
@@ -416,11 +416,11 @@ double accel_cg(Population &pop, const df::Function &E, double dt)
 double boris(Population &pop, const df::Function &E, 
              const std::vector<double> &B, double dt)
 {
-    auto dim = B.size();
-    assert(dim == 3 && "The algorithm is only valid for 3D.");
+    auto g_dim = B.size();
+    assert(g_dim == 3 && "The algorithm is only valid for 3D.");
     auto W = E.function_space();
     auto mesh = W->mesh();
-    auto tdim = mesh->topology().dim();
+    auto t_dim = mesh->topology().dim();
     auto element = W->element();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
@@ -428,14 +428,14 @@ double boris(Population &pop, const df::Function &E,
     double KE = 0.0;
     double t_mag2;
 
-    std::vector<double> v_minus(dim), v_prime(dim), v_plus(dim);
-    std::vector<double> t(dim), s(dim);
+    std::vector<double> v_minus(g_dim), v_prime(g_dim), v_plus(g_dim);
+    std::vector<double> t(g_dim), s(g_dim);
 
     std::vector<std::vector<double>> basis_matrix;
     std::vector<double> coefficients(s_dim, 0.0);
     std::vector<double> vertex_coordinates;
 
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
     {
         auto cell_id = e->index();
         df::Cell _cell(*mesh, cell_id);
@@ -485,40 +485,40 @@ double boris(Population &pop, const df::Function &E,
             auto vel = particle.v;
 
             t_mag2 = 0.0;
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 t[i] = tan((dt * q / (2.0 * m)) * B[i]);
                 t_mag2 += t[i] * t[i];
             }
 
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 s[i] = 2 * t[i] / (1 + t_mag2);
             }
 
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_minus[i] = vel[i] + 0.5 * dt * (q / m) * Ei[i];
             }
 
-            for (std::size_t i = 0; i < dim; i++)
+            for (std::size_t i = 0; i < g_dim; i++)
             {
                 KE += 0.5 * m * v_minus[i] * v_minus[i];
             }
 
             auto v_minus_cross_t = cross(v_minus, t);
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_prime[i] = v_minus[i] + v_minus_cross_t[i];
             }
 
             auto v_prime_cross_s = cross(v_prime, s);
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_plus[i] = v_minus[i] + v_prime_cross_s[i];
             }
 
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 pop.cells[cell_id].particles[p_id].v[i] = v_plus[i] + 0.5 * dt * (q / m) * Ei[i];
             }
@@ -530,11 +530,11 @@ double boris(Population &pop, const df::Function &E,
 double boris(Population &pop, const df::Function &E,
              const df::Function &B, double dt)
 {
-    auto dim = pop.gdim;
-    assert(dim == 3 && "The algorithm is only valid for 3D.");
+    auto g_dim = pop.g_dim;
+    assert(g_dim == 3 && "The algorithm is only valid for 3D.");
     auto W = E.function_space();
     auto mesh = W->mesh();
-    auto tdim = mesh->topology().dim();
+    auto t_dim = mesh->topology().dim();
     auto element = W->element();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
@@ -542,15 +542,15 @@ double boris(Population &pop, const df::Function &E,
     double KE = 0.0;
     double t_mag2;
 
-    std::vector<double> v_minus(dim), v_prime(dim), v_plus(dim);
-    std::vector<double> t(dim), s(dim);
+    std::vector<double> v_minus(g_dim), v_prime(g_dim), v_plus(g_dim);
+    std::vector<double> t(g_dim), s(g_dim);
 
     std::vector<std::vector<double>> basis_matrix;
     std::vector<double> coefficients(s_dim, 0.0);
     std::vector<double> coefficients_B(s_dim, 0.0);
     std::vector<double> vertex_coordinates;
 
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
     {
         auto cell_id = e->index();
         df::Cell _cell(*mesh, cell_id);
@@ -603,35 +603,35 @@ double boris(Population &pop, const df::Function &E,
             auto q = particle.q;
             auto vel = particle.v;
             t_mag2 = 0.0;
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 t[i] = tan( (dt * q / (2.0 * m)) * Bi[i]);
                 t_mag2 += t[i]*t[i];
             }
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 s[i] = 2 * t[i] / (1 + t_mag2);
             }
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_minus[i] = vel[i] + 0.5 * dt * (q / m) * Ei[i];
             }
-            for (std::size_t i = 0; i < dim; i++)
+            for (std::size_t i = 0; i < g_dim; i++)
             {
                 KE += 0.5 * m * v_minus[i] * v_minus[i];
             }
 
             auto v_minus_cross_t = cross(v_minus, t);
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_prime[i] = v_minus[i] + v_minus_cross_t[i];
             }
             auto v_prime_cross_s = cross(v_prime, s);
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 v_plus[i] = v_minus[i] + v_prime_cross_s[i];
             }
-            for (std::size_t i = 0; i < dim; ++i)
+            for (std::size_t i = 0; i < g_dim; ++i)
             {
                 pop.cells[cell_id].particles[p_id].v[i] = v_plus[i] + 0.5 * dt * (q / m) * Ei[i];
             }
@@ -642,7 +642,7 @@ double boris(Population &pop, const df::Function &E,
 
 void move(Population &pop, const double dt)
 {
-    auto dim = pop.gdim;
+    auto g_dim = pop.g_dim;
     auto num_cells = pop.num_cells;
     for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)
     {
@@ -650,7 +650,7 @@ void move(Population &pop, const double dt)
         for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
         {
             auto particle = pop.cells[cell_id].particles[p_id];
-            for (std::size_t j = 0; j < dim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
                 pop.cells[cell_id].particles[p_id].x[j] += dt * pop.cells[cell_id].particles[p_id].v[j];
             }
@@ -660,12 +660,12 @@ void move(Population &pop, const double dt)
 
 void move_new(Population &pop, const double dt)
 {
-    auto dim = pop.gdim;
+    auto g_dim = pop.g_dim;
     for(auto &cell: pop.cells)
     {
         for (auto &particle : cell.particles)
         {
-            for (std::size_t j = 0; j < dim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
                 particle.x[j] += dt * particle.v[j];
             }
@@ -675,7 +675,7 @@ void move_new(Population &pop, const double dt)
 
 void move_periodic(Population &pop, const double dt, const std::vector<double> &Ld)
 {
-    auto dim = Ld.size();
+    auto g_dim = Ld.size();
     auto num_cells = pop.num_cells;
     for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)
     {
@@ -683,7 +683,7 @@ void move_periodic(Population &pop, const double dt, const std::vector<double> &
         for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
         {
             auto particle = pop.cells[cell_id].particles[p_id];
-            for (std::size_t j = 0; j < dim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
                 pop.cells[cell_id].particles[p_id].x[j] += dt * pop.cells[cell_id].particles[p_id].v[j];
                 pop.cells[cell_id].particles[p_id].x[j] -= Ld[j] * floor(pop.cells[cell_id].particles[p_id].x[j] / Ld[j]);
@@ -694,12 +694,12 @@ void move_periodic(Population &pop, const double dt, const std::vector<double> &
 
 void move_periodic_new(Population &pop, const double dt, const std::vector<double> &Ld)
 {
-    auto dim = Ld.size();
+    auto g_dim = Ld.size();
     for (auto &cell : pop.cells)
     {
         for (auto &particle : cell.particles)
         {
-            for (std::size_t j = 0; j < dim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
                 particle.x[j] += dt * particle.v[j];
                 particle.x[j] -= Ld[j] * floor(particle.x[j] / Ld[j]);

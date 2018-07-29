@@ -22,9 +22,9 @@ namespace punc
 
 signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<double> &x)
 {
-    auto dim = mesh->geometry().dim();
+    auto g_dim = mesh->geometry().dim();
     auto tree = mesh->bounding_box_tree();
-    df::Point p(dim, x.data());
+    df::Point p(g_dim, x.data());
     unsigned int cell_id = tree->compute_first_entity_collision(p);
 
     if (cell_id == UINT32_MAX)
@@ -40,7 +40,7 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<d
 CreateSpecies::CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X)
                              : X(X)
 {
-    D = mesh->geometry().dim();
+    g_dim = mesh->geometry().dim();
     volume = punc::volume(mesh);
     num_cells = mesh->num_cells();
 }
@@ -79,19 +79,19 @@ void CreateSpecies::create(double q, double m, double n, Pdf &pdf, Pdf &vdf,
         Q *= w;
         
         M = (T * T * Q * Q) /
-                  (epsilon_0 * pow(X, D));
+                  (epsilon_0 * pow(X, g_dim));
     }
 
     q /= Q;
     m /= M;
-    n *= pow(X, D);
+    n *= pow(X, g_dim);
 
     vdf.set_vth(vdf.vth()/(X / T));
 
-    std::vector<double> tmp_v(D);
+    std::vector<double> tmp_v(g_dim);
     auto tmp_vd = vdf.vd();
 
-    for (int i = 0; i < D; ++i)
+    for (int i = 0; i < g_dim; ++i)
     {
  
         tmp_v[i] = tmp_vd[i] / (X/T);
@@ -106,11 +106,11 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
 {
     num_cells = mesh->num_cells();
     cells.resize(num_cells);
-    tdim = mesh->topology().dim();
-    gdim = mesh->geometry().dim();
+    t_dim = mesh->topology().dim();
+    g_dim = mesh->geometry().dim();
 
-    mesh->init(0, tdim);
-    for (df::MeshEntityIterator e(*(mesh), tdim); !e.end(); ++e)
+    mesh->init(0, t_dim);
+    for (df::MeshEntityIterator e(*(mesh), t_dim); !e.end(); ++e)
     {
         std::vector<std::size_t> neighbors;
         auto cell_id = e->index();
@@ -118,8 +118,8 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
         for (std::size_t i = 0; i < num_vertices; ++i)
         {
             df::Vertex vertex(*mesh, e->entities(0)[i]);
-            auto vertex_cells = vertex.entities(tdim);
-            auto num_adj_cells = vertex.num_entities(tdim);
+            auto vertex_cells = vertex.entities(t_dim);
+            auto num_adj_cells = vertex.num_entities(t_dim);
             for (std::size_t j = 0; j < num_adj_cells; ++j)
             {
                 if (cell_id != vertex_cells[j])
@@ -140,8 +140,8 @@ Population::Population(std::shared_ptr<const df::Mesh> &mesh,
 
 void Population::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 {
-    mesh->init(tdim - 1, tdim);
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    mesh->init(t_dim - 1, t_dim);
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
     {
         std::vector<signed long int> facet_adjacents;
         std::vector<double> facet_normals;
@@ -149,13 +149,13 @@ void Population::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 
         auto cell_id = e->index();
         df::Cell single_cell(*mesh, cell_id);
-        auto facets = e->entities(tdim - 1);
-        auto num_facets = e->num_entities(tdim - 1);
+        auto facets = e->entities(t_dim - 1);
+        auto num_facets = e->num_entities(t_dim - 1);
         for (std::size_t i = 0; i < num_facets; ++i)
         {
-            df::Facet facet(*mesh, e->entities(tdim - 1)[i]);
-            auto facet_cells = facet.entities(tdim);
-            auto num_adj_cells = facet.num_entities(tdim);
+            df::Facet facet(*mesh, e->entities(t_dim - 1)[i]);
+            auto facet_cells = facet.entities(t_dim);
+            auto num_adj_cells = facet.num_entities(t_dim);
             for (std::size_t j = 0; j < num_adj_cells; ++j)
             {
                 if (cell_id != facet_cells[j])
@@ -168,7 +168,7 @@ void Population::init_localizer(const df::MeshFunction<std::size_t> &bnd)
                 facet_adjacents.push_back(-1 * bnd.values()[facets[i]]);
             }
 
-            for (std::size_t j = 0; j < gdim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
                 facet_mids.push_back(facet.midpoint()[j]);
                 facet_normals.push_back(single_cell.normal(i)[j]);
@@ -184,16 +184,16 @@ void Population::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 void Population::add_particles(std::vector<double> &xs, std::vector<double> &vs,
                                double q, double m)
 {
-    std::size_t num_particles = xs.size() / gdim;
-    std::vector<double> xs_tmp(gdim);
-    std::vector<double> vs_tmp(gdim);
+    std::size_t num_particles = xs.size() / g_dim;
+    std::vector<double> xs_tmp(g_dim);
+    std::vector<double> vs_tmp(g_dim);
     std::size_t cell_id;
     for (std::size_t i = 0; i < num_particles; ++i)
     {
-        for (std::size_t j = 0; j < gdim; ++j)
+        for (std::size_t j = 0; j < g_dim; ++j)
         {
-            xs_tmp[j] = xs[i * gdim + j];
-            vs_tmp[j] = vs[i * gdim + j];
+            xs_tmp[j] = xs[i * g_dim + j];
+            vs_tmp[j] = vs[i * g_dim + j];
         }
         cell_id = locate(xs_tmp);
         if (cell_id >= 0)
@@ -211,21 +211,21 @@ signed long int Population::locate(std::vector<double> &p)
 signed long int Population::relocate(std::vector<double> &p, signed long int cell_id)
 {
     df::Cell _cell_(*mesh, cell_id);
-    df::Point point(gdim, p.data());
+    df::Point point(g_dim, p.data());
     if (_cell_.contains(point))
     {
         return cell_id;
     }
     else
     {
-        std::vector<double> proj(gdim + 1);
-        for (std::size_t i = 0; i < gdim + 1; ++i)
+        std::vector<double> proj(g_dim + 1);
+        for (std::size_t i = 0; i < g_dim + 1; ++i)
         {
             proj[i] = 0.0;
-            for (std::size_t j = 0; j < gdim; ++j)
+            for (std::size_t j = 0; j < g_dim; ++j)
             {
-                proj[i] += (p[j] - cells[cell_id].facet_mids[i * gdim + j]) *
-                        cells[cell_id].facet_normals[i * gdim + j];
+                proj[i] += (p[j] - cells[cell_id].facet_mids[i * g_dim + j]) *
+                        cells[cell_id].facet_normals[i * g_dim + j];
             }
         }
         auto projarg = std::distance(proj.begin(), std::max_element(proj.begin(), proj.end()));
@@ -356,7 +356,7 @@ void Population::save_vel(const std::string &fname)
             for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
             {
                 auto particle = cells[cell_id].particles[p_id];
-                for (std::size_t i = 0; i < gdim; ++i)
+                for (std::size_t i = 0; i < g_dim; ++i)
                 {
                     fprintf(fout, "%.17g\t", particle.v[i]);
                 }
@@ -378,11 +378,11 @@ void Population::save_file(const std::string &fname)
             for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
             {
                 auto particle = cells[cell_id].particles[p_id];
-                for (std::size_t i = 0; i < gdim; ++i)
+                for (std::size_t i = 0; i < g_dim; ++i)
                 {
                     fprintf(fout, "%.17g\t", particle.x[i]);
                 }
-                for (std::size_t i = 0; i < gdim; ++i)
+                for (std::size_t i = 0; i < g_dim; ++i)
                 {
                     fprintf(fout, "%.17g\t", particle.v[i]);
                 }
@@ -398,8 +398,8 @@ void Population::load_file(const std::string &fname)
 {
     std::fstream in(fname);
     std::string line;
-    std::vector<double> x(gdim);
-    std::vector<double> v(gdim);
+    std::vector<double> x(g_dim);
+    std::vector<double> v(g_dim);
     double q = 0;
     double m = 0;
     std::size_t i;
@@ -410,19 +410,19 @@ void Population::load_file(const std::string &fname)
         i = 0;
         while (ss >> value)
         {
-            if (i < gdim)
+            if (i < g_dim)
             {
                 x[i] = value;
             }
-            else if (i >= gdim && i < 2 * gdim)
+            else if (i >= g_dim && i < 2 * g_dim)
             {
-                v[i % gdim] = value;
+                v[i % g_dim] = value;
             }
-            else if (i == 2 * gdim)
+            else if (i == 2 * g_dim)
             {
                 q = value;
             }
-            else if (i == 2 * gdim + 1)
+            else if (i == 2 * g_dim + 1)
             {
                 m = value;
             }

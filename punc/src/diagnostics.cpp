@@ -28,7 +28,7 @@ static inline void matrix_vector_product(double *y, const double *A,
 double kinetic_energy(Population &pop)
 {
     double KE = 0.0;
-    for (df::MeshEntityIterator e(*pop.mesh, pop.tdim); !e.end(); ++e)
+    for (df::MeshEntityIterator e(*pop.mesh, pop.t_dim); !e.end(); ++e)
     {
         auto cell_id = e->index();
         std::size_t num_particles = pop.cells[cell_id].particles.size();
@@ -37,7 +37,7 @@ double kinetic_energy(Population &pop)
             auto particle = pop.cells[cell_id].particles[p_id];
             auto m = particle.m;
             auto v = particle.v;
-            for (std::size_t i = 0; i < pop.gdim; ++i)
+            for (std::size_t i = 0; i < pop.g_dim; ++i)
             {
                 KE += 0.5 * m * v[i] * v[i];
             }
@@ -55,7 +55,7 @@ double kinetic_energy_new(Population &pop)
         {
             auto m = particle.m;
             auto v = particle.v;
-            for (std::size_t i = 0; i < pop.gdim; ++i)
+            for (std::size_t i = 0; i < pop.g_dim; ++i)
             {
                 KE += 0.5 * m * v[i] * v[i];
             }
@@ -90,7 +90,7 @@ double particle_potential_energy(Population &pop, const df::Function &phi)
 {
     auto V = phi.function_space();
     auto mesh = V->mesh();
-    auto tdim = mesh->topology().dim();
+    auto t_dim = mesh->topology().dim();
     auto element = V->element();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
@@ -101,7 +101,7 @@ double particle_potential_energy(Population &pop, const df::Function &phi)
     std::vector<double> coefficients(s_dim, 0.0);
     std::vector<double> vertex_coordinates;
 
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    for (df::MeshEntityIterator e(*mesh, t_dim); !e.end(); ++e)
     {
         auto cell_id = e->index();
         df::Cell _cell(*mesh, cell_id);

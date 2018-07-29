@@ -106,7 +106,7 @@ class CreateSpecies
 {
   public:
     double X;
-    int D;
+    int g_dim;
     double volume, num_cells;
     std::vector<Species> species;
     double T = std::numeric_limits<double>::quiet_NaN();
@@ -289,8 +289,8 @@ class Population
     std::shared_ptr<const df::Mesh> mesh;   ///< df::Mesh of the domain
     std::vector<Cell> cells;                ///< All df::Cells in the domain
     std::size_t num_cells;                  ///< Number of cells in the domain
-    std::size_t gdim;                       ///< Number of geometric dimensions
-    std::size_t tdim;                       ///< Number of topological dimensions
+    std::size_t g_dim;                       ///< Number of geometric dimensions
+    std::size_t t_dim;                       ///< Number of topological dimensions
 
     Population(std::shared_ptr<const df::Mesh> &mesh,
                const df::MeshFunction<std::size_t> &bnd);
