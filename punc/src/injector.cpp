@@ -141,6 +141,18 @@ double Maxwellian::operator()(const std::vector<double> &x, const std::vector<do
     return (vn > 0.0) * vn * this->operator()(x);
 }
 
+double Maxwellian::flux_max(std::vector<double> &n)
+{
+    auto vdn = std::inner_product(n.begin(), n.end(), vd_.begin(), 0.0);
+
+    std::vector<double> tmp(dim_);
+    for (auto i = 0; i<dim_;++i)
+    {
+        tmp[i] = vd_[i]-0.5*n[i]*vdn+0.5*n[i]*sqrt(4*vth2+vdn*vdn);
+    }
+    return this->operator()(tmp, n);
+}
+
 double Maxwellian::flux_num(const std::vector<double> &n, double S) 
 {
     auto vdn = std::inner_product(n.begin(), n.end(), vd_.begin(), 0.0);
@@ -284,82 +296,82 @@ std::vector<double> random_facet_points(const std::size_t N,
     return xs;
 }
 
-void inject_particles(Population &pop, std::vector<Species> &species,
-                      std::vector<Facet> &facets, const double dt)
-{
-    std::mt19937_64 rng{random_seed_seq::get_instance()};
-    rand_uniform rand(0.0, 1.0);
+// void inject_particles(Population &pop, std::vector<Species> &species,
+//                       std::vector<Facet> &facets, const double dt)
+// {
+//     std::mt19937_64 rng{random_seed_seq::get_instance()};
+//     rand_uniform rand(0.0, 1.0);
 
-    auto g_dim = pop.g_dim;
-    auto num_species = species.size();
-    auto num_facets = facets.size();
-    std::vector<double> xs_tmp(g_dim);
+//     auto g_dim = pop.g_dim;
+//     auto num_species = species.size();
+//     auto num_facets = facets.size();
+//     std::vector<double> xs_tmp(g_dim);
 
-    for (std::size_t i = 0; i < num_species; ++i)
-    {
-        std::vector<double> xs, vs;
-        for (std::size_t j = 0; j < num_facets; ++j)
-        {
-            auto normal_i = facets[j].normal;
-            auto N_float = species[i].n*dt*species[i].vdf.flux_num(normal_i, facets[j].area);
-            int N = int(N_float);
-            if (rand(rng) < (N_float - N))
-            {
-                N += 1;
-            }
-            auto vdf = [i, &normal_i, &species](std::vector<double> &v)->double{
-                        return species[i].vdf(v, normal_i);
-            };
-            auto count = 0;
-            while (count <N)
-            {
-                auto n = N - count;
-                auto xs_new = random_facet_points(n, facets[j].vertices);
-                auto vs_new = rejection_sampler(n, vdf, species[i].vdf.max(), 
-                                                species[i].vdf.dim(), 
-                                                species[i].vdf.domain());
+//     for (std::size_t i = 0; i < num_species; ++i)
+//     {
+//         std::vector<double> xs, vs;
+//         for (std::size_t j = 0; j < num_facets; ++j)
+//         {
+//             auto normal_i = facets[j].normal;
+//             auto N_float = species[i].n*dt*species[i].vdf.flux_num(normal_i, facets[j].area);
+//             int N = int(N_float);
+//             if (rand(rng) < (N_float - N))
+//             {
+//                 N += 1;
+//             }
+//             auto vdf = [i, &normal_i, &species](std::vector<double> &v)->double{
+//                         return species[i].vdf(v, normal_i);
+//             };
+//             auto count = 0;
+//             while (count <N)
+//             {
+//                 auto n = N - count;
+//                 auto xs_new = random_facet_points(n, facets[j].vertices);
+//                 auto vs_new = rejection_sampler(n, vdf, species[i].vdf.max(), 
+//                                                 species[i].vdf.dim(), 
+//                                                 species[i].vdf.domain());
 
-                for(auto k=0; k<n; ++k)
-                {
-                    auto r = rand(rng);
-                    for (std::size_t l = 0; l < g_dim; ++l)
-                    {
-                        xs_tmp[l] = xs_new[k*g_dim + l] + dt*r*vs_new[k*g_dim + l];
-                    }
-                    if (pop.locate(xs_tmp) >= 0)
-                    {
-                        for (std::size_t l = 0; l < g_dim; ++l)
-                        {
-                            xs.push_back(xs_tmp[l]);
-                            vs.push_back(vs_new[k * g_dim + l]);
-                        }
-                    }
-                    count += 1;
-                }
-            }
-        }
-        pop.add_particles(xs, vs, species[i].q, species[i].m);
-    }
-}
+//                 for(auto k=0; k<n; ++k)
+//                 {
+//                     auto r = rand(rng);
+//                     for (std::size_t l = 0; l < g_dim; ++l)
+//                     {
+//                         xs_tmp[l] = xs_new[k*g_dim + l] + dt*r*vs_new[k*g_dim + l];
+//                     }
+//                     if (pop.locate(xs_tmp.data()) >= 0)
+//                     {
+//                         for (std::size_t l = 0; l < g_dim; ++l)
+//                         {
+//                             xs.push_back(xs_tmp[l]);
+//                             vs.push_back(vs_new[k * g_dim + l]);
+//                         }
+//                     }
+//                     count += 1;
+//                 }
+//             }
+//         }
+//         pop.add_particles(xs, vs, species[i].q, species[i].m);
+//     }
+// }
 
-void load_particles(Population &pop, std::vector<Species> &species)
-{
-    auto num_species = species.size();
-    std::vector<double> xs, vs;
-    for (std::size_t i = 0; i < num_species; ++i)
-    {
-        auto s = species[i];
-        auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
-        auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
+// void load_particles(Population &pop, std::vector<Species> &species)
+// {
+//     auto num_species = species.size();
+//     std::vector<double> xs, vs;
+//     for (std::size_t i = 0; i < num_species; ++i)
+//     {
+//         auto s = species[i];
+//         auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
+//         auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
 
-        xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain());
-        if(s.vdf.has_cdf){
-            vs = s.vdf.cdf(s.num);
-        }else{
-            vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain());
-        }
-        pop.add_particles(xs, vs, s.q, s.m);
-    }
-}
+//         xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain());
+//         if(s.vdf.has_cdf){
+//             vs = s.vdf.cdf(s.num);
+//         }else{
+//             vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain());
+//         }
+//         pop.add_particles(xs, vs, s.q, s.m);
+//     }
+// }
 
 }

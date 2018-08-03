@@ -30,6 +30,23 @@ namespace punc
 
 namespace df = dolfin;
 
+static inline void matrix_vector_product(double *y, const double *A,
+                                         const double *x, std::size_t n,
+                                         std::size_t m)
+{
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        y[i] = A[i * m];
+    }
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        for (std::size_t j = 0; j < m - 1; ++j)
+        {
+            y[i] += A[i * m + j + 1] * x[j];
+        }
+    }
+}
+
 struct PhysicalConstants
 {
     double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
@@ -41,7 +58,7 @@ struct PhysicalConstants
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad;
 };
 
-signed long int locate(std::shared_ptr<const df::Mesh> mesh, const std::vector<double> &x);
+signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x);
 
 class Pdf : public df::Expression
 {
@@ -69,7 +86,8 @@ public:
     virtual void set_vth(double v) {vth_= v;}
     virtual void set_vd(std::vector<double> &v) { vd_ = v; }
     virtual double flux(const std::vector<double> &n) { return 0.0;}   
-    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; } 
+    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; }
+    virtual double flux_max(std::vector<double> &n){return 0.0;};
     virtual void set_flux_normal(std::vector<double> &n) {}
     virtual std::vector<double> cdf(const std::size_t N) {return {};}
 };
@@ -77,13 +95,26 @@ public:
 /**
  * @brief A simulation particle
  */
+template <std::size_t len = 2>
 struct Particle
 {
-    std::vector<double> x;  ///< Position
-    std::vector<double> v;  ///< Velocity
-    double q;               ///< Charge
-    double m;               ///< Mass
+    double x[len];  ///< Position
+    double v[len];  ///< Velocity
+    double q;       ///< Charge
+    double m;       ///< Mass
+    Particle(const double *x, const double *v, double q, double m);
 };
+
+template <std::size_t len>
+Particle<len>::Particle(const double *x, const double *v,
+                      double q, double m) : q(q), m(m)
+{
+    for (std::size_t i = 0; i < len; i++)
+    {
+        this->x[i] = x[i];
+        this->v[i] = v[i];
+    }
+}
 
 /**
  * @brief Complete specification of a species.
@@ -95,8 +126,8 @@ public:
     double m; ///< Mass
     double n; ///< Density
     int num;  ///< Initial number of particles
-    Pdf &pdf;  ///< Position distribution function (initially)
-    Pdf &vdf;  ///< Velocity distribution function (initially and at boundary)
+    Pdf &pdf; ///< Position distribution function (initially)
+    Pdf &vdf; ///< Velocity distribution function (initially and at boundary)
 
     Species(double q, double m, double n, int num, Pdf &pdf, Pdf &vdf) :
             q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
@@ -123,24 +154,25 @@ class CreateSpecies
                 int num = 0);
 };
 
+template <std::size_t len>
 class Cell : public df::Cell
 {
   public:
     std::size_t id;
+    std::size_t g_dim;
     std::vector<std::size_t> neighbors;
     std::vector<signed long int> facet_adjacents;
     std::vector<double> facet_normals;
     std::vector<double> facet_mids;
-    std::vector<Particle> particles;
+    std::vector<Particle<len>> particles;
     std::vector<double> vertex_coordinates;
     std::vector<double> basis_matrix;
     ufc::cell ufc_cell;
 
-    Cell() {};
-
     Cell(std::shared_ptr<const df::Mesh> &mesh,
-        std::size_t id, std::vector<std::size_t> neighbors)
-        : df::Cell(*mesh, id), id(id), neighbors(neighbors)
+         std::size_t id, std::vector<std::size_t> neighbors)
+        : df::Cell(*mesh, id), id(id), 
+        neighbors(neighbors)
     {
         auto g_dim = mesh->geometry().dim();
         const std::size_t num_vertices = (*this).num_vertices();
@@ -283,22 +315,23 @@ class Cell : public df::Cell
 /**
  * @brief A collection of Particles
  */
+template <std::size_t len>
 class Population
 {
   public:
     std::shared_ptr<const df::Mesh> mesh;   ///< df::Mesh of the domain
-    std::vector<Cell> cells;                ///< All df::Cells in the domain
+    const std::size_t g_dim;                ///< Number of geometric dimensions
+    std::size_t t_dim;                      ///< Number of topological dimensions
     std::size_t num_cells;                  ///< Number of cells in the domain
-    std::size_t g_dim;                       ///< Number of geometric dimensions
-    std::size_t t_dim;                       ///< Number of topological dimensions
+    std::vector<Cell<len>> cells;           ///< All df::Cells in the domain
 
     Population(std::shared_ptr<const df::Mesh> &mesh,
                const df::MeshFunction<std::size_t> &bnd);
     void init_localizer(const df::MeshFunction<std::size_t> &bnd);
     void add_particles(std::vector<double> &xs, std::vector<double> &vs,
                        double q, double m);
-    signed long int locate(std::vector<double> &p);
-    signed long int relocate(std::vector<double> &p, signed long int cell_id);
+    signed long int locate(const double *p);
+    signed long int relocate(const double *p, signed long int cell_id);
     void update(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
@@ -307,6 +340,334 @@ class Population
     void load_file(const std::string &fname);
     void save_vel(const std::string &fname);
 };
+
+template <std::size_t len>
+Population<len>::Population(std::shared_ptr<const df::Mesh> &mesh,
+                            const df::MeshFunction<std::size_t> &bnd)
+    : mesh(mesh), g_dim(mesh->geometry().dim()), t_dim(mesh->topology().dim()),
+      num_cells(mesh->num_cells())
+{
+    mesh->init(0, t_dim);
+    for (df::MeshEntityIterator e(*(mesh), t_dim); !e.end(); ++e)
+    {
+        std::vector<std::size_t> neighbors;
+        auto cell_id = e->index();
+        auto num_vertices = e->num_entities(0);
+        for (std::size_t i = 0; i < num_vertices; ++i)
+        {
+            df::Vertex vertex(*mesh, e->entities(0)[i]);
+            auto vertex_cells = vertex.entities(t_dim);
+            auto num_adj_cells = vertex.num_entities(t_dim);
+            for (std::size_t j = 0; j < num_adj_cells; ++j)
+            {
+                if (cell_id != vertex_cells[j])
+                {
+                    neighbors.push_back(vertex_cells[j]);
+                }
+            }
+        }
+        std::sort(neighbors.begin(), neighbors.end());
+        neighbors.erase(std::unique(neighbors.begin(), neighbors.end()), neighbors.end());
+
+        Cell<len> cell(mesh, cell_id, neighbors);
+        cells.emplace_back(cell);
+    }
+
+    init_localizer(bnd);
+}
+
+template <std::size_t len>
+void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
+{
+    mesh->init(t_dim - 1, t_dim);
+    for (auto &cell : cells)
+    {
+        std::vector<signed long int> facet_adjacents;
+        std::vector<double> facet_normals;
+        std::vector<double> facet_mids;
+        auto cell_id = cell.id;
+        auto facets = cell.entities(t_dim - 1);
+        auto num_facets = cell.num_entities(t_dim - 1);
+        for (std::size_t i = 0; i < num_facets; ++i)
+        {
+            df::Facet facet(*mesh, cell.entities(t_dim - 1)[i]);
+            auto facet_cells = facet.entities(t_dim);
+            auto num_adj_cells = facet.num_entities(t_dim);
+            for (std::size_t j = 0; j < num_adj_cells; ++j)
+            {
+                if (cell_id != facet_cells[j])
+                {
+                    facet_adjacents.push_back(facet_cells[j]);
+                }
+            }
+            if (num_adj_cells == 1)
+            {
+                facet_adjacents.push_back(-1 * bnd.values()[facets[i]]);
+            }
+
+            for (std::size_t j = 0; j < g_dim; ++j)
+            {
+                facet_mids.push_back(facet.midpoint()[j]);
+                facet_normals.push_back(cell.normal(i)[j]);
+            }
+        }
+
+        cells[cell_id].facet_adjacents = facet_adjacents;
+        cells[cell_id].facet_normals = facet_normals;
+        cells[cell_id].facet_mids = facet_mids;
+    }
+}
+
+template <std::size_t len>
+void Population<len>::add_particles(std::vector<double> &xs, std::vector<double> &vs,
+                                    double q, double m)
+{
+    std::size_t num_particles = xs.size() / g_dim;
+    double xs_tmp[g_dim];
+    double vs_tmp[g_dim];
+
+    std::size_t cell_id;
+    for (std::size_t i = 0; i < num_particles; ++i)
+    {
+        for (std::size_t j = 0; j < g_dim; ++j)
+        {
+            xs_tmp[j] = xs[i * g_dim + j];
+            vs_tmp[j] = vs[i * g_dim + j];
+        }
+        cell_id = locate(xs_tmp);
+        if (cell_id >= 0)
+        {
+            Particle<len> _particles(xs_tmp, vs_tmp, q, m);
+            cells[cell_id].particles.push_back(_particles);
+        }
+    }
+}
+
+template <std::size_t len>
+signed long int Population<len>::locate(const double *p)
+{
+    return punc::locate(mesh, p);
+}
+
+template <std::size_t len>
+signed long int Population<len>::relocate(const double *p, signed long int cell_id)
+{
+    df::Cell _cell_(*mesh, cell_id);
+    df::Point point(g_dim, p);
+    if (_cell_.contains(point))
+    {
+        return cell_id;
+    }
+    else
+    {
+        std::vector<double> proj(g_dim + 1);
+        for (std::size_t i = 0; i < g_dim + 1; ++i)
+        {
+            proj[i] = 0.0;
+            for (std::size_t j = 0; j < g_dim; ++j)
+            {
+                proj[i] += (p[j] - cells[cell_id].facet_mids[i * g_dim + j]) *
+                           cells[cell_id].facet_normals[i * g_dim + j];
+            }
+        }
+        auto projarg = std::distance(proj.begin(), std::max_element(proj.begin(), proj.end()));
+        auto new_cell_id = cells[cell_id].facet_adjacents[projarg];
+        if (new_cell_id >= 0)
+        {
+            return relocate(p, new_cell_id);
+        }
+        else
+        {
+            return new_cell_id;
+        }
+    }
+}
+
+// FIXME: Consider using default argument rather than boost::optional.
+// Empty default vector would be nice, but compiler may not be okay with
+// temporaries.
+template <std::size_t len>
+void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
+{
+    std::size_t num_objects = 0;
+    if (objects)
+    {
+        num_objects = objects->size();
+    }
+
+    // FIXME: Consider a different mechanism for boundaries than using negative
+    // numbers, or at least circumvent the problem of casting num_cells to
+    // signed. Not good practice. size_t may overflow to negative numbers upon
+    // truncation for large numbers.
+    signed long int new_cell_id;
+    for (signed long int cell_id = 0; cell_id < (signed long int)num_cells; ++cell_id)
+    {
+        std::vector<std::size_t> to_delete;
+        std::size_t num_particles = cells[cell_id].particles.size();
+        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
+        {
+            auto particle = cells[cell_id].particles[p_id];
+            new_cell_id = relocate(particle.x, cell_id);
+            if (new_cell_id != cell_id)
+            {
+                to_delete.push_back(p_id);
+                if (new_cell_id >= 0)
+                {
+                    cells[new_cell_id].particles.push_back(particle);
+                }
+                else
+                {
+                    for (std::size_t i = 0; i < num_objects; ++i)
+                    {
+                        if ((std::size_t)(-new_cell_id) == objects.get()[i].id)
+                        {
+                            objects.get()[i].charge += particle.q;
+                        }
+                    }
+                }
+            }
+        }
+        std::size_t size_to_delete = to_delete.size();
+        for (std::size_t it = size_to_delete; it-- > 0;)
+        {
+            auto p_id = to_delete[it];
+            if (p_id == num_particles - 1)
+            {
+                cells[cell_id].particles.pop_back();
+            }
+            else
+            {
+                std::swap(cells[cell_id].particles[p_id], cells[cell_id].particles.back());
+                cells[cell_id].particles.pop_back();
+            }
+        }
+    }
+}
+
+template <std::size_t len>
+std::size_t Population<len>::num_of_particles()
+{
+    std::size_t num_particles = 0;
+    for (auto &cell : cells)
+    {
+        num_particles += cell.particles.size();
+    }
+    return num_particles;
+}
+
+template <std::size_t len>
+std::size_t Population<len>::num_of_positives()
+{
+    std::size_t num_positives = 0;
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q > 0)
+            {
+                num_positives++;
+            }
+        }
+    }
+    return num_positives;
+}
+
+template <std::size_t len>
+std::size_t Population<len>::num_of_negatives()
+{
+    std::size_t num_negatives = 0;
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q < 0)
+            {
+                num_negatives++;
+            }
+        }
+    }
+    return num_negatives;
+}
+
+template <std::size_t len>
+void Population<len>::save_vel(const std::string &fname)
+{
+    FILE *fout = fopen(fname.c_str(), "w");
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                fprintf(fout, "%.17g\t", particle.v[i]);
+            }
+            fprintf(fout, "\n");
+        }
+    }
+    fclose(fout);
+}
+
+template <std::size_t len>
+void Population<len>::save_file(const std::string &fname)
+{
+    FILE *fout = fopen(fname.c_str(), "w");
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                fprintf(fout, "%.17g\t", particle.x[i]);
+            }
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                fprintf(fout, "%.17g\t", particle.v[i]);
+            }
+            fprintf(fout, "%.17g\t %.17g\t", particle.q, particle.m);
+            fprintf(fout, "\n");
+        }
+    }
+    fclose(fout);
+}
+
+template <std::size_t len>
+void Population<len>::load_file(const std::string &fname)
+{
+    std::fstream in(fname);
+    std::string line;
+    double x[g_dim];
+    double v[g_dim];
+    double q = 0;
+    double m = 0;
+    std::size_t i;
+    while (std::getline(in, line))
+    {
+        double value;
+        std::stringstream ss(line);
+        i = 0;
+        while (ss >> value)
+        {
+            if (i < g_dim)
+            {
+                x[i] = value;
+            }
+            else if (i >= g_dim && i < 2 * g_dim)
+            {
+                v[i % g_dim] = value;
+            }
+            else if (i == 2 * g_dim)
+            {
+                q = value;
+            }
+            else if (i == 2 * g_dim + 1)
+            {
+                m = value;
+            }
+            ++i;
+            add_particles(x, v, q, m);
+        }
+    }
+}
 
 }
 

@@ -1,6 +1,6 @@
 #include <dolfin.h>
 #include <punc.h>
-
+#include "../../punc/ufl/EField3D.h"
 using namespace punc;
 
 class EField : public df::Expression
@@ -33,11 +33,12 @@ int main()
 {
     df::set_log_level(df::WARNING);
     double dt = 0.01;
-    std::size_t steps = 10;
+    std::size_t steps = 1000;
     std::string fname{"../../mesh/3D/nothing_in_cube"};
 
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
+    // auto dim = mesh->geometry().dim();
+    const int dim = 3;
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -48,7 +49,7 @@ int main()
     std::vector<double> Ld = get_mesh_size(mesh);
 
     auto W = std::make_shared<EField3D::FunctionSpace>(mesh);
-    Population pop(mesh, boundaries);
+    Population<dim> pop(mesh, boundaries);
     double q = -1.0;
     double m = 0.05;
     std::vector<double> x = {1.0,0.5,0.5};
@@ -84,8 +85,8 @@ int main()
     for(int i=1; i<steps;++i)
     {
         std::cout << "step: " << i << '\n';
-        KE = boris_nonuniform(pop, ef, bf, (1.0-.5*(i==1))*dt);
-        move_periodic(pop, dt, Ld);
+        KE = boris(pop, ef, bf, (1.0-.5*(i==1))*dt);
+        move_periodic_new(pop, dt, Ld);
         pop.update();
         
         for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)

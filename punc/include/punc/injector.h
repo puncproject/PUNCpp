@@ -99,7 +99,7 @@ public:
     }
     double operator()(const std::vector<double> &x) 
     { 
-        return (locate(mesh, x) >= 0) * 1.0; 
+        return (locate(mesh, x.data()) >= 0) * 1.0; 
     };
     double max() { return 1.0;};
     int dim() { return dim_; };
@@ -117,6 +117,7 @@ private:
     std::vector<double> n_;
     bool has_flux = false;
     bool has_cdf = true;
+    std::vector<double> max_vec;
 public:
     Maxwellian(double vth, std::vector<double> &vd, double vdf_range = 5.0);
     double operator()(const std::vector<double> &v);
@@ -134,6 +135,7 @@ public:
         has_flux = true;
         n_ = n;
     }
+    double flux_max(std::vector<double> &n);
     double flux_num(const std::vector<double> &n, double S);
     void eval(df::Array<double> &values, const df::Array<double> &x) const;
     std::vector<double> cdf(const std::size_t N);
@@ -162,10 +164,100 @@ public:
     double flux_num(const std::vector<double> &n, double S) { return 0; }
 };
 
-void inject_particles(Population &pop, std::vector<Species> &species,
-                      std::vector<Facet> &facets, const double dt);
+std::vector<double> rejection_sampler(const std::size_t N,
+                                      std::function<double(std::vector<double> &)> pdf,
+                                      double pdf_max, int dim,
+                                      const std::vector<double> &domain);
 
-void load_particles(Population &pop, std::vector<Species> &species);
+std::vector<double> random_facet_points(const std::size_t N, 
+                                        const std::vector<double> &vertices);
+
+template <std::size_t _dim>
+void inject_particles(Population<_dim> &pop, std::vector<Species> &species,
+                      std::vector<Facet> &facets, const double dt)
+{
+    std::mt19937_64 rng{random_seed_seq::get_instance()};
+    std::uniform_real_distribution<double> rand(0.0, 1.0);
+
+    auto g_dim = pop.g_dim;
+    auto num_species = species.size();
+    auto num_facets = facets.size();
+    // std::vector<double> xs_tmp(g_dim);
+    double xs_tmp[g_dim];
+
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        std::vector<double> xs, vs;
+        for (std::size_t j = 0; j < num_facets; ++j)
+        {
+            auto normal_i = facets[j].normal;
+            auto N_float = species[i].n * dt * species[i].vdf.flux_num(normal_i, facets[j].area);
+            int N = int(N_float);
+            if (rand(rng) < (N_float - N))
+            {
+                N += 1;
+            }
+            auto vdf = [i, &normal_i, &species](std::vector<double> &v) -> double {
+                return species[i].vdf(v, normal_i);
+            };
+    
+            
+            auto pdf_max = species[i].vdf.flux_max(normal_i);
+            auto count = 0;
+            while (count < N)
+            {
+                auto n = N - count;
+                auto xs_new = random_facet_points(n, facets[j].vertices);
+                auto vs_new = rejection_sampler(n, vdf, species[i].vdf.flux_max(normal_i),
+                                                species[i].vdf.dim(),
+                                                species[i].vdf.domain());
+
+                for (auto k = 0; k < n; ++k)
+                {
+                    auto r = rand(rng);
+                    for (std::size_t l = 0; l < g_dim; ++l)
+                    {
+                        xs_tmp[l] = xs_new[k * g_dim + l] + dt * r * vs_new[k * g_dim + l];
+                    }
+                    if (pop.locate(xs_tmp) >= 0)
+                    {
+                        for (std::size_t l = 0; l < g_dim; ++l)
+                        {
+                            xs.push_back(xs_tmp[l]);
+                            vs.push_back(vs_new[k * g_dim + l]);
+                        }
+                    }
+                    count += 1;
+                }
+            }
+        }
+        pop.add_particles(xs, vs, species[i].q, species[i].m);
+    }
+}
+
+template <std::size_t _dim>
+void load_particles(Population<_dim> &pop, std::vector<Species> &species)
+{
+    auto num_species = species.size();
+    std::vector<double> xs, vs;
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        auto s = species[i];
+        auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
+        auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
+
+        xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain());
+        if (s.vdf.has_cdf)
+        {
+            vs = s.vdf.cdf(s.num);
+        }
+        else
+        {
+            vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain());
+        }
+        pop.add_particles(xs, vs, s.q, s.m);
+    }
+}
 
 }
 

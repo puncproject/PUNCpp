@@ -18,7 +18,7 @@ int main(){
     //
     string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
+    const std::size_t dim = 3;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -48,7 +48,6 @@ int main(){
     double vthi = vthe/sqrt(1836.);
     vector<double> vd(dim, 0);
 
-    // auto pdf = [](vector<double> t)->double{return 1.0;};
     UniformPosition pdfe(mesh); // Electron position distribution
     UniformPosition pdfi(mesh); // Ion position distribution
 
@@ -94,8 +93,8 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 10;
-    double dt = 0.2/wpe;
+    size_t steps = 1000;
+    double dt = 0.05/wpe;
 
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
@@ -124,8 +123,8 @@ int main(){
     //
     // LOAD PARTICLES
     //
-    Population pop(mesh, boundaries);
-    load_particles(pop, species);
+    Population<dim> pop(mesh, boundaries);
+    load_particles<dim>(pop, species);
 
     //
     // CREATE HISTORY VARIABLES
@@ -138,6 +137,9 @@ int main(){
     double potential        = 0;
     double current_measured = 0;
     double old_charge       = 0;
+
+    cout << "imposed_current: " << imposed_current <<'\n';
+    cout << "imposed_potential: " << imposed_potential << '\n';
 
     cout << "Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
@@ -168,7 +170,7 @@ int main(){
         // DISTRIBUTE
 
         // auto rho = distribute(V, pop, dv_inv);
-        auto rho = distribute_dg0(Q, pop);
+        auto rho = distribute_dg0_new<dim>(Q, pop);
         t_dist[i] = timer.elapsed();
         timer.reset();
 
@@ -190,6 +192,11 @@ int main(){
         t_efil[i] = timer.elapsed();
         timer.reset();
 
+        // if (i==100)
+        // {
+        //     df::File ofile("phi.pvd");
+        //     ofile<<phi;
+        // }
         // compute_object_potentials(int_bc, E, inv_capacity, mesh);
         // t_objpoten[i] = timer.elapsed();
         // timer.reset();
@@ -204,7 +211,7 @@ int main(){
         // t_efil[i] += timer.elapsed();
         // timer.reset();
 
-        PE = particle_potential_energy(pop, phi);
+        PE = particle_potential_energy_cg1<dim>(pop, phi);
         t_pot[i] = timer.elapsed();
 
         // PUSH PARTICLES
@@ -213,11 +220,11 @@ int main(){
 
         old_charge = int_bc[0].charge;
 
-        KE = accel(pop, E, (1.0-0.5*(i == 0))*dt);
+        KE = accel_cg_new<dim>(pop, E, (1.0-0.5*(i == 0))*dt);
         t_ace[i] = timer.elapsed();
         if(i==0) KE = kinetic_energy(pop);
         timer.reset();
-        move(pop, dt);
+        move_new<dim>(pop, dt);
         t_mv[i] = timer.elapsed();
         timer.reset();
 
@@ -230,7 +237,7 @@ int main(){
         // INJECT PARTICLES
 
         timer.reset();
-        inject_particles(pop, species, facet_vec, dt);
+        inject_particles<dim>(pop, species, facet_vec, dt);
         t_inj[i] = timer.elapsed();
         
         // COUNT PARTICLES
@@ -240,6 +247,9 @@ int main(){
         num_i     = pop.num_of_positives();
         num_tot   = pop.num_of_particles();
         t_pnum[i] = timer.elapsed();
+        cout << "ions: "<<num_i;
+        cout << "  electrons: " << num_e;
+        cout << "  total: " << num_tot << '\n';
 
         timer.reset();
 
@@ -273,19 +283,22 @@ int main(){
     total_time += time_objpoten + time_pot + time_ace + time_mv + time_inj+time_pnum;
 
     cout << "----------------Measured time for each task----------------" << endl;
-    cout << "        Task         " << " Time  "     << "  "   << " Procentage "               << endl;
-    cout << "Distribution:        " << time_dist     << "    " << 100*time_dist/total_time     << endl;
-    cout << "Reset objects:       " << time_rsetobj  << "    " << 100*time_rsetobj/total_time  << endl;
-    cout << "poisson:             " << time_pois     << "    " << 100*time_pois/total_time     << endl;
-    cout << "efield:              " << time_efil     << "    " << 100*time_efil/total_time     << endl;
-    cout << "update:              " << time_upd      << "    " << 100*time_upd/total_time      << endl;
-    cout << "move:                " << time_mv       << "    " << 100*time_mv/total_time       << endl;
-    cout << "inject:              " << time_inj      << "    " << 100*time_inj/total_time      << endl;
-    cout << "accel:               " << time_ace      << "    " << 100*time_ace/total_time      << endl;
-    cout << "potential energy:    " << time_pot      << "    " << 100*time_pot/total_time      << endl;
-    cout << "object potential:    " << time_objpoten << "    " << 100*time_objpoten/total_time << endl;
-    cout << "counting particles:  " << time_pnum     << "    " << 100*time_pnum/total_time     << endl;
-    cout << "Total time:          " << total_time    << "    " << 100*total_time / total_time  << endl;
+    cout << "        Task         "
+         << " Time  "
+         << "  "
+         << " Percentage " << endl;
+    cout << "Distribution:        " << time_dist << "    " << 100 * time_dist / total_time << endl;
+    cout << "Reset objects:       " << time_rsetobj << "    " << 100 * time_rsetobj / total_time << endl;
+    cout << "poisson:             " << time_pois << "    " << 100 * time_pois / total_time << endl;
+    cout << "efield:              " << time_efil << "    " << 100 * time_efil / total_time << endl;
+    cout << "update:              " << time_upd << "    " << 100 * time_upd / total_time << endl;
+    cout << "move:                " << time_mv << "    " << 100 * time_mv / total_time << endl;
+    cout << "inject:              " << time_inj << "    " << 100 * time_inj / total_time << endl;
+    cout << "accel:               " << time_ace << "    " << 100 * time_ace / total_time << endl;
+    cout << "potential energy:    " << time_pot << "    " << 100 * time_pot / total_time << endl;
+    cout << "object potential:    " << time_objpoten << "    " << 100 * time_objpoten / total_time << endl;
+    cout << "counting particles:  " << time_pnum << "    " << 100 * time_pnum / total_time << endl;
+    cout << "Total time:          " << total_time << "    " << 100 * total_time / total_time << endl;
 
     return 0;
 }

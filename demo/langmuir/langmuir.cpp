@@ -46,7 +46,7 @@ LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
 
 double LangmuirWave2D::operator()(const std::vector<double> &x)
 {
-    return (locate(mesh, x) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+    return (locate(mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
 }
 
 int main()
@@ -59,7 +59,7 @@ int main()
 
     std::string fname{"../../mesh/2D/nothing_in_square"};
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
+    const std::size_t dim = 2;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -118,12 +118,12 @@ int main()
 
     auto species = create_species.species;
 
-    Population pop(mesh, boundaries);
+    Population<dim> pop(mesh, boundaries);
 
     PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);
     ESolver esolver(V);
 
-    load_particles(pop, species);
+    load_particles<dim>(pop, species);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
@@ -149,7 +149,7 @@ int main()
         {
             std::cout << "step: " << i << '\n';
             timer.reset();
-            auto rho = distribute(V, pop, dv_inv);
+            auto rho = distribute<dim>(V, pop, dv_inv);
             t_distribute[i] = timer.elapsed();
 
             timer.reset();
@@ -161,15 +161,15 @@ int main()
             t_efield[i] = timer.elapsed();
 
             timer.reset();
-            PE[i - 1] = particle_potential_energy(pop, phi);
+            PE[i - 1] = particle_potential_energy<dim>(pop, phi);
             t_potential[i] = timer.elapsed();
 
             timer.reset();
-            KE[i - 1] = accel(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+            KE[i - 1] = accel<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
             t_accel[i] = timer.elapsed();
 
             timer.reset();
-            move_periodic(pop, dt, Ld);
+            move_periodic<dim>(pop, dt, Ld);
             t_move[i] = timer.elapsed();
 
             timer.reset();
@@ -181,7 +181,7 @@ int main()
         {
             std::cout << "step: " << i << '\n';
             timer.reset();
-            auto rho = distribute_new(V, pop, dv_inv);
+            auto rho = distribute_new<dim>(V, pop, dv_inv);
             t_distribute[i] = timer.elapsed();
 
             timer.reset();
@@ -193,15 +193,15 @@ int main()
             t_efield[i] = timer.elapsed();
 
             timer.reset();
-            PE[i - 1] = particle_potential_energy_new(pop, phi);
+            PE[i - 1] = particle_potential_energy_cg1<dim>(pop, phi);
             t_potential[i] = timer.elapsed();
 
             timer.reset();
-            KE[i - 1] = accel_cg_new(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+            KE[i - 1] = accel_cg_new<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
             t_accel[i] = timer.elapsed();
 
             timer.reset();
-            move_periodic_new(pop, dt, Ld);
+            move_periodic_new<dim>(pop, dt, Ld);
             t_move[i] = timer.elapsed();
 
             timer.reset();
@@ -225,7 +225,7 @@ int main()
     cout << "        Task         "
          << " Time  "
          << "  "
-         << " Procentage " << endl;
+         << " Percentage " << endl;
     cout << "Distribution:        " << time_dist << "    " << 100 * time_dist / total_time << endl;
     cout << "poisson:             " << time_poisson << "    " << 100 * time_poisson / total_time << endl;
     cout << "efield:              " << time_efield << "    " << 100 * time_efield / total_time << endl;

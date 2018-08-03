@@ -25,7 +25,7 @@ int main()
 
     double dt = 0.01;
     std::size_t steps = 1000;
-    int dim = 3;
+    const std::size_t dim = 3;
 
     std::string fname;
     fname = "../../mesh/3D/nothing_in_cube";
@@ -59,7 +59,7 @@ int main()
     e *= mul;
     me *= mul;
 
-    Population pop(mesh, boundaries);
+    Population<dim> pop(mesh, boundaries);
     pop.add_particles(x, v, e, me);
 
     auto W = std::make_shared<EField3D::FunctionSpace>(mesh);
@@ -84,7 +84,7 @@ int main()
         std::cout << "step: " << i << '\n';
         timer.reset();
         // KE = accel(pop, ef, (1.0 - .5 * (i == 1)) * dt);
-        KE = accel_cg(pop, ef, (1.0 - .5 * (i == 1)) * dt);
+        KE = accel_cg_new<dim>(pop, ef, (1.0 - .5 * (i == 1)) * dt);
         t_accel[i] = timer.elapsed();
         move_periodic(pop, dt, Ld);
         pop.update();
