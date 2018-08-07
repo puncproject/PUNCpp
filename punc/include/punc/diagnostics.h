@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		diagnostics.h
+ * @brief		Kinetic and potential energy calculations
+ *
+ * Functions for calculating the kinetic and potential energies.
+ */
+
 #ifndef DIAGNOSTICS_H
 #define DIAGNOSTICS_H
 
@@ -25,12 +32,9 @@ namespace punc
 
 namespace df = dolfin;
 
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t m,
-//                                          std::size_t n);
-
-template <std::size_t _dim>
-double kinetic_energy(Population<_dim> &pop)
+// FIXME: This function is redundant. Should be removed. 
+template <std::size_t len>
+double kinetic_energy_old(Population<len> &pop)
 {
     double KE = 0.0;
     for (df::MeshEntityIterator e(*pop.mesh, pop.t_dim); !e.end(); ++e)
@@ -51,8 +55,19 @@ double kinetic_energy(Population<_dim> &pop)
     return KE;
 }
 
-template <std::size_t _dim>
-double kinetic_energy_new(Population<_dim> &pop)
+/**
+ * @brief Calculates the total kinetic energy
+ * @param[in]   pop     Population
+ * @return              Total kinetic energy 
+ * 
+ * The total kinetic energy is given by 
+ * \f[
+ *      E_k = \sum_{i=0}^{N}\frac{1}{2}m_i \mathbf{v}_i\cdot\mathbf{v}_i,
+ * \f]
+ * where \f$N\f$ is the number of particles in the simulation domain.
+ */
+template <std::size_t len>
+double kinetic_energy(Population<len> &pop)
 {
     double KE = 0.0;
     for (auto &cell : pop.cells)
@@ -70,10 +85,36 @@ double kinetic_energy_new(Population<_dim> &pop)
     return KE;
 }
 
+/**
+ * @brief Calculates the total potential energy using FEM approach 
+ * @param   phi     Electric potential
+ * @param   rho     Volume charge density
+ * @return          Total potential energy
+ *  
+ * The total potential energy is given by
+ * \f[
+ *      E_p = \int_{\Omega} \, \phi \,\rho \, \mathrm{d}x,
+ * \f]
+ * where \f$\Omega\f$ is the simulation domain.
+ */
 double mesh_potential_energy(df::Function &phi, df::Function &rho);
 
-template <std::size_t _dim>
-double particle_potential_energy(Population<_dim> &pop, const df::Function &phi)
+/**
+ * @brief Calculates the total potential energy by interpolating the electric potential 
+ * @param[in]   pop     Population
+ * @param       phi     Electric potential
+ * @return              Total potential energy
+ *  @see particle_potential_energy_cg1
+ * 
+ * The total potential energy is given by
+ * \f[
+ *      E_p = \sum_{i=0}^{N}\frac{1}{2}q_i\phi(\mathbf{x}_i),
+ * \f]
+ * where \f$N\f$ is the number of particles in the simulation domain, and 
+ * \f$\mathbf{x}_i\f$ is the position of particle \f$i\f$.
+ */
+template <std::size_t len>
+double particle_potential_energy(Population<len> &pop, const df::Function &phi)
 {
     auto V = phi.function_space();
     auto mesh = V->mesh();
@@ -142,8 +183,22 @@ double particle_potential_energy(Population<_dim> &pop, const df::Function &phi)
     return PE;
 }
 
-template <std::size_t _dim>
-double particle_potential_energy_cg1(Population<_dim> &pop, const df::Function &phi)
+/**
+ * @brief Calculates the total potential energy by interpolating the electric potential in CG1 function space
+ * @param[in]   pop     Population
+ * @param       phi     Electric potential in CG1
+ * @return              Total potential energy
+ * @see particle_potential_energy
+ * 
+ * The total potential energy is given by
+ * \f[
+ *      E_p = \sum_{i=0}^{N}\frac{1}{2}q_i\phi(\mathbf{x}_i),
+ * \f]
+ * where \f$N\f$ is the number of particles in the simulation domain, and 
+ * \f$\mathbf{x}_i\f$ is the position of particle \f$i\f$.
+ */
+template <std::size_t len>
+double particle_potential_energy_cg1(Population<len> &pop, const df::Function &phi)
 {
     auto V = phi.function_space();
     auto mesh = V->mesh();
@@ -176,22 +231,6 @@ double particle_potential_energy_cg1(Population<_dim> &pop, const df::Function &
     return PE;
 }
 
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t n,
-//                                          std::size_t m)
-// {
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         y[i] = A[i * m];
-//     }
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         for (std::size_t j = 0; j < m - 1; ++j)
-//         {
-//             y[i] += A[i * m + j + 1] * x[j];
-//         }
-//     }
-// }
-}
+} // namespace punc
 
-#endif
+#endif // DIAGNOSTICS_H

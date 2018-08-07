@@ -16,13 +16,10 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/distributor.h"
+#include "../ufl/WeightedVolume.h"
 
 namespace punc
 {
-
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t m,
-//                                          std::size_t n);
 
 std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 {
@@ -60,6 +57,34 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 
     return volumes;
 }
+
+std::vector<double> weighted_element_volume(const df::FunctionSpace &V)
+{
+    auto g_dim = V.mesh()->dim();
+    std::shared_ptr<df::Form> volume;
+    df::PETScVector volume_vector;
+    if (g_dim == 1)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form1D>(V);
+    }
+    else if (dim == 2)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form2D>(V);
+    }
+    else if (dim == 3)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form3D>(V);
+    }
+    df::assemble(volume_vector, *volume);
+    std::vector<double> volumes;
+    volume_vector.get_local(volumes);
+    for(auto i = 0; i<volumes.size(); ++i)
+    {
+        volumes[i] = 1.0/volumes[i];
+    }
+    return volumes;
+}
+
 
 // df::Function distribute(const df::FunctionSpace &V,
 //                         Population &pop,

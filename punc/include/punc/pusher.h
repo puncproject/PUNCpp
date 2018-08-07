@@ -76,8 +76,8 @@ static inline void get_coord_transform_3d(double *transform,
  * velocities are at half-integer time-steps, the particles can be accelerated
  * only half a time-step the first time.
  */
-template <std::size_t _dim>
-double accel(Population<_dim> &pop, const df::Function &E, double dt)
+template <std::size_t len>
+double accel(Population<len> &pop, const df::Function &E, double dt)
 {
     auto W = E.function_space();
     auto mesh = W->mesh();
@@ -145,8 +145,8 @@ double accel(Population<_dim> &pop, const df::Function &E, double dt)
 // template <std::size_t _dim>
 // double accel_cg1(Population<_dim> &pop, const df::Function &E, double dt);
 
-template <std::size_t _dim>
-double accel_cg_new(Population<_dim> &pop, const df::Function &E, double dt)
+template <std::size_t len>
+double accel_cg_new(Population<len> &pop, const df::Function &E, double dt)
 {
 
     auto W = E.function_space();
@@ -227,8 +227,8 @@ double accel_cg_new(Population<_dim> &pop, const df::Function &E, double dt)
  * velocities are at half-integer time-steps, the particles must be accelerated
  * only half a time-step the first time.
  */
-template <std::size_t _dim>
-double boris(Population<_dim> &pop, const df::Function &E,
+template <std::size_t len>
+double boris(Population<len> &pop, const df::Function &E,
              const std::vector<double> &B, double dt)
 {
     auto g_dim = B.size();
@@ -353,8 +353,8 @@ double boris(Population<_dim> &pop, const df::Function &E,
  *
  * Same as punc::boris but for inhomogeneous magnetic field.
  */
-template <std::size_t _dim>
-double boris(Population<_dim> &pop, const df::Function &E,
+template <std::size_t len>
+double boris(Population<len> &pop, const df::Function &E,
              const df::Function &B, double dt)
 {
     auto g_dim = pop.g_dim;
@@ -478,8 +478,8 @@ double boris(Population<_dim> &pop, const df::Function &E,
  *      \approx \dot\mathbf{x} = \mathbf{v}
  * \f]
  */
-template <std::size_t _dim>
-void move(Population<_dim> &pop, const double dt)
+template <std::size_t len>
+void move(Population<len> &pop, const double dt)
 {
     auto g_dim = pop.g_dim;
     auto num_cells = pop.num_cells;
@@ -497,8 +497,8 @@ void move(Population<_dim> &pop, const double dt)
     }
 }
 
-template <std::size_t _dim>
-void move_new(Population<_dim> &pop, const double dt)
+template <std::size_t len>
+void move_new(Population<len> &pop, const double dt)
 {
     auto g_dim = pop.g_dim;
     for (auto &cell : pop.cells)
@@ -515,8 +515,8 @@ void move_new(Population<_dim> &pop, const double dt)
 
 // FIXME: Make a separate function for imposing periodic BCs *after* move
 /* void move_periodic(Population &pop, double dt, const std::vector<double> &Ld); */
-template <std::size_t _dim>
-void move_periodic(Population<_dim> &pop, const double dt, const std::vector<double> &Ld)
+template <std::size_t len>
+void move_periodic(Population<len> &pop, const double dt, const std::vector<double> &Ld)
 {
     auto g_dim = Ld.size();
     auto num_cells = pop.num_cells;
@@ -535,8 +535,8 @@ void move_periodic(Population<_dim> &pop, const double dt, const std::vector<dou
     }
 }
 
-template <std::size_t _dim>
-void move_periodic_new(Population<_dim> &pop, const double dt, const std::vector<double> &Ld)
+template <std::size_t len>
+void move_periodic_new(Population<len> &pop, const double dt, const std::vector<double> &Ld)
 {
     auto g_dim = Ld.size();
     for (auto &cell : pop.cells)

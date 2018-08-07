@@ -51,9 +51,8 @@ int main(){
     UniformPosition pdfe(mesh); // Electron position distribution
     UniformPosition pdfi(mesh); // Ion position distribution
 
-    Maxwellian vdfe(vthe, vd); // Velocity distribution for electrons
-    Maxwellian vdfi(vthi, vd); // Velocity distribution for ions
-
+    Maxwellian vdfe(vthe, vd, false, false, false); // Velocity distribution for electrons
+    Maxwellian vdfi(vthi, vd, false, false, false); // Velocity distribution for ions
 
     CreateSpecies create_species(mesh);
     create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
@@ -121,10 +120,23 @@ int main(){
     ESolver esolver(V);
 
     //
+    // CREATE FLUX
+    //
+    std::cout<<"num_facets = "<<facet_vec.size()<<'\n';
+    Timer timer;
+    timer.reset();
+    create_flux(species, facet_vec);
+    std::cout<<"time to create flux: "<<timer.elapsed()<<'\n';
+    timer.reset();
+
+    //
     // LOAD PARTICLES
     //
     Population<dim> pop(mesh, boundaries);
+    std::cout << "time pop: " << timer.elapsed() << '\n';
+    timer.reset();
     load_particles<dim>(pop, species);
+    std::cout << "time load: " << timer.elapsed() << '\n';
 
     //
     // CREATE HISTORY VARIABLES
@@ -148,7 +160,7 @@ int main(){
     //
     // CREATE TIMER VARIABLES
     //
-    Timer timer;
+    // Timer timer;
     vector<double> t_dist(steps);
     vector<double> t_rsetobj(steps);
     vector<double> t_pois(steps);

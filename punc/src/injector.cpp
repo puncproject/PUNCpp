@@ -16,6 +16,7 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/injector.h"
+#include "../ufl/Number.h"
 
 namespace punc
 {
@@ -101,8 +102,10 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     return ext_facets;
 }
 
-Maxwellian::Maxwellian(double vth, std::vector<double> &vd, 
-                       double vdf_range) : vth_(vth), vd_(vd), dim_(vd.size())
+Maxwellian::Maxwellian(double vth, std::vector<double> &vd, bool has_cdf,
+                       bool has_flux_num, bool has_flux_max, double vdf_range) 
+                       : vth_(vth), vd_(vd), dim_(vd.size()), _has_cdf(has_cdf),
+                       _has_flux_number(has_flux_num), _has_flux_max(has_flux_max)
 {
     if (vth_ == 0.0)
     {
@@ -201,35 +204,35 @@ std::vector<double> Maxwellian::cdf(const std::size_t N)
     return vs;
 }
 
-Kappa::Kappa(double vth, std::vector<double> &vd, double k, double vdf_range) 
-            : vth_(vth), vd_(vd), k(k)
-{
-    if (vth_ == 0.0)
-    {
-        vth_ = std::numeric_limits<double>::epsilon();
-        vdf_range = 1.0;
-    }
-    dim_ = vd.size();
-    domain_.resize(2 * dim_);
-    for (int i = 0; i < dim_; ++i)
-    {
-        domain_[i] = -vdf_range * vth_;
-        domain_[i + dim_] = vdf_range * vth_;
-    }
-    vth2 = vth_ * vth_;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), dim_)) *
-                ((tgamma(k + 0.5 * (dim_ - 1.0))) / (tgamma(k - 0.5)));
-}
+// Kappa::Kappa(double vth, std::vector<double> &vd, double k, double vdf_range) 
+//             : vth_(vth), vd_(vd), k(k)
+// {
+//     if (vth_ == 0.0)
+//     {
+//         vth_ = std::numeric_limits<double>::epsilon();
+//         vdf_range = 1.0;
+//     }
+//     dim_ = vd.size();
+//     domain_.resize(2 * dim_);
+//     for (int i = 0; i < dim_; ++i)
+//     {
+//         domain_[i] = -vdf_range * vth_;
+//         domain_[i + dim_] = vdf_range * vth_;
+//     }
+//     vth2 = vth_ * vth_;
+//     factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), dim_)) *
+//                 ((tgamma(k + 0.5 * (dim_ - 1.0))) / (tgamma(k - 0.5)));
+// }
 
-double Kappa::operator()(const std::vector<double> &v)
-{
-    double v_sqrt = 0.0;
-    for (int i = 0; i < dim_; ++i)
-    {
-        v_sqrt += (v[i] - vd_[i]) * (v[i] - vd_[i]);
-    }
-    return factor * pow(1.0 + v_sqrt / ((2 * k - 3.) * vth2), -(k + 0.5 * (dim_ - 1.)));
-}
+// double Kappa::operator()(const std::vector<double> &v)
+// {
+//     double v_sqrt = 0.0;
+//     for (int i = 0; i < dim_; ++i)
+//     {
+//         v_sqrt += (v[i] - vd_[i]) * (v[i] - vd_[i]);
+//     }
+//     return factor * pow(1.0 + v_sqrt / ((2 * k - 3.) * vth2), -(k + 0.5 * (dim_ - 1.)));
+// }
 
 std::vector<double> rejection_sampler(const std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
@@ -296,6 +299,156 @@ std::vector<double> random_facet_points(const std::size_t N,
     return xs;
 }
 
+// void create_flux_FEM(std::vector<Species> &species,
+//                  std::vector<Facet> &facets)
+// {
+//     auto num_species = species.size();
+//     auto num_facets = facets.size();
+//     std::vector<int> nsp = {60, 60, 60};
+
+//     for (std::size_t i = 0; i < num_species; ++i)
+//     {
+//         // auto vdf = &species[i].vdf;
+//         auto dim = species[i].vdf.dim();
+//         auto domain = species[i].vdf.domain();
+//         df::Point p0, p1;
+//         for (int i = 0; i < dim; ++i)
+//         {
+//             p0[i] = domain[i];
+//             p1[i] = domain[i + dim];
+//         }
+
+//         std::shared_ptr<const df::Mesh> mesh;
+//         if (dim == 1)
+//         {
+//             df::IntervalMesh interval(nsp[0], domain[0], domain[1]);
+//             mesh = std::make_shared<const df::Mesh>(interval);
+//         }
+//         else if (dim == 2)
+//         {
+//             df::RectangleMesh rectangle(p0, p1, nsp[0], nsp[1]);
+//             mesh = std::make_shared<const df::Mesh>(rectangle);
+//         }
+//         else if (dim == 3)
+//         {
+//             df::BoxMesh box(p0, p1, nsp[0], nsp[1], nsp[2]);
+//             mesh = std::make_shared<const df::Mesh>(box);
+//         }
+
+//         auto V = Number::CoefficientSpace_w0(mesh);
+//         for (std::size_t j = 0; j < num_facets; ++j)
+//         {
+//             species[i].vdf.set_flux_normal(facets[j].normal);
+            
+//             df::Function vdf_func(std::make_shared<df::FunctionSpace>(V));
+//             vdf_func.interpolate(species[i].vdf);
+//             auto vdf_vector = vdf_func.vector();
+            
+//             if (species[i].vdf.has_flux_number)
+//             {
+//                 auto num = species[i].vdf.flux_num(facets[j].normal, facets[j].area);
+//                 species[i].vdf.num_particles.push_back(num);
+//             }
+//             else
+//             {
+//                 std::shared_ptr<df::Form> form;
+//                 auto vdf_func_ptr = std::make_shared<df::Function>(vdf_func);
+//                 if (dim == 1)
+//                 {
+//                     form = std::make_shared<Number::Form_0>(mesh, vdf_func_ptr);
+//                 }
+//                 else if (dim == 2)
+//                 {
+//                     form = std::make_shared<Number::Form_1>(mesh, vdf_func_ptr);
+//                 }
+//                 else if (dim == 3)
+//                 {
+//                     form = std::make_shared<Number::Form_2>(mesh, vdf_func_ptr);
+//                 }
+//                 species[i].vdf.num_particles.push_back(df::assemble(*form));
+//             }
+
+//             if (species[i].vdf.has_flux_max)
+//             {
+//                 species[i].vdf.pdf_max.push_back(species[i].vdf.flux_max(facets[j].normal));
+//             }
+//             else
+//             {
+//                 species[i].vdf.pdf_max.push_back(vdf_vector->max());
+//             }
+//             std::cout<<"species: "<<i<<", facet: "<<j<<'\n';
+//         }
+//     }
+// }
+
+void create_flux(std::vector<Species> &species, std::vector<Facet> &facets)
+{
+    rand_uniform rand(0.0, 1.0);
+    std::mt19937_64 rng(random_seed_seq::get_instance());
+
+    auto num_species = species.size();
+    auto num_facets = facets.size();
+
+    double pdf_x, volume, sum, max;
+    int n_iter = 500000;
+    
+    for (std::size_t i = 0; i < num_species; ++i)
+    {
+        auto dim = species[i].vdf.dim();
+        auto domain = species[i].vdf.domain();
+        volume = 1.0;
+        for (int k = 0; k < dim; k++)
+        {
+            volume *= domain[k + dim] - domain[k];
+        }
+
+        for (std::size_t j = 0; j < num_facets; ++j)
+        {
+            if (species[i].vdf.has_flux_number())
+            {
+                auto num = species[i].vdf.flux_num(facets[j].normal, facets[j].area);
+                species[i].vdf.num_particles.push_back(num);
+            }
+            else
+            {
+                sum = 0; 
+                std::vector<double> x(dim);
+                for (int n = 0; n < n_iter; ++n)
+                {
+                    for (int k = 0; k < dim; ++k)
+                    {
+                        x[k] = domain[k] + rand(rng) * (domain[k + dim] - domain[k]);
+                    }
+
+                    sum += species[i].vdf(x, facets[j].normal);
+                }
+                auto num = facets[j].area*sum*volume/n_iter;
+                species[i].vdf.num_particles.push_back(num);
+            }
+
+            if (species[i].vdf.has_flux_max())
+            {
+                species[i].vdf.pdf_max.push_back(species[i].vdf.flux_max(facets[j].normal));
+            }
+            else
+            {
+                max = 0;
+                std::vector<double> x(dim);
+                for (int n = 0; n < n_iter; ++n)
+                {
+                    for (int k = 0; k < dim; ++k)
+                    {
+                        x[k] = domain[k] + rand(rng) * (domain[k + dim] - domain[k]);
+                    }
+
+                    pdf_x = species[i].vdf(x, facets[j].normal);
+                    max = max > pdf_x ? max : pdf_x;
+                }
+                species[i].vdf.pdf_max.push_back(max*1.01);
+            }
+        }
+    }
+}
 // void inject_particles(Population &pop, std::vector<Species> &species,
 //                       std::vector<Facet> &facets, const double dt)
 // {

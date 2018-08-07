@@ -26,7 +26,7 @@ int main()
     std::size_t ext_bnd_id = tags[1];
 
     auto ext_bnd = exterior_boundaries(boundaries, ext_bnd_id);
-
+    std::cout<<"num_facets = "<<ext_bnd.size()<<'\n';
     std::vector<double> Ld = get_mesh_size(mesh);
 
     PhysicalConstants constants;
@@ -66,6 +66,10 @@ int main()
     }
 
     auto species = create_species.species;
+
+    // auto V = function_space(mesh);
+    create_flux(species, ext_bnd);
+
     Population<dim> pop(mesh, boundaries);
 
     load_particles<dim>(pop, species);

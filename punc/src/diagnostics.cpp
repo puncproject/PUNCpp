@@ -15,17 +15,20 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		diagnostics.cpp
+ * @brief		Kinetic and potential energy calculations
+ *
+ * Functions for calculating the kinetic and potential energies.
+ */
+
 #include "../include/punc/diagnostics.h"
 #include "../ufl/Energy.h"
 
 namespace punc
 {
 
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t m,
-//                                          std::size_t n);
-
-// double kinetic_energy(Population &pop)
+// double kinetic_energy_old(Population &pop)
 // {
 //     double KE = 0.0;
 //     for (df::MeshEntityIterator e(*pop.mesh, pop.t_dim); !e.end(); ++e)
@@ -46,7 +49,7 @@ namespace punc
 // 	return KE;
 // }
 
-// double kinetic_energy_new(Population &pop)
+// double kinetic_energy(Population &pop)
 // {
 //     double KE = 0.0;
 //     for(auto &cell: pop.cells)
@@ -186,23 +189,6 @@ double mesh_potential_energy(df::Function &phi, df::Function &rho)
 //         }
 //     }
 //     return PE;
-// }
-
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t n,
-//                                          std::size_t m)
-// {
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         y[i] = A[i * m];
-//     }
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         for (std::size_t j = 0; j < m - 1; ++j)
-//         {
-//             y[i] += A[i * m + j + 1] * x[j];
-//         }
-//     }
 // }
 
 }

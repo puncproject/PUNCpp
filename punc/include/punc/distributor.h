@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		distributor.h
+ * @brief		Volume charge density distribution
+ *
+ * Functions for finding the volume charge distribution based on the position of the particles.
+ */
+
 #ifndef DISTRIBUTOR_H
 #define DISTRIBUTOR_H
 
@@ -25,15 +32,64 @@ namespace punc
 
 namespace df = dolfin;
 
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t m,
-//                                          std::size_t n);
+/**
+ * @brief 
+ * @param[in]   V         FunctionSpace
+ * @param       voronoi   element type
+ * @return                Volume of each element
+ * @see weighted_element_volume
+ *  
+ * Calculates the volume of each patch \f$M_j\f$, where \f$M_j\f$ is the set of 
+ * all the cells sharing vertex \f$x_j\f$. If voronoi parameter is true, then an 
+ * approximated value for the volume of the Voronoi cell defined at \f$x_j\f$ is
+ * given by 
+ * \f[
+ *      \mathrm{Vol}(R_j) = \frac{1}{D+1}\sum_{i=1}^{k}\mathrm{Vol}(T_k),
+ * \f]
+ * where \f$T_k\in M_j\f$ has \f$x_j\f$ as one of its vertices.
+ */
+std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi = true);
 
-std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi = false);
+/**
+ * @brief 
+ * @param[in]   V         FunctionSpace
+ * @return                Volume of each element
+ * @see element_volume
+ *  
+ * Calculates the weighted volume of each patch \f$M_j\f$, where \f$M_j\f$ is 
+ * the set of all the cells sharing vertex \f$x_j\f$, and returns the reciprocal 
+ * values for each element. The volume of each patch is weighted by the 
+ * corresponding finite element basis function of continuous Lagrange space of 
+ * order 1, CG1. It can be shown that this method is mathematically equivalent 
+ * to the approximated Voronoi cell volumes. 
+ */
+std::vector<double> weighted_element_volume(const df::FunctionSpace &V);
 
-template <std::size_t _dim>
+/**
+ * @brief                 Volume charge density
+ * @param[in]   V         FunctionSpace CG1
+ * @param       pop       Population
+ * @param       dv_inv    Vector containing the volumes of each element (e.g. Voronoi cell)
+ * @return      rho       Function - the volume charge density 
+ * @see distribute_cg1, distribute_dg0()
+ * 
+ * Calculates the volume charge density in \f$\mathrm{CG}_1\f$ function 
+ * space. The volume charge density at each mesh vertex \f$\mathbf{x}_j\f$, is 
+ * calculated by interpolating the charge of each particle inside all the cells 
+ * sharing vertex \f$\mathbf{x}_j\f$, i.e. the patch \f$\mathcal{M}_j\f$. The
+ * interpolation is done by evaluating the \f$\mathrm{CG}_1\f$ basis 
+ * function \f$\psi_j\f$, at the particle position \f$\mathbf{x}_{p}\f$. The 
+ * interpolated charge at each mesh vertex is divided by a proper volume 
+ * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to obtain the volume 
+ * charge density: 
+ * 
+ * \f[
+ *       \rho_{j} = \frac{1}{\mathcal{V}_j}\sum_{p}q_p\psi_j(\mathbf{x}_{p}).
+ * \f]
+ */
+template <std::size_t len>
 df::Function distribute(const df::FunctionSpace &V,
-                        Population<_dim> &pop,
+                        Population<len> &pop,
                         const std::vector<double> &dv_inv)
 {
     auto mesh = V.mesh();
@@ -89,9 +145,32 @@ df::Function distribute(const df::FunctionSpace &V,
     return rho;
 }
 
-template <std::size_t _dim>
-df::Function distribute_new(const df::FunctionSpace &V,
-                            Population<_dim> &pop,
+/**
+ * @brief                 Volume charge density in CG1
+ * @param[in]   V         FunctionSpace CG1
+ * @param       pop       Population
+ * @param       dv_inv    Vector containing the volumes of each element (e.g. Voronoi cell)
+ * @return      rho       Function (CG1) - the volume charge density 
+ * @see distribute, distribute_dg0()
+ * 
+ * Calculates the volume charge density in \f$\mathrm{CG}_1\f$ function 
+ * space. This function work only for \f$\mathrm{CG}_1\f$ function space, and it 
+ * is more efficient than the "distribute" function. The volume charge density 
+ * at each mesh vertex \f$\mathbf{x}_j\f$, is calculated by interpolating the 
+ * charge of each particle inside all the cells sharing vertex \f$\mathbf{x}_j\f$, 
+ * i.e. the patch \f$\mathcal{M}_j\f$. The interpolation is done by evaluating 
+ * the \f$\mathrm{CG}_1\f$ basis function \f$\psi_j\f$, at the particle position 
+ * \f$\mathbf{x}_{p}\f$. The interpolated charge at each mesh vertex is divided 
+ * by a proper volume \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to 
+ * obtain the volume charge density: 
+ * 
+ * \f[
+ *       \rho_{j} = \frac{1}{\mathcal{V}_j}\sum_{p}q_p\psi_j(\mathbf{x}_{p}).
+ * \f]
+ */
+template <std::size_t len>
+df::Function distribute_cg1(const df::FunctionSpace &V,
+                            Population<len> &pop,
                             const std::vector<double> &dv_inv)
 {
     auto mesh = V.mesh();
@@ -136,8 +215,24 @@ df::Function distribute_new(const df::FunctionSpace &V,
     return rho;
 }
 
-template <std::size_t _dim>
-df::Function distribute_dg0_new(const df::FunctionSpace &Q, Population<_dim> &pop)
+/**
+ * @brief                 Volume charge density
+ * @param[in]   Q         FunctionSpace DG0
+ * @param       pop       Population
+ * @return      rho       Function - the volume charge density 
+ * @see distribute()
+ * 
+ * Calculates the volume charge density in \f$\mathrm{DG}_0\f$ function 
+ * space. The volume charge density in each cell \f$T_k\f$, is simply 
+ * calculated by adding together the charge of each particle inside the cell, 
+ * and then dividing the total charge inside the cell by the volume of the cell:
+ * 
+ * \f[
+ *       \rho_{k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p}q_p,
+ * \f]
+ */
+template <std::size_t len>
+df::Function distribute_dg0(const df::FunctionSpace &Q, Population<len> &pop)
 {
     df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
     auto rho_vec = rho.vector();
@@ -159,8 +254,9 @@ df::Function distribute_dg0_new(const df::FunctionSpace &Q, Population<_dim> &po
     return rho;
 }
 
-template <std::size_t _dim>
-df::Function distribute_dg0(const df::FunctionSpace &Q, Population<_dim> &pop)
+// FIXME: This function is redundant. Should be removed.
+template <std::size_t len>
+df::Function distribute_dg0_old(const df::FunctionSpace &Q, Population<len> &pop)
 {
     auto mesh = Q.mesh();
     auto tdim = mesh->topology().dim();
@@ -188,23 +284,6 @@ df::Function distribute_dg0(const df::FunctionSpace &Q, Population<_dim> &pop)
     rho.vector()->set_local(rho0);
     return rho;
 }
-
-// static inline void matrix_vector_product(double *y, const double *A,
-//                                          const double *x, std::size_t n,
-//                                          std::size_t m)
-// {
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         y[i] = A[i * m];
-//     }
-//     for (std::size_t i = 0; i < n; ++i)
-//     {
-//         for (std::size_t j = 0; j < m - 1; ++j)
-//         {
-//             y[i] += A[i * m + j + 1] * x[j];
-//         }
-//     }
-// }
 
 }
 
