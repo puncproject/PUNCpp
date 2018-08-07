@@ -159,7 +159,7 @@ namespace punc
 //     return KE;
 // }
 
-// double accel_cg1(Population &pop, const df::Function &E, double dt) {
+// double accel_cg1_old(Population &pop, const df::Function &E, double dt) {
 
 //     auto W = E.function_space();
 //     auto mesh = W->mesh();
@@ -217,7 +217,7 @@ namespace punc
 //     return KE;
 // }
 
-// double accel_cg_new(Population &pop, const df::Function &E, double dt)
+// double accel_cg1(Population &pop, const df::Function &E, double dt)
 // {
 
 //     auto W = E.function_space();
@@ -269,7 +269,7 @@ namespace punc
 //     return KE;
 // }
 
-// double accel_cg_2d(Population &pop, const df::Function &E, double dt)
+// double accel_cg1_2d(Population &pop, const df::Function &E, double dt)
 // {
 
 //     auto W = E.function_space();
@@ -343,7 +343,7 @@ namespace punc
 //     return KE;
 // }
 
-// double accel_cg(Population &pop, const df::Function &E, double dt)
+// double accel_cg1_3d(Population &pop, const df::Function &E, double dt)
 // {
 
 //     auto W = E.function_space();

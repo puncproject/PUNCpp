@@ -81,20 +81,20 @@ class UniformPosition : public Pdf
 {
 private:
     std::shared_ptr<const df::Mesh> mesh;
-    int dim_;
-    std::vector<double> domain_;
+    int _dim;
+    std::vector<double> _domain;
 public:
     UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
     {
-        dim_ = mesh->geometry().dim();
+        _dim = mesh->geometry().dim();
         auto coordinates = mesh->coordinates();
         auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
         auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-        domain_.resize(2 * dim_);
-        for (int i = 0; i < dim_; ++i)
+        _domain.resize(2 * _dim);
+        for (int i = 0; i < _dim; ++i)
         {
-            domain_[i] = Ld_min;
-            domain_[i + dim_] = Ld_max;
+            _domain[i] = Ld_min;
+            _domain[i + _dim] = Ld_max;
         }
     }
     double operator()(const std::vector<double> &x) 
@@ -102,22 +102,22 @@ public:
         return (locate(mesh, x.data()) >= 0) * 1.0; 
     };
     double max() { return 1.0;};
-    int dim() { return dim_; };
-    std::vector<double> domain() { return domain_; };
+    int dim() { return _dim; };
+    std::vector<double> domain() { return _domain; };
 };
 
 class Maxwellian : public Pdf
 {
 private:
-    double vth_;
-    std::vector<double> vd_;
-    int dim_;
+    double _vth;
+    std::vector<double> _vd;
+    int _dim;
     bool _has_cdf;
     bool _has_flux_number;
     bool _has_flux_max;
-    std::vector<double> domain_;
+    std::vector<double> _domain;
     double vth2, factor;
-    std::vector<double> n_;
+    std::vector<double> _n;
     bool has_flux = false;
 
 public:
@@ -125,16 +125,17 @@ public:
     std::vector<double> pdf_max, num_particles;
     
     Maxwellian(double vth, std::vector<double> &vd, bool has_cdf = true, 
-    bool has_flux_num=true, bool has_flux_max=true, double vdf_range = 5.0);
+               bool has_flux_num=true, bool has_flux_max=true, 
+               double vdf_range = 5.0);
     double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &x, const std::vector<double> &n);
-    int dim() { return dim_; }
+    double operator()(const std::vector<double> &v, const std::vector<double> &n);
+    int dim() { return _dim; }
     double max() { return factor; };
-    std::vector<double> domain() { return domain_; };
-    double vth() { return vth_; };
-    std::vector<double> vd() { return vd_; };
-    void set_vth(double v) { vth_ = v; };
-    void set_vd(std::vector<double> &v) { vd_ = v; };
+    std::vector<double> domain() { return _domain; };
+    double vth() { return _vth; };
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; };
+    void set_vd(std::vector<double> &v) { _vd = v; };
     bool has_cdf() { return _has_cdf; };
     bool has_flux_max() { return _has_flux_max; };
     bool has_flux_number() { return _has_flux_number; };
@@ -143,43 +144,101 @@ public:
     void set_flux_normal(std::vector<double> &n)
     {
         has_flux = true;
-        n_ = n;
+        _n = n;
     }
+    double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
-    double flux_num(const std::vector<double> &n, double S);
 };
 
-// class Kappa : public Pdf
-// {
-// private:
-//     double vth_;
-//     std::vector<double> vd_;
-//     double k;
-//     int dim_;
-//     std::vector<double> domain_;
-//     double vth2, factor;
-// public:
-//     bool has_cdf = false;
-//     bool has_flux_max = false;
-//     bool has_flux_number = false;
-//     std::vector<double> pdf_max, num_particles;
+class Kappa : public Pdf
+{
+  private:
+    double _vth;
+    std::vector<double> _vd;
+    double k;
+    int _dim;
+    bool _has_cdf;
+    bool _has_flux_number;
+    bool _has_flux_max;
+    std::vector<double> _domain;
+    double vth2, factor;
+    std::vector<double> _n;
+    bool has_flux = false;
 
-//     Kappa(double vth, std::vector<double> &vd, double k, double vdf_range = 7.0);
-//     double operator()(const std::vector<double> &v);
-//     int dim() { return dim_; }
-//     double max() { return factor; }
-//     std::vector<double> domain() { return domain_; }
-//     double vth() { return vth_; }
-//     std::vector<double> vd() { return vd_; };
-//     void set_vth(double v) { vth_ = v; }
-//     void set_vd(std::vector<double> &v) { vd_ = v; }
-// };
+  public:
+    std::vector<double> pdf_max, num_particles;
+    Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf = false,
+          bool has_flux_num = false, bool has_flux_max = false, 
+          double vdf_range = 7.0);
+    double operator()(const std::vector<double> &v);
+    double operator()(const std::vector<double> &v, const std::vector<double> &n);
+    int dim() { return _dim; }
+    double max() { return factor; }
+    std::vector<double> domain() { return _domain; }
+    double vth() { return _vth; }
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; }
+    void set_vd(std::vector<double> &v) { _vd = v; }
+    bool has_cdf() { return _has_cdf; };
+    bool has_flux_max() { return _has_flux_max; };
+    bool has_flux_number() { return _has_flux_number; };
+    // std::vector<double> cdf(const std::size_t N);
+    // void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    void set_flux_normal(std::vector<double> &n)
+    {
+        has_flux = true;
+        _n = n;
+    }
+    // double flux_num_particles(const std::vector<double> &n, double S);
+    // double flux_max(std::vector<double> &n);
+};
 
-// void create_flux_FEM(std::vector<Species> &species, 
-//                  std::vector<Facet> &facets);
+class Cairns : public Pdf
+{
+  private:
+    double _vth;
+    std::vector<double> _vd;
+    double alpha;
+    int _dim;
+    bool _has_cdf;
+    bool _has_flux_number;
+    bool _has_flux_max;
+    std::vector<double> _domain;
+    double vth2, factor;
+    std::vector<double> _n;
+    bool has_flux = false;
 
-void create_flux(std::vector<Species> &species,
-                     std::vector<Facet> &facets);
+  public:
+    std::vector<double> pdf_max, num_particles;
+    Cairns(double vth, std::vector<double> &vd, double alpha, 
+           bool has_cdf = false, bool has_flux_num = true, 
+           bool has_flux_max = false, double vdf_range = 7.0);
+    double operator()(const std::vector<double> &v);
+    double operator()(const std::vector<double> &v, const std::vector<double> &n);
+    int dim() { return _dim; }
+    double max();
+    std::vector<double> domain() { return _domain; }
+    double vth() { return _vth; }
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; }
+    void set_vd(std::vector<double> &v) { _vd = v; }
+    bool has_cdf() { return _has_cdf; };
+    bool has_flux_max() { return _has_flux_max; };
+    bool has_flux_number() { return _has_flux_number; };
+    // std::vector<double> cdf(const std::size_t N);
+    // void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    void set_flux_normal(std::vector<double> &n)
+    {
+        has_flux = true;
+        _n = n;
+    }
+    double flux_num_particles(const std::vector<double> &n, double S);
+    // double flux_max(std::vector<double> &n);
+};
+
+void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets);
+
+void create_flux(std::vector<Species> &species, std::vector<Facet> &facets);
 
 std::vector<double> rejection_sampler(const std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
@@ -208,7 +267,7 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
         for (std::size_t j = 0; j < num_facets; ++j)
         {
             auto normal_i = facets[j].normal;
-            auto N_float = species[i].n * dt * species[i].vdf.num_particles[i*num_facets+j];//flux_num(normal_i, facets[j].area);
+            auto N_float = species[i].n * dt * species[i].vdf.num_particles[i*num_facets+j];
             int N = int(N_float);
             if (rand(rng) < (N_float - N))
             {
@@ -218,14 +277,13 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
                 return species[i].vdf(v, normal_i);
             };
     
-            
-            auto pdf_max = species[i].vdf.pdf_max[i*num_facets+j];//flux_max(normal_i);
+            auto pdf_max = species[i].vdf.pdf_max[i*num_facets+j];
             auto count = 0;
             while (count < N)
             {
                 auto n = N - count;
                 auto xs_new = random_facet_points(n, facets[j].vertices);
-                auto vs_new = rejection_sampler(n, vdf, species[i].vdf.flux_max(normal_i),
+                auto vs_new = rejection_sampler(n, vdf, pdf_max,
                                                 species[i].vdf.dim(),
                                                 species[i].vdf.domain());
 

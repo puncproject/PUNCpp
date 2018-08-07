@@ -143,10 +143,10 @@ double accel(Population<len> &pop, const df::Function &E, double dt)
 }
 
 // template <std::size_t _dim>
-// double accel_cg1(Population<_dim> &pop, const df::Function &E, double dt);
+// double accel_cg1_old(Population<_dim> &pop, const df::Function &E, double dt);
 
 template <std::size_t len>
-double accel_cg_new(Population<len> &pop, const df::Function &E, double dt)
+double accel_cg1(Population<len> &pop, const df::Function &E, double dt)
 {
 
     auto W = E.function_space();
@@ -199,10 +199,10 @@ double accel_cg_new(Population<len> &pop, const df::Function &E, double dt)
 }
 
 // template <std::size_t _dim>
-// double accel_cg_2d(Population<_dim> &pop, const df::Function &E, double dt);
+// double accel_cg1_2d(Population<_dim> &pop, const df::Function &E, double dt);
 
 // template <std::size_t _dim>
-// double accel_cg(Population<_dim> &pop, const df::Function &E, double dt);
+// double accel_cg1_3d(Population<_dim> &pop, const df::Function &E, double dt);
 
 /**
  * @brief Accelerates particles in a homogeneous magnetic field
@@ -467,19 +467,9 @@ double boris(Population<len> &pop, const df::Function &E,
     return KE;
 }
 
-/**
- * @brief Move particles
- * @param[in,out]   pop     Population
- * @param           dt      Time-step
- * 
- * Move particles according to:
- * \f[
- *      \frac{\mathbf{x}^\mathrm{new}-\mathbf{x}^\mathrm{old}}{\Delta t} 
- *      \approx \dot\mathbf{x} = \mathbf{v}
- * \f]
- */
+// FIXME: This function is redundant, and should be removed.
 template <std::size_t len>
-void move(Population<len> &pop, const double dt)
+void move_old(Population<len> &pop, const double dt)
 {
     auto g_dim = pop.g_dim;
     auto num_cells = pop.num_cells;
@@ -497,8 +487,19 @@ void move(Population<len> &pop, const double dt)
     }
 }
 
+/**
+ * @brief Move particles
+ * @param[in,out]   pop     Population
+ * @param           dt      Time-step
+ * 
+ * Move particles according to:
+ * \f[
+ *      \frac{\mathbf{x}^\mathrm{new}-\mathbf{x}^\mathrm{old}}{\Delta t} 
+ *      \approx \dot\mathbf{x} = \mathbf{v}
+ * \f]
+ */
 template <std::size_t len>
-void move_new(Population<len> &pop, const double dt)
+void move(Population<len> &pop, const double dt)
 {
     auto g_dim = pop.g_dim;
     for (auto &cell : pop.cells)
@@ -513,10 +514,11 @@ void move_new(Population<len> &pop, const double dt)
     }
 }
 
+// FIXME: This function is redundant, and should be removed
 // FIXME: Make a separate function for imposing periodic BCs *after* move
 /* void move_periodic(Population &pop, double dt, const std::vector<double> &Ld); */
 template <std::size_t len>
-void move_periodic(Population<len> &pop, const double dt, const std::vector<double> &Ld)
+void move_periodic_old(Population<len> &pop, const double dt, const std::vector<double> &Ld)
 {
     auto g_dim = Ld.size();
     auto num_cells = pop.num_cells;
@@ -535,8 +537,9 @@ void move_periodic(Population<len> &pop, const double dt, const std::vector<doub
     }
 }
 
+// FIXME: This function works only for meshes that have one of the corners at the origin
 template <std::size_t len>
-void move_periodic_new(Population<len> &pop, const double dt, const std::vector<double> &Ld)
+void move_periodic(Population<len> &pop, const double dt, const std::vector<double> &Ld)
 {
     auto g_dim = Ld.size();
     for (auto &cell : pop.cells)
@@ -818,6 +821,6 @@ static inline void get_expcoeffs_3d(double *coeffs,
     // coeffs[3] = A14*f[0] + A24*f[1] + A34*f[2] + A44*f[3];
 }
 
-}
+} // namespace punc
 
 #endif // PUSHER_H

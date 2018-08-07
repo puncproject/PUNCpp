@@ -60,25 +60,26 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 
 std::vector<double> weighted_element_volume(const df::FunctionSpace &V)
 {
-    auto g_dim = V.mesh()->dim();
+    auto g_dim = V.mesh()->geometry().dim();
     std::shared_ptr<df::Form> volume;
     df::PETScVector volume_vector;
+    auto V_ptr = std::make_shared<const df::FunctionSpace>(V);
     if (g_dim == 1)
     {
-        volume = std::make_shared<WeightedVolume::Form_form1D>(V);
+        volume = std::make_shared<WeightedVolume::Form_form1D>(V_ptr);
     }
-    else if (dim == 2)
+    else if (g_dim == 2)
     {
-        volume = std::make_shared<WeightedVolume::Form_form2D>(V);
+        volume = std::make_shared<WeightedVolume::Form_form2D>(V_ptr);
     }
-    else if (dim == 3)
+    else if (g_dim == 3)
     {
-        volume = std::make_shared<WeightedVolume::Form_form3D>(V);
+        volume = std::make_shared<WeightedVolume::Form_form3D>(V_ptr);
     }
     df::assemble(volume_vector, *volume);
     std::vector<double> volumes;
     volume_vector.get_local(volumes);
-    for(auto i = 0; i<volumes.size(); ++i)
+    for(std::size_t i = 0; i<volumes.size(); ++i)
     {
         volumes[i] = 1.0/volumes[i];
     }

@@ -80,7 +80,7 @@ int main()
     double mi = constants.m_i;
     double eps0 = constants.eps0;
 
-    auto dv_inv = element_volume(V, true);
+    auto dv_inv = element_volume(V);
 
     double vth = 0.0;
     int npc = 64;
@@ -181,7 +181,7 @@ int main()
         {
             std::cout << "step: " << i << '\n';
             timer.reset();
-            auto rho = distribute_new<dim>(V, pop, dv_inv);
+            auto rho = distribute_cg1<dim>(V, pop, dv_inv);
             t_distribute[i] = timer.elapsed();
 
             timer.reset();
@@ -197,11 +197,11 @@ int main()
             t_potential[i] = timer.elapsed();
 
             timer.reset();
-            KE[i - 1] = accel_cg_new<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+            KE[i - 1] = accel_cg1<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
             t_accel[i] = timer.elapsed();
 
             timer.reset();
-            move_periodic_new<dim>(pop, dt, Ld);
+            move_periodic<dim>(pop, dt, Ld);
             t_move[i] = timer.elapsed();
 
             timer.reset();

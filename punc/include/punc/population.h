@@ -63,15 +63,13 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x);
 class Pdf : public df::Expression
 {
 private:
-    double vth_;
-    std::vector<double> vd_;
+    double _vth;
+    std::vector<double> _vd;
     bool _has_cdf;
     bool _has_flux_number;
     bool _has_flux_max;
 
-
   public:
-
     std::vector<double> pdf_max, num_particles;
     
     virtual double operator()(const std::vector<double> &x) = 0;
@@ -87,16 +85,16 @@ private:
     virtual int dim() = 0;
     virtual double max() = 0;
     virtual std::vector<double> domain() = 0;
-    virtual double vth(){return vth_;}
-    virtual std::vector<double> vd(){return vd_;}
-    virtual void set_vth(double v) {vth_= v;}
-    virtual void set_vd(std::vector<double> &v) { vd_ = v; }
-    virtual bool has_cdf() { return _has_cdf; };
-    virtual bool has_flux_max() { return _has_flux_max; };
-    virtual bool has_flux_number(){return _has_flux_number;};
+    virtual double vth(){return _vth;}
+    virtual std::vector<double> vd(){return _vd;}
+    virtual void set_vth(double v) {_vth= v;}
+    virtual void set_vd(std::vector<double> &v) { _vd = v; }
+    virtual bool has_cdf() { return _has_cdf; }
+    virtual bool has_flux_max() { return _has_flux_max; }
+    virtual bool has_flux_number(){return _has_flux_number;}
     virtual std::vector<double> cdf(const std::size_t N) { return {}; }
     virtual void set_flux_normal(std::vector<double> &n) {}
-    virtual double flux_num(const std::vector<double> &n, double S) { return 0.0; }
+    virtual double flux_num_particles(const std::vector<double> &n, double S) { return 0.0; }
     virtual double flux_max(std::vector<double> &n){return 0.0;};
 };
 

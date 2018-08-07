@@ -285,6 +285,6 @@ df::Function distribute_dg0_old(const df::FunctionSpace &Q, Population<len> &pop
     return rho;
 }
 
-}
+} // namespace punc
 
-#endif
+#endif // DISTRIBUTOR_H
