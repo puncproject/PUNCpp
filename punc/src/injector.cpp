@@ -215,6 +215,17 @@ Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf,
         _vth = std::numeric_limits<double>::epsilon();
         vdf_range = 1.0;
     }
+
+    auto sum_vd = std::accumulate(vd.begin(), vd.end(), 0);
+    if (sum_vd == 0)
+    {
+        _has_flux_number = true;
+    }
+    else
+    {
+        _has_flux_number = false;
+    }
+
     _domain.resize(2 * _dim);
     for (int i = 0; i < _dim; ++i)
     {
@@ -244,6 +255,54 @@ double Kappa::operator()(const std::vector<double> &v, const std::vector<double>
         vn += v[i] * n[i];
     }
     return (vn > 0.0) * vn * this->operator()(v);
+}
+
+void Kappa::eval(df::Array<double> &values, const df::Array<double> &x) const
+{
+    double vn, v2 = 0.0;
+    for (int i = 0; i < _dim; ++i)
+    {
+        v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
+    }
+    if (has_flux)
+    {
+        vn = 0.0;
+        for (int i = 0; i < _dim; ++i)
+        {
+            vn += x[i] * _n[i];
+        }
+    }
+    else
+    {
+        vn = 1.0;
+    }
+    values[0] = vn * (vn > 0) * factor *
+                pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+}
+
+/* Number of particles for the case without any drift. */
+double Kappa::flux_num_particles(const std::vector<double> &n, double S)
+{
+    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) * pow(k - 1.5, 0.5) * 
+                              (tgamma(k - 1.0) / tgamma(k - 0.5)));
+    return num_particles;
+}
+
+double Kappa::flux_max(std::vector<double> &n)
+{
+    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
+
+    std::vector<double> tmp(_dim);
+    auto q = k + 0.5 * (_dim - 1.);
+    auto qm = 1.0-2.0*q;
+    auto q2 = q*q;
+    auto k2 = 2.0*k-3.0;
+    for (auto i = 0; i < _dim; ++i)
+    {
+        tmp[i] = _vd[i] + (q / qm) * n[i] * vdn - (n[i] / qm) * 
+                          sqrt(q2 * vdn * vdn - qm * k2 * vth2);
+    }
+    return this->operator()(tmp, n);
 }
 
 Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_cdf, 
@@ -303,6 +362,32 @@ double Cairns::max()
         max = factor > max ? factor : max;
         return max;
     }
+}
+
+void Cairns::eval(df::Array<double> &values, const df::Array<double> &x) const
+{
+    double v2 = 0.0;
+    for (int i = 0; i < _dim; ++i)
+    {
+        v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
+    }
+    double v4 = v2 * v2;
+
+    double vn;
+    if (has_flux)
+    {
+        vn = 0.0;
+        for (int i = 0; i < _dim; ++i)
+        {
+            vn += x[i] * _n[i];
+        }
+    }
+    else
+    {
+        vn = 1.0;
+    }
+    values[0] = vn * (vn > 0) * factor *
+                (1 + alpha * v4 / pow(vth2, 2)) * exp(-0.5 * v2 / vth2);
 }
 
 double Cairns::flux_num_particles(const std::vector<double> &n, double S)

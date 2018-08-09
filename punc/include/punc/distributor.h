@@ -60,8 +60,8 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi = tr
  * the set of all the cells sharing vertex \f$x_j\f$, and returns the reciprocal 
  * values for each element. The volume of each patch is weighted by the 
  * corresponding finite element basis function of continuous Lagrange space of 
- * order 1, CG1. It can be shown that this method is mathematically equivalent 
- * to the approximated Voronoi cell volumes. 
+ * order 1, \f$\mathrm{CG}_1\f$. It can be shown that this method is 
+ * mathematically equivalent to the approximated Voronoi cell volumes. 
  */
 std::vector<double> weighted_element_volume(const df::FunctionSpace &V);
 

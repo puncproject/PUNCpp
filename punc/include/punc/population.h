@@ -675,6 +675,6 @@ void Population<len>::load_file(const std::string &fname)
     }
 }
 
-}
+} // namespace punc
 
 #endif // POPULATION_H

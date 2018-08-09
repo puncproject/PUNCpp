@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		injector.h
+ * @brief		Particle injector
+ *
+ * Velocity distribution functions and functions for injecting particles.
+ */
+
 #ifndef INJECTOR_H
 #define INJECTOR_H
 
@@ -168,7 +175,7 @@ class Kappa : public Pdf
   public:
     std::vector<double> pdf_max, num_particles;
     Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf = false,
-          bool has_flux_num = false, bool has_flux_max = false, 
+          bool has_flux_num = true, bool has_flux_max = true, 
           double vdf_range = 7.0);
     double operator()(const std::vector<double> &v);
     double operator()(const std::vector<double> &v, const std::vector<double> &n);
@@ -182,15 +189,14 @@ class Kappa : public Pdf
     bool has_cdf() { return _has_cdf; };
     bool has_flux_max() { return _has_flux_max; };
     bool has_flux_number() { return _has_flux_number; };
-    // std::vector<double> cdf(const std::size_t N);
-    // void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
     void set_flux_normal(std::vector<double> &n)
     {
         has_flux = true;
         _n = n;
     }
-    // double flux_num_particles(const std::vector<double> &n, double S);
-    // double flux_max(std::vector<double> &n);
+    double flux_num_particles(const std::vector<double> &n, double S);
+    double flux_max(std::vector<double> &n);
 };
 
 class Cairns : public Pdf
@@ -225,15 +231,13 @@ class Cairns : public Pdf
     bool has_cdf() { return _has_cdf; };
     bool has_flux_max() { return _has_flux_max; };
     bool has_flux_number() { return _has_flux_number; };
-    // std::vector<double> cdf(const std::size_t N);
-    // void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
     void set_flux_normal(std::vector<double> &n)
     {
         has_flux = true;
         _n = n;
     }
     double flux_num_particles(const std::vector<double> &n, double S);
-    // double flux_max(std::vector<double> &n);
 };
 
 void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets);
@@ -258,7 +262,6 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
     auto g_dim = pop.g_dim;
     auto num_species = species.size();
     auto num_facets = facets.size();
-    // std::vector<double> xs_tmp(g_dim);
     double xs_tmp[g_dim];
 
     for (std::size_t i = 0; i < num_species; ++i)
@@ -334,6 +337,6 @@ void load_particles(Population<len> &pop, std::vector<Species> &species)
     }
 }
 
-}
+} // namespace punc
 
-#endif
+#endif // INJECTOR_H

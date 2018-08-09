@@ -45,7 +45,9 @@ int main()
     std::vector<double> vd(dim, 0.0);
 
     UniformPosition pdf(mesh); // Position distribution
-    Maxwellian vdf(vthe, vd);  // Velocity distribution
+    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
+    Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
+    // Cairns vdf(vthe, vd, 1.0); // Cairns velocity distribution
 
     std::size_t steps = 1000;
     double dt = 0.05;
@@ -67,7 +69,6 @@ int main()
 
     auto species = create_species.species;
 
-    // auto V = function_space(mesh);
     create_flux(species, ext_bnd);
 
     Population<dim> pop(mesh, boundaries);
