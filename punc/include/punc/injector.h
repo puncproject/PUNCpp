@@ -240,6 +240,47 @@ class Cairns : public Pdf
     double flux_num_particles(const std::vector<double> &n, double S);
 };
 
+class KappaCairns : public Pdf
+{
+  private:
+    double _vth;
+    std::vector<double> _vd;
+    double k;
+    double alpha;
+    int _dim;
+    bool _has_cdf;
+    bool _has_flux_number;
+    bool _has_flux_max;
+    std::vector<double> _domain;
+    double vth2, factor;
+    std::vector<double> _n;
+    bool has_flux = false;
+
+  public:
+    std::vector<double> pdf_max, num_particles;
+    KappaCairns(double vth, std::vector<double> &vd, double k, double alpha,
+                bool has_cdf = false, bool has_flux_num = false,
+                bool has_flux_max = false, double vdf_range = 25.0);
+    double operator()(const std::vector<double> &v);
+    double operator()(const std::vector<double> &v, const std::vector<double> &n);
+    int dim() { return _dim; }
+    double max();
+    std::vector<double> domain() { return _domain; }
+    double vth() { return _vth; }
+    std::vector<double> vd() { return _vd; };
+    void set_vth(double v) { _vth = v; }
+    void set_vd(std::vector<double> &v) { _vd = v; }
+    bool has_cdf() { return _has_cdf; };
+    bool has_flux_max() { return _has_flux_max; };
+    bool has_flux_number() { return _has_flux_number; };
+    void eval(df::Array<double> &values, const df::Array<double> &x) const;
+    void set_flux_normal(std::vector<double> &n)
+    {
+        has_flux = true;
+        _n = n;
+    }
+};
+
 void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets);
 
 void create_flux(std::vector<Species> &species, std::vector<Facet> &facets);
