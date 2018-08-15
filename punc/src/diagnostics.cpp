@@ -31,21 +31,21 @@ namespace punc
 double mesh_potential_energy(df::Function &phi, df::Function &rho)
 {
     auto mesh = phi.function_space()->mesh();
-    auto dim = mesh->geometry().dim();
+    auto g_dim = mesh->geometry().dim();
     auto phi_ptr = std::make_shared<df::Function>(phi);
     auto rho_ptr = std::make_shared<df::Function>(rho);
     std::shared_ptr<df::Form> energy;
-    if (dim == 1)
+    switch (g_dim)
     {
+    case 1:
         energy = std::make_shared<Energy::Form_0>(mesh, phi_ptr, rho_ptr);
-    }
-    else if (dim == 2)
-    {
+        break;
+    case 2:
         energy = std::make_shared<Energy::Form_1>(mesh, phi_ptr, rho_ptr);
-    }
-    else if (dim == 3)
-    {
+        break;
+    case 3:
         energy = std::make_shared<Energy::Form_2>(mesh, phi_ptr, rho_ptr);
+        break;
     }
     return 0.5 * df::assemble(*energy);
 }

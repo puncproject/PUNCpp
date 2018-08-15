@@ -35,16 +35,16 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
     std::vector<double> volumes(num_dofs, 0.0);
 
     auto mesh = V.mesh();
-    auto tdim = mesh->topology().dim();
-    auto gdim = mesh->geometry().dim();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
     int j = 0;
-    mesh->init(0, tdim);
+    mesh->init(0, t_dim);
     for (df::MeshEntityIterator e(*mesh, 0); !e.end(); ++e)
     {
-        auto num_cells = e->num_entities(tdim);
+        auto num_cells = e->num_entities(t_dim);
         for (std::size_t i = 0; i < num_cells; ++i)
         {
-            df::Cell cell(*mesh, e->entities(tdim)[i]);
+            df::Cell cell(*mesh, e->entities(t_dim)[i]);
             volumes[dof_indices[j]] += cell.volume();
         }
         j++;
@@ -53,7 +53,7 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
     {
         for (std::size_t i = 0; i < num_dofs; ++i)
         {
-            volumes[i] = (gdim + 1.0) / volumes[i];
+            volumes[i] = (g_dim + 1.0) / volumes[i];
         }
     }else{
         for (std::size_t i = 0; i < num_dofs; ++i)
