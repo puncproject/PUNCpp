@@ -9,9 +9,7 @@ int main()
 
     Timer timer;
 
-    double dt = 0.1;
-    std::size_t steps = 100;
-    int dim = 3;
+    const int dim = 3;
 
     std::string fname;
     if (dim==2)
@@ -28,46 +26,54 @@ int main()
     std::size_t ext_bnd_id = tags[1];
 
     auto ext_bnd = exterior_boundaries(boundaries, ext_bnd_id);
-
+    std::cout<<"num_facets = "<<ext_bnd.size()<<'\n';
     std::vector<double> Ld = get_mesh_size(mesh);
-    std::vector<double> vd(dim, 0.0);
-    double vth = 1.0;
-
-    int npc = 100;
-    double ne = 100;
-    CreateSpecies create_species(mesh, Ld[0]);
-
-    UniformPosition pdf(mesh); // Position distribution
-    Maxwellian vdf(vth, vd);   // Velocity distribution 
 
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
     double mi = constants.m_i;
+    double kB = constants.k_B;
     double eps0 = constants.eps0;
+
+    int npc = 64;
+    double ne = 1.0e10;
+    double debye = 1.0;
+    double wpe = sqrt(ne * e * e / (eps0 * me));
+
+    double vthe = debye * wpe;
+    std::vector<double> vd(dim, 0.0);
+
+    UniformPosition pdf(mesh); // Position distribution
+    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
+    Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
+    // Cairns vdf(vthe, vd, 1.0); // Cairns velocity distribution
+
+    std::size_t steps = 1000;
+    double dt = 0.05;
+
+    CreateSpecies create_species(mesh);
 
     bool si_units = true;
     if (!si_units)
     {
+        create_species.X = Ld[0];
         create_species.create(-e, me, ne, pdf, vdf, npc);
         eps0 = 1.0;
     }
     else
     {
-        double wpe = sqrt(ne * e * e / (eps0 * me));
         dt /= wpe;
-        create_species.T = 1;
-        create_species.Q = 1;
-        create_species.M = 1;
-        create_species.X = 1;
-
         create_species.create_raw(-e, me, ne, pdf, vdf, npc);
     }
 
     auto species = create_species.species;
-    Population pop(mesh, boundaries);
 
-    load_particles(pop, species);
+    create_flux(species, ext_bnd);
+
+    Population<dim> pop(mesh, boundaries);
+
+    load_particles<dim>(pop, species);
 
     std::string file_name1{"vels_pre.txt"};
     pop.save_vel(file_name1);
@@ -96,7 +102,7 @@ int main()
         auto tot_num0 = pop.num_of_particles();
 
         timer.reset();
-        move(pop, dt);
+        move<dim>(pop, dt);
         t_move[i] = timer.elapsed();
         
         timer.reset();
@@ -107,7 +113,7 @@ int main()
         num_particles_outside[i-1] = tot_num0-tot_num1;
         
         timer.reset();
-        inject_particles(pop, species, ext_bnd, dt);
+        inject_particles<dim>(pop, species, ext_bnd, dt);
         t_inject[i] = timer.elapsed();
         
         auto tot_num2 = pop.num_of_particles();

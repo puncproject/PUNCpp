@@ -1,0 +1,38 @@
+# Copyright (C) 2018, Diako Darian and Sigvald Marholm
+#
+# This file is part of PUNC++.
+#
+# PUNC++ is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
+# UFL input for formulation of the potential energy calculation 
+
+cells = [interval, triangle, tetrahedron] 
+
+family = "Lagrange" # or "CG"
+degree = 1
+
+element1D = FiniteElement(family, cells[0], degree)
+element2D = FiniteElement(family, cells[1], degree)
+element3D = FiniteElement(family, cells[2], degree)
+
+u1D = TestFunction(element1D)
+u2D = TestFunction(element2D)
+u3D = TestFunction(element3D)
+
+form1D = u1D*dx
+form2D = u2D*dx
+form3D = u3D*dx
+
+elements = [element1D, element2D, element3D]
+forms = [form1D, form2D, form3D]

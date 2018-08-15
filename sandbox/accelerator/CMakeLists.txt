@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
-set(PROJECT_NAME laframboise)
+set(PROJECT_NAME accelerator)
 project(${PROJECT_NAME})
 
-file(GLOB RUN "laframboise.cpp")
+file(GLOB RUN "accelerator.cpp")
 
 # link to punc:
 add_library(libpunc SHARED IMPORTED)

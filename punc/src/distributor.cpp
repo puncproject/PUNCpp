@@ -23,6 +23,7 @@
  */
 
 #include "../include/punc/distributor.h"
+#include "../ufl/WeightedVolume.h"
 
 namespace punc
 {
@@ -64,91 +65,32 @@ std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
     return volumes;
 }
 
-df::Function distribute(const df::FunctionSpace &V,
-                        Population &pop,
-                        const std::vector<double> &dv_inv)
+std::vector<double> weighted_element_volume(const df::FunctionSpace &V)
 {
-    auto mesh = V.mesh();
-    auto tdim = mesh->topology().dim();
-    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
-
-    auto element = V.element();
-    auto s_dim = element->space_dimension();
-
-    std::vector<double> basis_matrix(s_dim);
-    std::vector<double> vertex_coordinates;
-
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    auto g_dim = V.mesh()->geometry().dim();
+    std::shared_ptr<df::Form> volume;
+    df::PETScVector volume_vector;
+    auto V_ptr = std::make_shared<const df::FunctionSpace>(V);
+    if (g_dim == 1)
     {
-        auto cell_id = e->index();
-        df::Cell _cell(*mesh, cell_id);
-        _cell.get_vertex_coordinates(vertex_coordinates);
-        auto cell_orientation = _cell.orientation();
-        auto dof_id = V.dofmap()->cell_dofs(cell_id);
-
-        std::vector<double> basis(1);
-        std::vector<double> accum(s_dim, 0.0);
-
-        std::size_t num_particles = pop.cells[cell_id].particles.size();
-        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
-        {
-            auto particle = pop.cells[cell_id].particles[p_id];
-
-            for (std::size_t i = 0; i < s_dim; ++i)
-            {
-                element->evaluate_basis(i, basis.data(),
-                                        particle.x.data(),
-                                        vertex_coordinates.data(),
-                                        cell_orientation);
-                basis_matrix[i] = basis[0];
-                accum[i] += particle.q * basis_matrix[i];
-            }
-
-        }
-        for (std::size_t i = 0; i < s_dim; ++i)
-        {
-            rho0[dof_id[i]] += accum[i];
-        }
+        volume = std::make_shared<WeightedVolume::Form_form1D>(V_ptr);
     }
-    for (std::size_t i = 0; i < len_rho; ++i)
+    else if (g_dim == 2)
     {
-        rho0[i] *= dv_inv[i];
+        volume = std::make_shared<WeightedVolume::Form_form2D>(V_ptr);
     }
-    rho.vector()->set_local(rho0);
-    return rho;
-}
-
-df::Function distribute_dg0(const df::FunctionSpace &Q, Population &pop)
-{
-    auto mesh = Q.mesh();
-    auto tdim = mesh->topology().dim();
-    df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
-
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
+    else if (g_dim == 3)
     {
-        auto cell_id = e->index();
-        df::Cell _cell(*mesh, cell_id);
-        auto dof_id = Q.dofmap()->cell_dofs(cell_id);
-        double accum = 0.0;
-
-        std::size_t num_particles = pop.cells[cell_id].particles.size();
-        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
-        {
-            auto particle = pop.cells[cell_id].particles[p_id];
-            accum += particle.q;
-        }
-        rho0[dof_id[0]] = accum/_cell.volume();
+        volume = std::make_shared<WeightedVolume::Form_form3D>(V_ptr);
     }
-    rho.vector()->set_local(rho0);
-    return rho;
+    df::assemble(volume_vector, *volume);
+    std::vector<double> volumes;
+    volume_vector.get_local(volumes);
+    for(std::size_t i = 0; i<volumes.size(); ++i)
+    {
+        volumes[i] = 1.0/volumes[i];
+    }
+    return volumes;
 }
 
 } // namespace punc

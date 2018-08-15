@@ -18,7 +18,7 @@ int main(){
     //
     string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
+    const std::size_t dim = 3;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -53,7 +53,6 @@ int main(){
 
     Maxwellian vdfe(vthe, vd); // Velocity distribution for electrons
     Maxwellian vdfi(vthi, vd); // Velocity distribution for ions
-
 
     CreateSpecies create_species(mesh);
     create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
@@ -94,7 +93,7 @@ int main(){
     // TIME STEP
     //
     size_t steps = 10;
-    double dt = 0.2/wpe;
+    double dt = 0.05/wpe;
 
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
@@ -121,10 +120,15 @@ int main(){
     ESolver esolver(V);
 
     //
+    // CREATE FLUX
+    //
+    create_flux(species, facet_vec);
+
+    //
     // LOAD PARTICLES
     //
-    Population pop(mesh, boundaries);
-    load_particles(pop, species);
+    Population<dim> pop(mesh, boundaries);
+    load_particles<dim>(pop, species);
 
     //
     // CREATE HISTORY VARIABLES
@@ -138,6 +142,9 @@ int main(){
     double current_measured = 0;
     double old_charge       = 0;
 
+    cout << "imposed_current: " << imposed_current <<'\n';
+    cout << "imposed_potential: " << imposed_potential << '\n';
+
     cout << "Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
     cout << " total: " << num_tot << endl;
@@ -147,16 +154,17 @@ int main(){
     //
     Timer timer;
     vector<double> t_dist(steps);
+    vector<double> t_poisson(steps);
+    vector<double> t_efield(steps);
+    vector<double> t_update(steps);
+    vector<double> t_potential(steps);
+    vector<double> t_accel(steps);
+    vector<double> t_move(steps);
+    vector<double> t_inject(steps);
+    vector<double> t_count(steps);
+    vector<double> t_io(steps);
     vector<double> t_rsetobj(steps);
-    vector<double> t_pois(steps);
-    vector<double> t_efil(steps);
-    vector<double> t_upd(steps);
     vector<double> t_objpoten(steps);
-    vector<double> t_pot(steps);
-    vector<double> t_ace(steps);
-    vector<double> t_mv(steps);
-    vector<double> t_inj(steps);
-    vector<double> t_pnum(steps);
 
     std::ofstream file;
 
@@ -165,30 +173,36 @@ int main(){
         cout << "Step: " << i << endl;
 
         // DISTRIBUTE
-
-        // auto rho = distribute(V, pop, dv_inv);
-        auto rho = distribute_dg0(Q, pop);
-        t_dist[i] = timer.elapsed();
         timer.reset();
+        // auto rho = distribute_cg1(V, pop, dv_inv);
+        auto rho = distribute_dg0<dim>(Q, pop);
+        t_dist[i] = timer.elapsed();
 
         // SOLVE POISSON
-
+        timer.reset();
         // reset_objects(int_bc);
         // t_rsetobj[i]= timer.elapsed();
-        timer.reset();
         /* int_bc[0].charge = 0; */
         /* int_bc[0].charge -= current_collected*dt; */
         auto phi = poisson.solve(rho, int_bc, circuit, V);
-        t_pois[i] = timer.elapsed();
-        timer.reset();
+        t_poisson[i] = timer.elapsed();
+
 
         for(auto& o: int_bc) o.update_charge(phi);
 
         potential = int_bc[0].update_potential(phi);
-        auto E = esolver.solve(phi);
-        t_efil[i] = timer.elapsed();
+        
+        // ELECTRIC FIELD
         timer.reset();
+        auto E = esolver.solve(phi);
+        t_efield[i] = timer.elapsed();
+        
 
+        // if (i==100)
+        // {
+        //     df::File ofile("phi.pvd");
+        //     ofile<<phi;
+        // }
         // compute_object_potentials(int_bc, E, inv_capacity, mesh);
         // t_objpoten[i] = timer.elapsed();
         // timer.reset();
@@ -196,54 +210,57 @@ int main(){
         // potential[i] = int_bc[0].potential;
 
         // auto phi1 = poisson.solve(rho, int_bc);
-        // t_pois[i] += timer.elapsed();
+        // t_poisson[i] += timer.elapsed();
         // timer.reset();
         //
         // auto E1 = esolver.solve(phi1);
-        // t_efil[i] += timer.elapsed();
+        // t_efield[i] += timer.elapsed();
         // timer.reset();
 
-        PE = particle_potential_energy(pop, phi);
-        t_pot[i] = timer.elapsed();
-
-        // PUSH PARTICLES
-
+        // POTENTIAL ENERGY
         timer.reset();
+        PE = particle_potential_energy_cg1<dim>(pop, phi);
+        t_potential[i] = timer.elapsed();
 
+        // PUSH PARTICLES AND CALCULATE THE KINETIC ENERGY
         old_charge = int_bc[0].charge;
 
-        KE = accel(pop, E, (1.0-0.5*(i == 0))*dt);
-        t_ace[i] = timer.elapsed();
-        if(i==0) KE = kinetic_energy(pop);
         timer.reset();
-        move(pop, dt);
-        t_mv[i] = timer.elapsed();
-        timer.reset();
+        KE = accel_cg1<dim>(pop, E, (1.0-0.5*(i == 0))*dt);
+        t_accel[i] = timer.elapsed();
 
+        // KINETIC ENERGY AT T=0
+        if(i==0) KE = kinetic_energy(pop);
+
+        // MOVE PARTICLES
+        timer.reset();
+        move<dim>(pop, dt);
+        t_move[i] = timer.elapsed();
+
+        // UPDATE PARTICLE POSITIONS
+        timer.reset();
         pop.update(int_bc);
-        t_upd[i]= timer.elapsed();
+        t_update[i]= timer.elapsed();
 
         current_measured = ((int_bc[0].charge - old_charge) / dt);
 
-
         // INJECT PARTICLES
-
         timer.reset();
-        inject_particles(pop, species, facet_vec, dt);
-        t_inj[i] = timer.elapsed();
+        inject_particles<dim>(pop, species, facet_vec, dt);
+        t_inject[i] = timer.elapsed();
         
         // COUNT PARTICLES
-
         timer.reset();
         num_e     = pop.num_of_negatives();
         num_i     = pop.num_of_positives();
         num_tot   = pop.num_of_particles();
-        t_pnum[i] = timer.elapsed();
-
-        timer.reset();
+        t_count[i] = timer.elapsed();
+        cout << "ions: "<<num_i;
+        cout << "  electrons: " << num_e;
+        cout << "  total: " << num_tot << '\n';
 
         // WRITE HISTORY
-
+        timer.reset();
         file.open("history.dat", std::ofstream::out | std::ofstream::app);
         file << i << "\t";
         file << i*dt << "\t";
@@ -254,37 +271,44 @@ int main(){
         file << potential << "\t";
         file << current_measured << endl;
         file.close();
+        t_io[i] = timer.elapsed();
     }
 
-    auto time_dist     = accumulate(t_dist.begin()    , t_dist.end()    , 0.0);
-    auto time_rsetobj  = accumulate(t_rsetobj.begin() , t_rsetobj.end() , 0.0);
-    auto time_pois     = accumulate(t_pois.begin()    , t_pois.end()    , 0.0);
-    auto time_efil     = accumulate(t_efil.begin()    , t_efil.end()    , 0.0);
-    auto time_upd      = accumulate(t_upd.begin()     , t_upd.end()     , 0.0);
-    auto time_objpoten = accumulate(t_objpoten.begin(), t_objpoten.end(), 0.0);
-    auto time_pot      = accumulate(t_pot.begin()     , t_pot.end()     , 0.0);
-    auto time_ace      = accumulate(t_ace.begin()     , t_ace.end()     , 0.0);
-    auto time_mv       = accumulate(t_mv.begin()      , t_mv.end()      , 0.0);
-    auto time_inj      = accumulate(t_inj.begin()     , t_inj.end()     , 0.0);
-    auto time_pnum     = accumulate(t_pnum.begin()    , t_pnum.end()    , 0.0);
+    auto time_dist      = accumulate(t_dist.begin(), t_dist.end(), 0.0);
+    auto time_poisson   = accumulate(t_poisson.begin(), t_poisson.end(), 0.0);
+    auto time_efield    = accumulate(t_efield.begin(), t_efield.end(), 0.0);
+    auto time_update    = accumulate(t_update.begin(), t_update.end(), 0.0);
+    auto time_potential = accumulate(t_potential.begin(), t_potential.end(), 0.0);
+    auto time_accel     = accumulate(t_accel.begin(), t_accel.end(), 0.0);
+    auto time_move      = accumulate(t_move.begin(), t_move.end(), 0.0);
+    auto time_inject    = accumulate(t_inject.begin(), t_inject.end(), 0.0);
+    auto time_count     = accumulate(t_count.begin(), t_count.end(), 0.0);
+    auto time_io        = accumulate(t_io.begin(), t_io.end(), 0.0);
+    auto time_rsetobj   = accumulate(t_rsetobj.begin(), t_rsetobj.end(), 0.0);
+    auto time_objpoten  = accumulate(t_objpoten.begin(), t_objpoten.end(), 0.0);
 
-    double total_time = time_dist + time_rsetobj + time_pois + time_efil + time_upd;
-    total_time += time_objpoten + time_pot + time_ace + time_mv + time_inj+time_pnum;
+    double total_time = time_dist + time_poisson + time_efield + time_update;
+    total_time += time_potential + time_accel + time_move + time_inject;
+    total_time += time_count + time_io + time_rsetobj + time_objpoten;
 
     cout << "----------------Measured time for each task----------------" << endl;
-    cout << "        Task         " << " Time  "     << "  "   << " Procentage "               << endl;
-    cout << "Distribution:        " << time_dist     << "    " << 100*time_dist/total_time     << endl;
-    cout << "Reset objects:       " << time_rsetobj  << "    " << 100*time_rsetobj/total_time  << endl;
-    cout << "poisson:             " << time_pois     << "    " << 100*time_pois/total_time     << endl;
-    cout << "efield:              " << time_efil     << "    " << 100*time_efil/total_time     << endl;
-    cout << "update:              " << time_upd      << "    " << 100*time_upd/total_time      << endl;
-    cout << "move:                " << time_mv       << "    " << 100*time_mv/total_time       << endl;
-    cout << "inject:              " << time_inj      << "    " << 100*time_inj/total_time      << endl;
-    cout << "accel:               " << time_ace      << "    " << 100*time_ace/total_time      << endl;
-    cout << "potential energy:    " << time_pot      << "    " << 100*time_pot/total_time      << endl;
-    cout << "object potential:    " << time_objpoten << "    " << 100*time_objpoten/total_time << endl;
-    cout << "counting particles:  " << time_pnum     << "    " << 100*time_pnum/total_time     << endl;
-    cout << "Total time:          " << total_time    << "    " << 100*total_time / total_time  << endl;
+    cout << "        Task         "
+         << " Time  "
+         << "  "
+         << " Percentage " << endl;
+    cout << "inject:              " << time_inject << "    " << 100 * time_inject / total_time << endl;
+    cout << "update:              " << time_update << "    " << 100 * time_update / total_time << endl;
+    cout << "poisson:             " << time_poisson << "    " << 100 * time_poisson / total_time << endl;
+    cout << "efield:              " << time_efield << "    " << 100 * time_efield / total_time << endl;
+    cout << "accel:               " << time_accel << "    " << 100 * time_accel / total_time << endl;
+    cout << "potential energy:    " << time_potential << "    " << 100 * time_potential / total_time << endl;
+    cout << "Distribution:        " << time_dist << "    " << 100 * time_dist / total_time << endl;
+    cout << "counting particles:  " << time_count << "    " << 100 * time_count / total_time << endl;
+    cout << "move:                " << time_move << "    " << 100 * time_move / total_time << endl;
+    cout << "write history:       " << time_io << "    " << 100 * time_io / total_time << endl;
+    // cout << "Reset objects:       " << time_rsetobj << "    " << 100 * time_rsetobj / total_time << endl;
+    // cout << "object potential:    " << time_objpoten << "    " << 100 * time_objpoten / total_time << endl;
+    cout << "Total time:          " << total_time << "    " << 100 * total_time / total_time << endl;
 
     return 0;
 }

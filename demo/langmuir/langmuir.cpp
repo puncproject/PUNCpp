@@ -3,6 +3,9 @@
 
 using namespace punc;
 
+using std::cout;
+using std::endl;
+
 class LangmuirWave2D : public Pdf
 {
   private:
@@ -43,7 +46,7 @@ LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
 
 double LangmuirWave2D::operator()(const std::vector<double> &x)
 {
-    return (locate(mesh, x) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+    return (locate(mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
 }
 
 int main()
@@ -51,12 +54,12 @@ int main()
     df::set_log_level(df::WARNING);
     Timer timer;
     timer.reset();
-    double dt = 0.25;
+    double dt = 0.1;
     std::size_t steps = 30;
 
     std::string fname{"../../mesh/2D/nothing_in_square"};
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
+    const std::size_t dim = 2;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -77,10 +80,10 @@ int main()
     double mi = constants.m_i;
     double eps0 = constants.eps0;
 
-    auto dv_inv = element_volume(V, true);
+    auto dv_inv = element_volume(V);
 
     double vth = 0.0;
-    int npc = 4;
+    int npc = 64;
     double ne = 100;
 
     CreateSpecies create_species(mesh, Ld[0]);
@@ -115,12 +118,12 @@ int main()
 
     auto species = create_species.species;
 
-    Population pop(mesh, boundaries);
+    Population<dim> pop(mesh, boundaries);
 
     PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);
     ESolver esolver(V);
 
-    load_particles(pop, species);
+    load_particles<dim>(pop, species);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
@@ -134,22 +137,106 @@ int main()
     std::vector<double> TE(steps-1);
     double KE0 = kinetic_energy(pop);
 
+    std::vector<double> t_accel(steps), t_distribute(steps);
+    std::vector<double> t_poisson(steps), t_efield(steps);
+    std::vector<double> t_move(steps), t_potential(steps), t_update(steps);
     auto t0 = timer.elapsed();
     printf("Time - initilazation: %e\n", t0);
-    timer.reset();
-    for(int i=1; i<steps;++i)
+    bool old = false;
+    if(old)
     {
-        std::cout<<"step: "<< i<<'\n';
-        auto rho = distribute(V, pop, dv_inv);
-        auto phi = poisson.solve(rho);
-        auto E = esolver.solve(phi);
-        PE[i - 1] = particle_potential_energy(pop, phi);
-        KE[i-1] = accel(pop, E, (1.0-0.5*(i == 1))*dt);
-        move_periodic(pop, dt, Ld);
-        pop.update();
+        for (int i = 1; i < steps; ++i)
+        {
+            std::cout << "step: " << i << '\n';
+            timer.reset();
+            auto rho = distribute<dim>(V, pop, dv_inv);
+            t_distribute[i] = timer.elapsed();
+
+            timer.reset();
+            auto phi = poisson.solve(rho);
+            t_poisson[i] = timer.elapsed();
+
+            timer.reset();
+            auto E = esolver.solve(phi);
+            t_efield[i] = timer.elapsed();
+
+            timer.reset();
+            PE[i - 1] = particle_potential_energy<dim>(pop, phi);
+            t_potential[i] = timer.elapsed();
+
+            timer.reset();
+            KE[i - 1] = accel<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+            t_accel[i] = timer.elapsed();
+
+            timer.reset();
+            move_periodic<dim>(pop, dt, Ld);
+            t_move[i] = timer.elapsed();
+
+            timer.reset();
+            pop.update();
+            t_update[i] = timer.elapsed();
+        }
+    }else{
+        for (int i = 1; i < steps; ++i)
+        {
+            std::cout << "step: " << i << '\n';
+            timer.reset();
+            auto rho = distribute_cg1<dim>(V, pop, dv_inv);
+            t_distribute[i] = timer.elapsed();
+
+            timer.reset();
+            auto phi = poisson.solve(rho);
+            t_poisson[i] = timer.elapsed();
+
+            timer.reset();
+            auto E = esolver.solve(phi);
+            t_efield[i] = timer.elapsed();
+
+            timer.reset();
+            PE[i - 1] = particle_potential_energy_cg1<dim>(pop, phi);
+            t_potential[i] = timer.elapsed();
+
+            timer.reset();
+            KE[i - 1] = accel_cg1<dim>(pop, E, (1.0 - 0.5 * (i == 1)) * dt);
+            t_accel[i] = timer.elapsed();
+
+            timer.reset();
+            move_periodic<dim>(pop, dt, Ld);
+            t_move[i] = timer.elapsed();
+
+            timer.reset();
+            pop.update();
+            t_update[i] = timer.elapsed();
+        }
     }
-    t0 = timer.elapsed();
-    printf("Time - loop: %e\n", t0);
+
+    auto time_accel = std::accumulate(t_accel.begin(), t_accel.end(), 0.0);
+    auto time_dist = std::accumulate(t_distribute.begin(), t_distribute.end(), 0.0);
+    auto time_poisson = accumulate(t_poisson.begin(), t_poisson.end(), 0.0);
+    auto time_efield = accumulate(t_efield.begin(), t_efield.end(), 0.0);
+    auto time_update = accumulate(t_update.begin(), t_update.end(), 0.0);
+    auto time_potential = accumulate(t_potential.begin(), t_potential.end(), 0.0);
+    auto time_move = accumulate(t_move.begin(), t_move.end(), 0.0);
+
+    double total_time = time_dist + time_poisson + time_efield + time_update;
+    total_time += time_potential + time_accel + time_move;
+
+    cout << "----------------Measured time for each task----------------" << endl;
+    cout << "        Task         "
+         << " Time  "
+         << "  "
+         << " Percentage " << endl;
+    cout << "Distribution:        " << time_dist << "    " << 100 * time_dist / total_time << endl;
+    cout << "poisson:             " << time_poisson << "    " << 100 * time_poisson / total_time << endl;
+    cout << "efield:              " << time_efield << "    " << 100 * time_efield / total_time << endl;
+    cout << "update:              " << time_update << "    " << 100 * time_update / total_time << endl;
+    cout << "move:                " << time_move << "    " << 100 * time_move / total_time << endl;
+    cout << "accel:               " << time_accel << "    " << 100 * time_accel / total_time << endl;
+    cout << "potential energy:    " << time_potential << "    " << 100 * time_potential / total_time << endl;
+    cout << "Total time:          " << total_time << "    " << 100 * total_time / total_time << endl;
+
+    // t0 = timer.elapsed();
+    // printf("Time - loop: %e\n", t0);
     KE[0] = KE0;
     for(int i=0;i<KE.size(); ++i)
     {

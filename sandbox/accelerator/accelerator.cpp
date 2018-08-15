@@ -1,44 +1,36 @@
 #include <dolfin.h>
 #include <punc.h>
-#include "../../punc/ufl/EField3D.h"
+#include "EField3D.h"
+
 using namespace punc;
 
 class EField : public df::Expression
 {
   public:
-	double E0 = 0.007;
+    double E0 = 0.007;
     EField() : df::Expression(3) {}
     void eval(df::Array<double> &values, const df::Array<double> &x) const
-	{
+    {
         values[0] = E0 * (x[0] - 1) / pow(pow((x[0] - 1), 2) + pow((x[1] - 1), 2), 1.5);
         values[1] = E0 * (x[1] - 1) / pow(pow((x[0] - 1), 2) + pow((x[1] - 1), 2), 1.5);
         values[2] = 0.0;
-	}
-};
-
-class BField : public df::Expression
-{
-  public:
-    double B0 = 1.0;
-    BField():df::Expression(3){}
-    void eval(df::Array<double> &values, const df::Array<double> &x) const
-    {
-        values[0] = 0.0;
-        values[1] = 0.0;
-        values[2] = B0 * pow(pow((x[0] - 1), 2) + pow((x[1] - 1), 2), 0.5);
     }
 };
 
 int main()
 {
     df::set_log_level(df::WARNING);
+
+    Timer timer;
+
     double dt = 0.01;
     std::size_t steps = 1000;
-    std::string fname{"../../mesh/3D/nothing_in_cube"};
+    const std::size_t dim = 3;
+
+    std::string fname;
+    fname = "../../mesh/3D/nothing_in_cube";
 
     auto mesh = load_mesh(fname);
-    // auto dim = mesh->geometry().dim();
-    const int dim = 3;
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
@@ -48,29 +40,32 @@ int main()
 
     std::vector<double> Ld = get_mesh_size(mesh);
 
-    auto W = std::make_shared<EField3D::FunctionSpace>(mesh);
-    Population<dim> pop(mesh, boundaries);
-    double q = -1.0;
-    double m = 0.05;
-    std::vector<double> x = {1.0,0.5,0.5};
-    std::vector<double> v = {0.1,0.0,0.0};
+    PhysicalConstants constants;
+    double e = -1.0;//constants.e;
+    double me = 5.0;//constants.m_e;
+    double eps0 = constants.eps0;
+
+    std::vector<double> x = {1.0, 0.5, 0.5};
+    std::vector<double> v = {0.1, 0.0, 0.0};
     auto Np = mesh->num_cells();
     double mul = 1.0;
-    for(int i=0; i<dim;++i)
+    for (int i = 0; i < dim; ++i)
     {
         mul *= Ld[i];
+        std::cout<<mul<<'\n';
+
     }
     mul /= Np;
-    q *= mul;
-    m *= mul;
-    pop.add_particles(x, v, q, m);
+    e *= mul;
+    me *= mul;
 
+    Population<dim> pop(mesh, boundaries);
+    pop.add_particles(x, v, e, me);
+
+    auto W = std::make_shared<EField3D::FunctionSpace>(mesh);
     EField efield;
-    BField bfield;
     df::Function ef(W);
-    df::Function bf(W);
     ef.interpolate(efield);
-    bf.interpolate(bfield);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
@@ -78,17 +73,22 @@ int main()
     std::cout << "Num positives:  " << num1;
     std::cout << ", num negatives: " << num2;
     std::cout << " total: " << num3 << '\n';
-    
+
+    std::vector<double> t_accel(steps);
+
     std::vector<double> pos;
     double KE;
     auto num_cells = pop.num_cells;
-    for(int i=1; i<steps;++i)
+    for (int i = 1; i < steps; ++i)
     {
         std::cout << "step: " << i << '\n';
-        KE = boris(pop, ef, bf, (1.0-.5*(i==1))*dt);
-        move_periodic_new(pop, dt, Ld);
+        timer.reset();
+        // KE = accel(pop, ef, (1.0 - .5 * (i == 1)) * dt);
+        KE = accel_cg_new<dim>(pop, ef, (1.0 - .5 * (i == 1)) * dt);
+        t_accel[i] = timer.elapsed();
+        move_periodic(pop, dt, Ld);
         pop.update();
-        
+
         for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)
         {
             std::size_t num_particles = pop.cells[cell_id].particles.size();
@@ -102,10 +102,15 @@ int main()
             }
         }
     }
+    auto tot_time = std::accumulate(t_accel.begin(), t_accel.end(), 0.0);
+    
+    std::cout << "-----Measured time for the task----------" << '\n';
+    std::cout << "Accel:      " << tot_time << '\n';
 
     std::ofstream out;
     out.open("pos.txt");
-    for (const auto &e : pos) out << e << "\n";
+    for (const auto &e : pos)
+        out << e << "\n";
     out.close();
     return 0;
 }

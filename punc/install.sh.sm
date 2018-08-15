@@ -26,13 +26,15 @@
 
 if [ $# -eq 0 ]
 then
-    BUILD_TYPE="release"
+    BUILD_TYPE="debug"
 else
     # Read input into BUILD_TYPE as lowercase
     BUILD_TYPE=$(echo "$1" | sed -e 's/\(.*\)/\L\1/')
 
     case $BUILD_TYPE in
+        debug) ;;
         release) ;;
+        profile) ;;
         doc) ;;
         *)
             echo "Invalid build type: $1"
@@ -44,9 +46,8 @@ fi
 if [ $BUILD_TYPE = "doc" ]
 then
     # Extract the most recent makefile to make documentation from
-    # MAKE=$(ls -t ./build/Makefile | grep -v latex | head -n 1)
-    # MAKEDIR="$(dirname "$MAKE")" 
-    MAKEDIR="build" 
+    MAKE=$(ls -t ./build/*/Makefile | grep -v latex | head -n 1)
+    MAKEDIR="$(dirname "$MAKE")" 
 
     ln -sf build/html/index.html doc.html
     cd $MAKEDIR
@@ -61,11 +62,11 @@ else
 
     echo "Building PUNC++"
 
-    mkdir -p build
-    cd build
-    cmake ..
+    mkdir -p build/$BUILD_TYPE 
+    cd build/$BUILD_TYPE
+    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE ../..
     make -j $(nproc)
-    sudo make install
+    make install DESTDIR=..
 
     # while true
     # do
