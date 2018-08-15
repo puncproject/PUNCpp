@@ -92,7 +92,7 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 1000;
+    size_t steps = 10;
     double dt = 0.05/wpe;
 
     //

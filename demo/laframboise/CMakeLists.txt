@@ -4,19 +4,10 @@ project(${PROJECT_NAME})
 
 file(GLOB RUN "laframboise.cpp")
 
-find_library(PUNC punc
-             HINTS "../../punc/build/usr/local/lib"
-                   "../../punc/build/usr/local/include"
-                   "../../punc/build/usr/local/include/punc")
-
-find_path(PUNC_INCLUDE_DIR punc
-             HINTS "../../punc/build/usr/local"
-                   "../../punc/build/usr/local/include"
-                   "../../punc/build/usr/local/include/punc")
-
-message(STATUS "PUNC dir: ${PUNC}")
-include_directories(${PUNC_INCLUDE_DIR})
-
+# link to punc:
+add_library(libpunc SHARED IMPORTED)
+set_property(TARGET libpunc PROPERTY IMPORTED_LOCATION "/usr/lib/libpunc.so")
+include_directories(../../punc/include)
 
 set (PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -30,7 +21,7 @@ find_package(DOLFIN REQUIRED)
 include(${DOLFIN_USE_FILE})
 
 # Default build type (can be overridden by user)
-if (NOT CMAKE_BUILD_TYP)
+if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
       "Choose the type of build, options are: Debug MinSizeRel Release RelWithDebInfo." FORCE)
 endif()
@@ -38,7 +29,7 @@ endif()
 # Do not throw error for 'multi-line comments' (these are typical in
 # rst which includes LaTeX)
 include(CheckCXXCompilerFlag)
-add_compile_options(-Wall)
+#add_compile_options(-Wall -Wextra -Wpedantic)
 CHECK_CXX_COMPILER_FLAG("-Wno-comment -O3" HAVE_NO_MULTLINE)
 if (HAVE_NO_MULTLINE)
   set(CMAKE_CXX_FLAGS "-Wno-comment -O3 ${CMAKE_CXX_FLAGS}")
@@ -48,4 +39,4 @@ add_executable(${PROJECT_NAME} ${RUN})
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${DOLFIN_LIBRARIES}
-    ${DOLFIN_3RD_PARTY_LIBRARIES} ${PUNC})
+${DOLFIN_3RD_PARTY_LIBRARIES} libpunc)
