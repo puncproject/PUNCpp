@@ -270,7 +270,7 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
         for (std::size_t j = 0; j < num_facets; ++j)
         {
             auto normal_i = facets[j].normal;
-            auto N_float = species[i].n * dt * species[i].vdf.num_particles[i*num_facets+j];
+            auto N_float = species[i].n * dt * species[i].vdf.num_particles[j];
             int N = int(N_float);
             if (rand(rng) < (N_float - N))
             {
@@ -280,7 +280,7 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
                 return species[i].vdf(v, normal_i);
             };
     
-            auto pdf_max = species[i].vdf.pdf_max[i*num_facets+j];
+            auto pdf_max = species[i].vdf.pdf_max[j];
             auto count = 0;
             while (count < N)
             {
