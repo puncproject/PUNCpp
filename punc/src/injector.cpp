@@ -233,8 +233,8 @@ Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf,
         _domain[i + _dim] = _vd[i] + vdf_range * _vth;
     }
     vth2 = _vth * _vth;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), _dim)) *
-             ((tgamma(k + 0.5 * (_dim - 1.0))) / (tgamma(k - 0.5)));
+    factor = (1.0 / pow(sqrt(M_PI * (2 * k - _dim) * vth2), _dim)) *
+             (tgamma(k + 1.0) / tgamma(k + ((2.0-_dim)/2.0)));
 }
 
 double Kappa::operator()(const std::vector<double> &v)
@@ -244,7 +244,7 @@ double Kappa::operator()(const std::vector<double> &v)
     {
         v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
     }
-    return factor * pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+    return factor * pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
 }
 
 double Kappa::operator()(const std::vector<double> &v, const std::vector<double> &n)
@@ -277,30 +277,25 @@ void Kappa::eval(df::Array<double> &values, const df::Array<double> &x) const
         vn = 1.0;
     }
     values[0] = vn * (vn > 0) * factor *
-                pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+                pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
 }
 
 /* Number of particles for the case without any drift. */
 double Kappa::flux_num_particles(const std::vector<double> &n, double S)
 {
-    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) * pow(k - 1.5, 0.5) * 
-                              (tgamma(k - 1.0) / tgamma(k - 0.5)));
+    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) *
+                              (1.0/sqrt(k - _dim/2.0)) * 
+                              (tgamma(k - ((_dim-1.0)/2.0) ) / 
+                               tgamma(k - _dim/2.0)));
     return num_particles;
 }
 
 double Kappa::flux_max(std::vector<double> &n)
 {
-    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
-
     std::vector<double> tmp(_dim);
-    auto q = k + 0.5 * (_dim - 1.);
-    auto qm = 1.0-2.0*q;
-    auto q2 = q*q;
-    auto k2 = 2.0*k-3.0;
     for (auto i = 0; i < _dim; ++i)
     {
-        tmp[i] = _vd[i] + (q / qm) * n[i] * vdn - (n[i] / qm) * 
-                          sqrt(q2 * vdn * vdn - qm * k2 * vth2);
+        tmp[i] = sqrt( (k-1.0)/(k+0.5) )*n[i]*_vth;
     }
     return this->operator()(tmp, n);
 }

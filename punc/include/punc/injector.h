@@ -260,7 +260,7 @@ class KappaCairns : public Pdf
     std::vector<double> pdf_max, num_particles;
     KappaCairns(double vth, std::vector<double> &vd, double k, double alpha,
                 bool has_cdf = false, bool has_flux_num = false,
-                bool has_flux_max = false, double vdf_range = 25.0);
+                bool has_flux_max = false, double vdf_range = 35.0);
     double operator()(const std::vector<double> &v);
     double operator()(const std::vector<double> &v, const std::vector<double> &n);
     int dim() { return _dim; }

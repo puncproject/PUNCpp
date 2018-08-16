@@ -22,12 +22,12 @@ print(vth)
 
 vd = array([0.0,0.0])
 k = 3.0
-alpha = 2.0
+alpha = 1.0
 D = 1
-pdf_type = "kappa_cairns"# "kappa", "cairns", "maxwellian"
+pdf_type = "kappa"# "kappa", "cairns", "maxwellian"
 dim = 3
 
-xs = linspace(vd[0] - 10 * vth, vd[0] + 10 * vth, 1000)
+xs = linspace(vd[0] - 35 * vth, vd[0] + 35 * vth, 1000)
 
 def pdf_cairns(v):
 	return 1.0/((1+15*alpha)*(2*np.pi*vth**2)**(D/2.0))*\
@@ -35,10 +35,15 @@ def pdf_cairns(v):
 		(alpha/vth**4)* v**4) *\
 		np.exp(-0.5 *v**2 / (vth**2))
 
-def pdf_kappa(v):
+def pdf_kappa_old(v):
 	return 1.0 / ((np.pi * (2 * k - 3.) * vth**2)**(D / 2.0)) *\
 		((gamma(k + 0.5 * (D - 1.0))) / (gamma(k - 0.5))) *\
 		(1. + v**2 / ((2 * k - 3.) * vth**2))**(-(k + 0.5 * (D - 1.)))
+
+def pdf_kappa(v):
+	return 1.0 / ((np.pi * (2 * k - D) * vth**2)**(D / 2.0)) *\
+		((gamma(k + 1.0)) / (gamma(k + 0.5*(2.-D)))) *\
+		(1. + v**2 / ((2 * k - D) * vth**2))**(-(k + 1.))
 
 def pdf_kappa_cairns(v):
 	return (1.0 / ((np.pi * (2 * k - 3.) * vth**2)**(D / 2.0)) )*\
@@ -62,10 +67,10 @@ for j, fname in enumerate(fnames):
 	v = array(v)
 	print(v.shape)
 	plt.figure()
-	plt.hist2d(v[:,0],v[:,1],bins=100,norm=LogNorm())
+	plt.hist2d(v[:,0],v[:,1],bins=300,norm=LogNorm())
 	
 	plt.figure()
-	plt.hist(v[:,0],bins=300, color = 'blue', normed=1)
+	plt.hist(v[:,0],bins=500, color = 'blue', normed=1)
 	if pdf_type=="maxwellian":
 		plt.plot(xs, pdf_maxwellian(0,xs), color='red')
 	elif pdf_type == "cairns":
@@ -75,7 +80,7 @@ for j, fname in enumerate(fnames):
 	elif pdf_type == "kappa_cairns":
 		plt.plot(xs, pdf_kappa_cairns(xs), color='red')
 	plt.figure()
-	plt.hist(v[:,1],bins=300, color = 'blue', normed=1)
+	plt.hist(v[:,1],bins=500, color = 'blue', normed=1)
 	if pdf_type == "maxwellian":
 		plt.plot(xs, pdf_maxwellian(1, xs), color='red')
 	elif pdf_type == "cairns":

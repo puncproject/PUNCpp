@@ -46,9 +46,9 @@ int main()
 
     UniformPosition pdf(mesh); // Position distribution
     // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
-    // Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
+    Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
     // Cairns vdf(vthe, vd, 2.0); // Cairns velocity distribution
-    KappaCairns vdf(vthe, vd, 3.0, 2.0); // Kappa-Cairns velocity distribution
+    // KappaCairns vdf(vthe, vd, 3.0, 1.0); // Kappa-Cairns velocity distribution
 
     std::size_t steps = 1000;
     double dt = 0.05;
