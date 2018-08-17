@@ -17,8 +17,10 @@ cmake_policy(SET CMP0004 NEW)
 # Get DOLFIN configuration data (DOLFINConfig.cmake must be in
 # DOLFIN_CMAKE_CONFIG_PATH)
 find_package(DOLFIN REQUIRED)
-
 include(${DOLFIN_USE_FILE})
+
+find_package(Boost COMPONENTS program_options REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Default build type (can be overridden by user)
 if (NOT CMAKE_BUILD_TYPE)
@@ -39,4 +41,4 @@ add_executable(${PROJECT_NAME} ${RUN})
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${DOLFIN_LIBRARIES}
-${DOLFIN_3RD_PARTY_LIBRARIES} libpunc)
+${DOLFIN_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES} libpunc)

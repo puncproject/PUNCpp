@@ -1,8 +1,10 @@
-#include <dolfin.h>
 #include <punc.h>
+#include <dolfin.h>
+#include <boost/program_options.hpp>
 #include <csignal>
 
 using namespace punc;
+namespace po = boost::program_options;
 
 using std::cout;
 using std::endl;
@@ -28,19 +30,64 @@ void signal_handler(int signum){
     }
 }
 
-int main(){
+int main(int argc, char **argv){
 
     signal(SIGINT, signal_handler);
     df::set_log_level(df::WARNING);
 
     //
+    // INPUT VARIABLES
+    //
+
+    size_t steps = 0;
+    string fname_ifile;
+    string fname_mesh;
+
+    po::options_description desc("Options");
+    desc.add_options()
+        ("help", "show help (this)")
+        ("steps", po::value(&steps), "number of timesteps")
+        ("input", po::value(&fname_ifile), "config file")
+        ("mesh", po::value(&fname_mesh), "mesh file")
+    ;
+
+    // Setting config file as positional argument
+    po::positional_options_description pos_options;
+    pos_options.add("input", -1);
+
+    //
+    // PARSING INPUT
+    //
+
+    // Parse input from command line first, including name of config file.
+    // These settings takes precedence over input from config file.
+    po::variables_map options;
+    po::store(po::command_line_parser(argc, argv).
+              options(desc).positional(pos_options).run(), options);
+    po::notify(options);
+
+    // Parse input from config file.
+    if(options.count("input")){
+        ifstream ifile;
+        ifile.open(fname_ifile);
+        po::store(po::parse_config_file(ifile, desc), options);
+        po::notify(options);
+        ifile.close();
+    }
+
+    // Print help
+    if(options.count("help")){
+        cout << desc << endl;
+        return 1;
+    }
+
+    //
     // CREATE MESH
     //
-    string fname{"../../mesh/3D/laframboise_sphere_in_sphere_res1b"};
-    auto mesh = load_mesh(fname);
+    auto mesh = load_mesh(fname_mesh);
     const std::size_t dim = 3;//mesh->geometry().dim();
 
-    auto boundaries = load_boundaries(mesh, fname);
+    auto boundaries = load_boundaries(mesh, fname_mesh);
     auto tags = get_mesh_ids(boundaries);
     size_t ext_bnd_id = tags[1];
 
@@ -112,7 +159,7 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 1000;
+    /* size_t steps = 1000; */
     double dt = 0.05/wpe;
 
     //
