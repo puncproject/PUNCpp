@@ -1,5 +1,6 @@
 #include <dolfin.h>
 #include <punc.h>
+#include <csignal>
 
 using namespace punc;
 
@@ -10,7 +11,20 @@ using std::vector;
 using std::accumulate;
 using std::string;
 
+bool exit_now = false;
+void signal_handler(int signum){
+    if(exit_now){
+        exit(signum);
+    } else {
+        cout << "Completing and storing timestep before exiting. ";
+        cout << "Press Ctrl+C again to force quit." << endl;
+        exit_now = true;
+    }
+}
+
 int main(){
+
+    signal(SIGINT, signal_handler);
     df::set_log_level(df::WARNING);
 
     //
@@ -92,7 +106,7 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 10;
+    size_t steps = 100;
     double dt = 0.05/wpe;
 
     //
@@ -255,9 +269,9 @@ int main(){
         num_i     = pop.num_of_positives();
         num_tot   = pop.num_of_particles();
         t_count[i] = timer.elapsed();
-        cout << "ions: "<<num_i;
-        cout << "  electrons: " << num_e;
-        cout << "  total: " << num_tot << '\n';
+        /* cout << "ions: "<<num_i; */
+        /* cout << "  electrons: " << num_e; */
+        /* cout << "  total: " << num_tot << '\n'; */
 
         // WRITE HISTORY
         timer.reset();
@@ -272,6 +286,12 @@ int main(){
         file << current_measured << endl;
         file.close();
         t_io[i] = timer.elapsed();
+
+        if(exit_now || i==steps-1){
+            // save_state()
+            // pop.save_file('population.dat')
+            break;
+        }
     }
 
     auto time_dist      = accumulate(t_dist.begin(), t_dist.end(), 0.0);
