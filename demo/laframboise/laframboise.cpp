@@ -106,7 +106,7 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 100;
+    size_t steps = 5000;
     double dt = 0.05/wpe;
 
     //
@@ -188,8 +188,8 @@ int main(){
 
         // DISTRIBUTE
         timer.reset();
-        // auto rho = distribute_cg1(V, pop, dv_inv);
-        auto rho = distribute_dg0<dim>(Q, pop);
+        auto rho = distribute_cg1(V, pop, dv_inv);
+        /* auto rho = distribute_dg0<dim>(Q, pop); */
         t_dist[i] = timer.elapsed();
 
         // SOLVE POISSON
@@ -236,15 +236,37 @@ int main(){
         PE = particle_potential_energy_cg1<dim>(pop, phi);
         t_potential[i] = timer.elapsed();
 
+        // COUNT PARTICLES
+        timer.reset();
+        num_e     = pop.num_of_negatives();
+        num_i     = pop.num_of_positives();
+        num_tot   = pop.num_of_particles();
+        t_count[i] = timer.elapsed();
+        /* cout << "ions: "<<num_i; */
+        /* cout << "  electrons: " << num_e; */
+        /* cout << "  total: " << num_tot << '\n'; */
+
         // PUSH PARTICLES AND CALCULATE THE KINETIC ENERGY
         old_charge = int_bc[0].charge;
 
         timer.reset();
         KE = accel_cg1<dim>(pop, E, (1.0-0.5*(i == 0))*dt);
+        if(i==0) KE = kinetic_energy(pop);
         t_accel[i] = timer.elapsed();
 
-        // KINETIC ENERGY AT T=0
-        if(i==0) KE = kinetic_energy(pop);
+        // WRITE HISTORY
+        timer.reset();
+        file.open("history.dat", std::ofstream::out | std::ofstream::app);
+        file << i << "\t";
+        file << i*dt << "\t";
+        file << num_e << "\t";
+        file << num_i << "\t";
+        file << KE << "\t";
+        file << PE << "\t";
+        file << potential << "\t";
+        file << current_measured << endl;
+        file.close();
+        t_io[i] = timer.elapsed();
 
         // MOVE PARTICLES
         timer.reset();
@@ -263,30 +285,7 @@ int main(){
         inject_particles<dim>(pop, species, facet_vec, dt);
         t_inject[i] = timer.elapsed();
         
-        // COUNT PARTICLES
-        timer.reset();
-        num_e     = pop.num_of_negatives();
-        num_i     = pop.num_of_positives();
-        num_tot   = pop.num_of_particles();
-        t_count[i] = timer.elapsed();
-        /* cout << "ions: "<<num_i; */
-        /* cout << "  electrons: " << num_e; */
-        /* cout << "  total: " << num_tot << '\n'; */
-
-        // WRITE HISTORY
-        timer.reset();
-        file.open("history.dat", std::ofstream::out | std::ofstream::app);
-        file << i << "\t";
-        file << i*dt << "\t";
-        file << num_e << "\t";
-        file << num_i << "\t";
-        file << KE << "\t";
-        file << PE << "\t";
-        file << potential << "\t";
-        file << current_measured << endl;
-        file.close();
-        t_io[i] = timer.elapsed();
-
+        // SAVE STATE AND BREAK LOOP
         if(exit_now || i==steps-1){
             // save_state()
             // pop.save_file('population.dat')
