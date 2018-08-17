@@ -641,8 +641,10 @@ void Population<len>::load_file(const std::string &fname)
 {
     std::fstream in(fname);
     std::string line;
-    double x[g_dim];
-    double v[g_dim];
+    /* double x[g_dim]; */
+    /* double v[g_dim]; */
+    std::vector<double> x(g_dim);
+    std::vector<double> v(g_dim);
     double q = 0;
     double m = 0;
     std::size_t i;
@@ -670,8 +672,8 @@ void Population<len>::load_file(const std::string &fname)
                 m = value;
             }
             ++i;
-            add_particles(x, v, q, m);
         }
+        add_particles(x, v, q, m);
     }
 }
 

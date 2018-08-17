@@ -10,6 +10,12 @@ using std::size_t;
 using std::vector;
 using std::accumulate;
 using std::string;
+using std::ifstream;
+using std::ofstream;
+
+const char* fname_hist  = "history.dat";
+const char* fname_state = "state.dat";
+const char* fname_pop   = "population.dat";
 
 bool exit_now = false;
 void signal_handler(int signum){
@@ -106,7 +112,7 @@ int main(){
     //
     // TIME STEP
     //
-    size_t steps = 5000;
+    size_t steps = 1000;
     double dt = 0.05/wpe;
 
     //
@@ -139,10 +145,51 @@ int main(){
     create_flux(species, facet_vec);
 
     //
-    // LOAD PARTICLES
+    // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
     Population<dim> pop(mesh, boundaries);
-    load_particles<dim>(pop, species);
+
+    size_t n = 0;
+    double t = 0;
+    bool continue_simulation = false;
+
+    ifstream ifile_state(fname_state);
+    ifstream ifile_hist(fname_hist);
+    ifstream ifile_pop(fname_pop);
+
+    if(ifile_state.good() && ifile_hist.good() && ifile_pop.good()){
+        continue_simulation = true;
+    }
+
+    ifile_hist.close();
+    ifile_pop.close();
+
+    ofstream file_hist;
+
+    if(continue_simulation){
+        cout << "Continuing previous simulation!" << endl;
+
+        string line;
+        std::getline(ifile_state, line);
+
+        char *s = (char *)line.c_str();
+        n                           = strtol(s, &s, 10);
+        t                           = strtod(s, &s);
+        int_bc[0].charge            = strtod(s, &s);
+        int_bc[0].collected_current = strtod(s, &s);
+
+        pop.load_file(fname_pop);
+        file_hist.open(fname_hist, ofstream::out | ofstream::app);
+
+    } else {
+
+        load_particles<dim>(pop, species);
+        file_hist.open(fname_hist, ofstream::out);
+    }
+
+    ifile_state.close();
+        
+
 
     //
     // CREATE HISTORY VARIABLES
@@ -180,26 +227,26 @@ int main(){
     vector<double> t_rsetobj(steps);
     vector<double> t_objpoten(steps);
 
-    std::ofstream file;
+    for(; n<steps; ++n){
 
-    for(size_t i=0; i<steps;++i)
-    {
-        cout << "Step: " << i << endl;
+        // We are now at timestep n
+        // Velocities and currents are at timestep n-0.5 (or 0 if n==0)
+
+        cout << "Step: " << n << endl;
 
         // DISTRIBUTE
         timer.reset();
         auto rho = distribute_cg1(V, pop, dv_inv);
-        /* auto rho = distribute_dg0<dim>(Q, pop); */
-        t_dist[i] = timer.elapsed();
+        t_dist[n] = timer.elapsed();
 
         // SOLVE POISSON
         timer.reset();
         // reset_objects(int_bc);
-        // t_rsetobj[i]= timer.elapsed();
+        // t_rsetobj[n]= timer.elapsed();
         /* int_bc[0].charge = 0; */
         /* int_bc[0].charge -= current_collected*dt; */
         auto phi = poisson.solve(rho, int_bc, circuit, V);
-        t_poisson[i] = timer.elapsed();
+        t_poisson[n] = timer.elapsed();
 
 
         for(auto& o: int_bc) o.update_charge(phi);
@@ -209,89 +256,101 @@ int main(){
         // ELECTRIC FIELD
         timer.reset();
         auto E = esolver.solve(phi);
-        t_efield[i] = timer.elapsed();
+        t_efield[n] = timer.elapsed();
         
 
-        // if (i==100)
+        // if (n==100)
         // {
         //     df::File ofile("phi.pvd");
         //     ofile<<phi;
         // }
         // compute_object_potentials(int_bc, E, inv_capacity, mesh);
-        // t_objpoten[i] = timer.elapsed();
+        // t_objpoten[n] = timer.elapsed();
         // timer.reset();
         //
-        // potential[i] = int_bc[0].potential;
+        // potential[n] = int_bc[0].potential;
 
         // auto phi1 = poisson.solve(rho, int_bc);
-        // t_poisson[i] += timer.elapsed();
+        // t_poisson[n] += timer.elapsed();
         // timer.reset();
         //
         // auto E1 = esolver.solve(phi1);
-        // t_efield[i] += timer.elapsed();
+        // t_efield[n] += timer.elapsed();
         // timer.reset();
 
         // POTENTIAL ENERGY
         timer.reset();
         PE = particle_potential_energy_cg1<dim>(pop, phi);
-        t_potential[i] = timer.elapsed();
+        t_potential[n] = timer.elapsed();
 
         // COUNT PARTICLES
         timer.reset();
         num_e     = pop.num_of_negatives();
         num_i     = pop.num_of_positives();
         num_tot   = pop.num_of_particles();
-        t_count[i] = timer.elapsed();
+        t_count[n] = timer.elapsed();
         /* cout << "ions: "<<num_i; */
         /* cout << "  electrons: " << num_e; */
         /* cout << "  total: " << num_tot << '\n'; */
 
         // PUSH PARTICLES AND CALCULATE THE KINETIC ENERGY
+        // Advancing velocities to n+0.5
         old_charge = int_bc[0].charge;
 
         timer.reset();
-        KE = accel_cg1<dim>(pop, E, (1.0-0.5*(i == 0))*dt);
-        if(i==0) KE = kinetic_energy(pop);
-        t_accel[i] = timer.elapsed();
+        KE = accel_cg1<dim>(pop, E, (1.0-0.5*(n == 0))*dt);
+        if(n==0) KE = kinetic_energy(pop);
+        t_accel[n] = timer.elapsed();
 
         // WRITE HISTORY
+        // Everything at n, except currents wich are at n-0.5.
         timer.reset();
-        file.open("history.dat", std::ofstream::out | std::ofstream::app);
-        file << i << "\t";
-        file << i*dt << "\t";
-        file << num_e << "\t";
-        file << num_i << "\t";
-        file << KE << "\t";
-        file << PE << "\t";
-        file << potential << "\t";
-        file << current_measured << endl;
-        file.close();
-        t_io[i] = timer.elapsed();
+        file_hist << n << "\t";
+        file_hist << t << "\t";
+        file_hist << num_e << "\t";
+        file_hist << num_i << "\t";
+        file_hist << KE << "\t";
+        file_hist << PE << "\t";
+        file_hist << potential << "\t";
+        file_hist << current_measured << endl;
+        t_io[n] = timer.elapsed();
 
         // MOVE PARTICLES
+        // Advancing position to n+1
         timer.reset();
         move<dim>(pop, dt);
-        t_move[i] = timer.elapsed();
+        t_move[n] = timer.elapsed();
+        t += dt;
 
         // UPDATE PARTICLE POSITIONS
         timer.reset();
         pop.update(int_bc);
-        t_update[i]= timer.elapsed();
+        t_update[n]= timer.elapsed();
 
         current_measured = ((int_bc[0].charge - old_charge) / dt);
+        int_bc[0].collected_current = current_measured;
 
         // INJECT PARTICLES
         timer.reset();
         inject_particles<dim>(pop, species, facet_vec, dt);
-        t_inject[i] = timer.elapsed();
+        t_inject[n] = timer.elapsed();
         
         // SAVE STATE AND BREAK LOOP
-        if(exit_now || i==steps-1){
-            // save_state()
-            // pop.save_file('population.dat')
+        if(exit_now || n==steps-1){
+            pop.save_file(fname_pop);
+
+            ofstream state_file;
+            state_file.open(fname_state, ofstream::out);
+            state_file << n+1 << "\t" << t << "\t";
+            state_file << int_bc[0].charge << "\t";
+            state_file << int_bc[0].collected_current << endl;
+            state_file.close();
+
             break;
         }
     }
+
+    file_hist.close();
 
     auto time_dist      = accumulate(t_dist.begin(), t_dist.end(), 0.0);
     auto time_poisson   = accumulate(t_poisson.begin(), t_poisson.end(), 0.0);
