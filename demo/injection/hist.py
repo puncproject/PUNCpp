@@ -27,7 +27,7 @@ D = 1
 pdf_type = "kappa"# "kappa", "cairns", "maxwellian"
 dim = 3
 
-xs = linspace(vd[0] - 35 * vth, vd[0] + 35 * vth, 1000)
+xs = linspace(vd[0] - 5 * vth, vd[0] + 5 * vth, 1000)
 
 def pdf_cairns(v):
 	return 1.0/((1+15*alpha)*(2*np.pi*vth**2)**(D/2.0))*\
@@ -70,7 +70,7 @@ for j, fname in enumerate(fnames):
 	plt.hist2d(v[:,0],v[:,1],bins=300,norm=LogNorm())
 	
 	plt.figure()
-	plt.hist(v[:,0],bins=500, color = 'blue', normed=1)
+	plt.hist(v[:,0],bins=200, color = 'blue', normed=1)
 	if pdf_type=="maxwellian":
 		plt.plot(xs, pdf_maxwellian(0,xs), color='red')
 	elif pdf_type == "cairns":
@@ -80,7 +80,7 @@ for j, fname in enumerate(fnames):
 	elif pdf_type == "kappa_cairns":
 		plt.plot(xs, pdf_kappa_cairns(xs), color='red')
 	plt.figure()
-	plt.hist(v[:,1],bins=500, color = 'blue', normed=1)
+	plt.hist(v[:,1],bins=200, color = 'blue', normed=1)
 	if pdf_type == "maxwellian":
 		plt.plot(xs, pdf_maxwellian(1, xs), color='red')
 	elif pdf_type == "cairns":
@@ -92,7 +92,7 @@ for j, fname in enumerate(fnames):
 
 	if dim==3:
 		plt.figure()
-		plt.hist(v[:,2],bins=300, color = 'blue', normed=1)
+		plt.hist(v[:,2],bins=200, color = 'blue', normed=1)
 		if pdf_type == "maxwellian":
 			plt.plot(xs, pdf_maxwellian(2, xs), color='red')
 		elif pdf_type == "cairns":

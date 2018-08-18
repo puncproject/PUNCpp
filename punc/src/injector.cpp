@@ -295,7 +295,7 @@ double Kappa::flux_max(std::vector<double> &n)
     std::vector<double> tmp(_dim);
     for (auto i = 0; i < _dim; ++i)
     {
-        tmp[i] = sqrt( (k-1.0)/(k+0.5) )*n[i]*_vth;
+        tmp[i] = sqrt( (2.*k-_dim)/(2.*k+1.0) )*n[i]*_vth;
     }
     return this->operator()(tmp, n);
 }
@@ -419,9 +419,9 @@ KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
         _domain[i + _dim] = _vd[i] + vdf_range * _vth;
     }
     vth2 = _vth * _vth;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - 3.) * vth2), _dim)) *
-             ((tgamma(k + 0.5 * (_dim - 1.0))) / (tgamma(k - 0.5))) *
-             (1.0/(1.0 + _dim*(_dim+2.0)*alpha*( (2*k-3.0)/(2*k-5.0) ) ));
+    factor = (1.0 / pow(sqrt(M_PI * (2 * k - _dim) * vth2), _dim)) *
+             (1.0 / (1.0 + _dim * (_dim + 2.0) * alpha * ((k - _dim/2.0) / (k - (_dim+2)/2.0)))) *
+             (tgamma(k + 1.0) / tgamma(k + ((2.0 - _dim) / 2.0)));
 }
 
 double KappaCairns::operator()(const std::vector<double> &v)
@@ -432,8 +432,9 @@ double KappaCairns::operator()(const std::vector<double> &v)
         v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
     }
     double v4 = v2 * v2;
-    return factor * (1 + alpha * v4 / pow(vth2, 2)) *
-           pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+    double vth4 = vth2 * vth2;
+    return factor * (1.0 + alpha * v4 / vth4) *
+           pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
 }
 
 double KappaCairns::operator()(const std::vector<double> &v, const std::vector<double> &n)
@@ -450,14 +451,13 @@ double KappaCairns::max()
 {
     std::vector<double> v_max(_dim, 0.0);
     v_max = _vd;
-    v_max[0] += sqrt( ((2.0*k-3.0)*vth2)/(k + ((_dim - 5.0)/2.0) ) +
-                      (vth2/(alpha*(k + (_dim - 5.0)/2.0))) *
-                      sqrt((3.0-2.0*k)*(3.0-2.0*k)*alpha*alpha - 
-                           alpha*(k-(_dim-1.0)/2.0)*(k+(_dim-5.0)/2.0)) );
-    double max = (*this)(v_max);
+    v_max[0] += _vth * sqrt(((2.0 * k - _dim) / (k - 1.0)) +
+                            sqrt(alpha * alpha * (2 * k - _dim) * (2 * k - _dim) - 
+                                 alpha * (k - 1.0) * (k + 1.0)) /
+                                  (alpha * (k - 1.0)));
+    double max = this->operator()(v_max);
     max = factor > max ? factor : max;
     return max;
-
 }
 
 void KappaCairns::eval(df::Array<double> &values, const df::Array<double> &x) const
@@ -468,7 +468,7 @@ void KappaCairns::eval(df::Array<double> &values, const df::Array<double> &x) co
         v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
     }
     double v4 = v2 * v2;
-
+    double vth4 = vth2 * vth2;
     double vn;
     if (has_flux)
     {
@@ -483,8 +483,8 @@ void KappaCairns::eval(df::Array<double> &values, const df::Array<double> &x) co
         vn = 1.0;
     }
     values[0] = vn * (vn > 0) * factor *
-                (1 + alpha * v4 / pow(vth2, 2)) * 
-                pow(1.0 + v2 / ((2 * k - 3.) * vth2), -(k + 0.5 * (_dim - 1.)));
+                (1.0 + alpha * v4 / vth4) *
+                pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
 }
 
 std::vector<double> rejection_sampler(const std::size_t N,
