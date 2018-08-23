@@ -58,6 +58,7 @@ int main(int argc, char **argv){
     vector<double> thermal;
     vector<double> charge;
     vector<double> mass;
+    vector<string> distribution;
 
     po::options_description desc("Options");
     desc.add_options()
@@ -78,6 +79,7 @@ int main(int argc, char **argv){
         ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
         ("species.npc", po::value(&npc), "number of particles per cell")
         ("species.num", po::value(&num), "number of particles in total (overrides npc)")
+        ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
     ;
 
     // Setting config file as positional argument
@@ -134,15 +136,26 @@ int main(int argc, char **argv){
     if(num.size() == 0) num = vector<int>(nSpecies, 0);
     if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
 
+    // Sanity checks (avoids segfaults)
+    if(charge.size()       != nSpecies
+    || mass.size()         != nSpecies
+    || density.size()      != nSpecies
+    || distribution.size() != nSpecies 
+    || npc.size()          != nSpecies
+    || num.size()          != nSpecies
+    || thermal.size()      != nSpecies){
+
+        cout << "Wrong arguments for species." << endl;
+        return 1;
+    }
+
     //
     // CREATE MESH
     //
-    cout << "Create mesh" << endl;
     auto mesh = load_mesh(fname_mesh);
 
-    // FIXME: This is not a good solution. Well written code shouldn't require
-    // recompilation for different cases. By thinking it through it shouldn't
-    // be necessary.
+    // FIXME: This really shouldn't be necessary. This is what polymorphism is
+    // for. Well written code don't require recompilation for different input.
     const std::size_t dim = 3;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname_mesh);
@@ -156,35 +169,26 @@ int main(int argc, char **argv){
     //
     // CREATE SPECIES
     //
-    cout << "Create species" << endl;
-    /* PhysicalConstants constants; */
-    double e = constants.e;
-    double me = constants.m_e;
-    double mi = constants.m_i;
-    double kB = constants.k_B;
-    /* double eps0 = constants.eps0; */
 
-    /* int npc = 4; */
-    double ne = 1.0e10;
-    double debye = 1.0;
-    double Rp = 1.0*debye;
-    double Te = e*e*debye*debye*ne/(eps0*kB);
-    double wpe = sqrt(ne*e*e/(eps0*me));
-    double vthe = debye*wpe;
-    double vthi = vthe/sqrt(1836.);
+    // FIXME: Move to input file
     vector<double> vd(dim, 0);
 
-    // FIXME: Because the Pdf class is broken (doesn't handle dynamic memory
-    // properly) it must be wrapped in shared_ptr. This is because it
-    // inherits df::Expression which is also broken.
-    // FIXME:
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
 
     CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
+
         pdfs.push_back(std::make_shared<UniformPosition>(mesh));
-        vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd));
+
+        if(distribution[s]=="maxwellian"){
+            vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd));
+        } else {
+            cout << "Unsupported velocity distribution: ";
+            cout << distribution[s] << endl;
+            return 1;
+        }
+
         create_species.create_raw(charge[s], mass[s], density[s],
                 *(pdfs[s]), *(vdfs[s]), npc[s], num[s]);
     }
@@ -193,7 +197,6 @@ int main(int argc, char **argv){
     //
     // IMPOSE CIRCUITRY
     //
-    cout << "Impose circuitry" << endl;
     vector<vector<int>> isources, vsources;
     vector<double> ivalues, vvalues;
 
@@ -215,15 +218,8 @@ int main(int argc, char **argv){
     }
 
     //
-    // TIME STEP
-    //
-    /* size_t steps = 1000; */
-    /* double dt = 0.05/wpe; */
-
-    //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
     //
-    cout << "Create function spaces and boundary conditions" << endl;
     auto V = function_space(mesh);
     auto Q = DG0_space(mesh);
     auto dv_inv = element_volume(V);
@@ -242,20 +238,17 @@ int main(int argc, char **argv){
     //
     // CREATE SOLVERS
     //
-    cout << "Create solvers" << endl;
     PoissonSolver poisson(V, ext_bc, circuit, eps0);
     ESolver esolver(V);
 
     //
     // CREATE FLUX
     //
-    cout << "Create flux" << endl;
     create_flux(species, facet_vec);
 
     //
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
-    cout << "Load particles" << endl;
     Population<dim> pop(mesh, boundaries);
 
     size_t n = 0;
