@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
-set(PROJECT_NAME laframboise)
+set(PROJECT_NAME interaction)
 project(${PROJECT_NAME})
 
-file(GLOB RUN "laframboise.cpp")
+file(GLOB RUN "interaction.cpp")
 
 # link to punc:
 add_library(libpunc SHARED IMPORTED)
 set_property(TARGET libpunc PROPERTY IMPORTED_LOCATION "/usr/lib/libpunc.so")
-include_directories(../../punc/include)
+include_directories(../punc/include)
 
 set (PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
