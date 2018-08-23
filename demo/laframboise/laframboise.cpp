@@ -39,16 +39,45 @@ int main(int argc, char **argv){
     // INPUT VARIABLES
     //
 
-    size_t steps = 0;
+    // Global input
     string fname_ifile;
     string fname_mesh;
+    size_t steps = 0;
+    double dt = 0;
+    double dtwp;
+
+    // Object input
+    bool impose_current = true; 
+    double imposed_current;
+    double imposed_voltage;
+
+    // Species input
+    vector<int> npc;
+    vector<int> num;
+    vector<double> density;
+    vector<double> thermal;
+    vector<double> charge;
+    vector<double> mass;
 
     po::options_description desc("Options");
     desc.add_options()
         ("help", "show help (this)")
-        ("steps", po::value(&steps), "number of timesteps")
         ("input", po::value(&fname_ifile), "config file")
         ("mesh", po::value(&fname_mesh), "mesh file")
+        ("steps", po::value(&steps), "number of timesteps")
+        ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
+        ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
+        
+        ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
+        ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
+        ("imposed_voltage", po::value(&imposed_voltage), "Voltage imposed on object [V]")
+
+        ("species.charge", po::value(&charge), "charge [elementary chages]")
+        ("species.mass", po::value(&mass), "mass [electron masses]")
+        ("species.density", po::value(&density), "number density [1/m^3]")
+        ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
+        ("species.npc", po::value(&npc), "number of particles per cell")
+        ("species.num", po::value(&num), "number of particles in total (overrides npc)")
     ;
 
     // Setting config file as positional argument
@@ -82,9 +111,38 @@ int main(int argc, char **argv){
     }
 
     //
+    // PRE-PROCESS INPUT
+    //
+    PhysicalConstants constants;
+    double eps0 = constants.eps0;
+
+    size_t nSpecies = charge.size();
+    for(size_t s=0; s<nSpecies; s++){
+        charge[s] *= constants.e;
+        mass[s] *= constants.m_e;
+    }
+
+    if(dt==0){ // Float-comparison acceptable because it is initialized exactly
+        double wp0 = sqrt(pow(charge[0],2)*density[0]/(constants.eps0*mass[0]));
+        dt = dtwp/wp0;
+    }
+
+    if(num.size() != 0 && npc.size() != 0){
+        cout << "Use only npc or num. Not mixed." << endl;
+        return 1;
+    }
+    if(num.size() == 0) num = vector<int>(nSpecies, 0);
+    if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
+
+    //
     // CREATE MESH
     //
+    cout << "Create mesh" << endl;
     auto mesh = load_mesh(fname_mesh);
+
+    // FIXME: This is not a good solution. Well written code shouldn't require
+    // recompilation for different cases. By thinking it through it shouldn't
+    // be necessary.
     const std::size_t dim = 3;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname_mesh);
@@ -98,14 +156,15 @@ int main(int argc, char **argv){
     //
     // CREATE SPECIES
     //
-    PhysicalConstants constants;
+    cout << "Create species" << endl;
+    /* PhysicalConstants constants; */
     double e = constants.e;
     double me = constants.m_e;
     double mi = constants.m_i;
     double kB = constants.k_B;
-    double eps0 = constants.eps0;
+    /* double eps0 = constants.eps0; */
 
-    int npc = 4;
+    /* int npc = 4; */
     double ne = 1.0e10;
     double debye = 1.0;
     double Rp = 1.0*debye;
@@ -115,27 +174,26 @@ int main(int argc, char **argv){
     double vthi = vthe/sqrt(1836.);
     vector<double> vd(dim, 0);
 
-    UniformPosition pdfe(mesh); // Electron position distribution
-    UniformPosition pdfi(mesh); // Ion position distribution
-
-    Maxwellian vdfe(vthe, vd); // Velocity distribution for electrons
-    Maxwellian vdfi(vthi, vd); // Velocity distribution for ions
+    // FIXME: Because the Pdf class is broken (doesn't handle dynamic memory
+    // properly) it must be wrapped in shared_ptr. This is because it
+    // inherits df::Expression which is also broken.
+    // FIXME:
+    vector<std::shared_ptr<Pdf>> pdfs;
+    vector<std::shared_ptr<Pdf>> vdfs;
 
     CreateSpecies create_species(mesh);
-    create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
-    create_species.create_raw( e, mi, ne, pdfi, vdfi, npc);
+    for(size_t s=0; s<charge.size(); s++){
+        pdfs.push_back(std::make_shared<UniformPosition>(mesh));
+        vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd));
+        create_species.create_raw(charge[s], mass[s], density[s],
+                *(pdfs[s]), *(vdfs[s]), npc[s], num[s]);
+    }
     auto species = create_species.species;
 
     //
     // IMPOSE CIRCUITRY
     //
-    double V0 = kB*Te/e;
-    double I0 = -e*ne*Rp*Rp*sqrt(8.*M_PI*kB*Te/me);
-
-    bool impose_current = true; 
-    double imposed_current = 2.945*I0;
-    double imposed_potential = 2*V0;
-
+    cout << "Impose circuitry" << endl;
     vector<vector<int>> isources, vsources;
     vector<double> ivalues, vvalues;
 
@@ -153,18 +211,19 @@ int main(int argc, char **argv){
         ivalues = {};
 
         vsources = {{-1,0}};
-        vvalues = {imposed_potential};
+        vvalues = {imposed_voltage};
     }
 
     //
     // TIME STEP
     //
     /* size_t steps = 1000; */
-    double dt = 0.05/wpe;
+    /* double dt = 0.05/wpe; */
 
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
     //
+    cout << "Create function spaces and boundary conditions" << endl;
     auto V = function_space(mesh);
     auto Q = DG0_space(mesh);
     auto dv_inv = element_volume(V);
@@ -183,17 +242,20 @@ int main(int argc, char **argv){
     //
     // CREATE SOLVERS
     //
+    cout << "Create solvers" << endl;
     PoissonSolver poisson(V, ext_bc, circuit, eps0);
     ESolver esolver(V);
 
     //
     // CREATE FLUX
     //
+    cout << "Create flux" << endl;
     create_flux(species, facet_vec);
 
     //
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
+    cout << "Load particles" << endl;
     Population<dim> pop(mesh, boundaries);
 
     size_t n = 0;
@@ -251,7 +313,7 @@ int main(int argc, char **argv){
     double old_charge       = 0;
 
     cout << "imposed_current: " << imposed_current <<'\n';
-    cout << "imposed_potential: " << imposed_potential << '\n';
+    cout << "imposed_voltage: " << imposed_voltage << '\n';
 
     cout << "Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
