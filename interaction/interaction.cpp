@@ -18,15 +18,16 @@ using std::ofstream;
 const char* fname_hist  = "history.dat";
 const char* fname_state = "state.dat";
 const char* fname_pop   = "population.dat";
+const bool override_status_print = true;
 
-bool exit_now = false;
+bool exit_immediately = true;
 void signal_handler(int signum){
-    if(exit_now){
+    if(exit_immediately){
         exit(signum);
     } else {
         cout << "Completing and storing timestep before exiting. ";
         cout << "Press Ctrl+C again to force quit." << endl;
-        exit_now = true;
+        exit_immediately = true;
     }
 }
 
@@ -111,6 +112,8 @@ int main(int argc, char **argv){
         cout << desc << endl;
         return 1;
     }
+
+    cout << "PUNC++ started!" << endl;
 
     //
     // PRE-PROCESS INPUT
@@ -244,11 +247,14 @@ int main(int argc, char **argv){
     //
     // CREATE FLUX
     //
+    cout << "Create flux" << endl;
     create_flux(species, facet_vec);
 
     //
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
+    cout << "Loading particles" << endl;
+
     Population<dim> pop(mesh, boundaries);
 
     size_t n = 0;
@@ -269,7 +275,7 @@ int main(int argc, char **argv){
     ofstream file_hist;
 
     if(continue_simulation){
-        cout << "Continuing previous simulation!" << endl;
+        cout << "Continuing previous simulation" << endl;
 
         string line;
         std::getline(ifile_state, line);
@@ -284,6 +290,7 @@ int main(int argc, char **argv){
         file_hist.open(fname_hist, ofstream::out | ofstream::app);
 
     } else {
+        cout << "Starting new simulation" << endl;
 
         load_particles<dim>(pop, species);
         file_hist.open(fname_hist, ofstream::out);
@@ -329,12 +336,15 @@ int main(int argc, char **argv){
     vector<double> t_rsetobj(steps);
     vector<double> t_objpoten(steps);
 
-    for(; n<steps; ++n){
+    exit_immediately = false;
+    for(; n<=steps; ++n){
 
         // We are now at timestep n
         // Velocities and currents are at timestep n-0.5 (or 0 if n==0)
 
-        cout << "Step: " << n << endl;
+        if(override_status_print) cout << "\r";
+        cout << "Step " << n << " of " << steps;
+        if(!override_status_print) cout << "\n";
 
         // DISTRIBUTE
         timer.reset();
@@ -438,7 +448,7 @@ int main(int argc, char **argv){
         t_inject[n] = timer.elapsed();
         
         // SAVE STATE AND BREAK LOOP
-        if(exit_now || n==steps-1){
+        if(exit_immediately || n==steps){
             pop.save_file(fname_pop);
 
             ofstream state_file;
@@ -451,6 +461,7 @@ int main(int argc, char **argv){
             break;
         }
     }
+    if(override_status_print) cout << endl;
 
     file_hist.close();
 
@@ -490,5 +501,6 @@ int main(int argc, char **argv){
     // cout << "object potential:    " << time_objpoten << "    " << 100 * time_objpoten / total_time << endl;
     cout << "Total time:          " << total_time << "    " << 100 * total_time / total_time << endl;
 
+    cout << "PUNC++ finished successfully!" << endl;
     return 0;
 }
