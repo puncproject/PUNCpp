@@ -44,7 +44,7 @@ namespace punc
  * @param       node        Object to look for
  * @param[out]  group       List of objects sharing charge with node
  */
-static void get_charge_sharing_set(std::vector<std::vector<int>> vsources, int node, std::vector<int> &group);
+static void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group);
 
 /**
  * @brief Identifies all sets of charge sharing objects
@@ -57,7 +57,7 @@ static void get_charge_sharing_set(std::vector<std::vector<int>> vsources, int n
  * charge constraint. This follows the voltage sources to identify which objects
  * must have a charge constraint.
  */
-static std::vector<std::vector<int>> get_charge_sharing_sets(const std::vector<std::vector<int>> &vsources, int num_objects);
+static std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects);
 
 /**
  * @brief Replace a row in a matrix
@@ -690,7 +690,7 @@ void Circuit::apply_isources_to_object()
  * LOCAL DEFINITIONS
  ******************************************************************************/
 
-static void get_charge_sharing_set(std::vector<std::vector<int>> vsources, int node, std::vector<int> &group)
+static void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group)
 {
     group.emplace_back(node);
 
@@ -715,7 +715,7 @@ static void get_charge_sharing_set(std::vector<std::vector<int>> vsources, int n
     }
 }
 
-static std::vector<std::vector<int>> get_charge_sharing_sets(const std::vector<std::vector<int>> &vsources, int num_objects)
+static std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects)
 {
     std::vector<int> nodes(num_objects);
     std::iota(std::begin(nodes), std::end(nodes), 0);
@@ -729,12 +729,9 @@ static std::vector<std::vector<int>> get_charge_sharing_sets(const std::vector<s
         groups.emplace_back(group);
     }
  
-    for (std::size_t i = 0; i != groups.size(); i++)
-    {
-        for (std::size_t j = 0; j != groups[i].size(); j++)
-        {
-            if (groups[i][j] != -1)
-            {
+    for (std::size_t i = 0; i != groups.size(); i++){
+        for (std::size_t j = 0; j != groups[i].size(); j++){
+            if (groups[i][j] != -1){
                 nodes.erase(std::remove(nodes.begin(), nodes.end(), groups[i][j]), nodes.end());
             }
         }
