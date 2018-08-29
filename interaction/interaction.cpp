@@ -294,11 +294,17 @@ int main(int argc, char **argv){
 
         load_particles<dim>(pop, species);
         file_hist.open(fname_hist, ofstream::out);
+
+        // Preamble for metaplot
+        file_hist << "#:xaxis\tt\n";
+        file_hist << "#:name\tn\tt\tne\tni\tKE\tPE\tV\tI\n";
+        file_hist << "#:long\ttimestep\ttime\t\"electron density\"\t";
+        file_hist << "\"ion density\"\t\"potential energy\"\t";
+        file_hist << "\"kinetic energy\"\tvoltage\tcurrent\n";
+        file_hist << "#:units\t1\ts\tm**(-3)\tm**(-3)\tJ\tJ\tV\tA\n";
     }
 
     ifile_state.close();
-        
-
 
     //
     // CREATE HISTORY VARIABLES
