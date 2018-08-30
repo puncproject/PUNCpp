@@ -47,20 +47,12 @@ wpe   = np.sqrt(e**2*ne/(eps0*me))
 vthe  = wpe*debye
 vthi  = vthe*np.sqrt(me/mp)
 
-Rp    = debye
+Rp    = 10*debye
 Te    = me*vthe**2/kB
 V0    = kB*Te/e;
 I0    = -e*ne*Rp**2*np.sqrt(8*np.pi*kB*Te/me)
-
-print('ne    =' , ne)
-print('debye =' , debye)
-print('wpe   =' , wpe)
-print('vthe  =' , vthe)
-print('vthi  =' , vthi)
-print('Rp    =' , Rp)
-print('Te    =' , Te)
-print('V0    =' , V0)
-print('I0    =' , I0)
+Vl = 25*V0
+Il = 21.895*I0 
 
 data = []
 if len(sys.argv)>1:
@@ -70,17 +62,26 @@ else:
 
 with open(fname) as f:
     for l in f:
-        data.append(l.split())
+        if l[0] != '#': data.append(l.split())
 
 data = np.array(data, dtype=np.float)
 
-tau = 1
+tau = 0.5
 xaxis = data[:,1]*1e6
 
+V = data[:,6]
+I = data[:,7]
+
+dx = xaxis[1]-xaxis[0]
+Vm = expAvg(V, dx, tau)[-1]
+Im = expAvg(I, dx, tau)[-1]
+
+print("Voltage error: {}".format(np.abs((Vm-Vl)/Vl)))
+print("Current error: {}".format(np.abs((Im-Il)/Il)))
+
 plt.figure()
-plotAvg(xaxis, data[:,6], tau=tau)
-plt.plot(xaxis,V0*np.ones(xaxis.shape),'k:')
-plt.plot(xaxis,2*V0*np.ones(xaxis.shape),'k:')
+plotAvg(xaxis, V, tau=tau)
+plt.plot(xaxis,Vl*np.ones(xaxis.shape),'k:')
 plt.title('Potential')
 plt.xlabel('us')
 plt.ylabel('V')
@@ -88,12 +89,11 @@ plt.grid()
 plt.show()
 
 plt.figure()
-plotAvg(xaxis, data[:,7], tau=tau)
-plt.plot(xaxis,I0*np.ones(xaxis.shape),'k:')
-plt.plot(xaxis,1.987*I0*np.ones(xaxis.shape),'k:')
-plt.plot(xaxis,2.945*I0*np.ones(xaxis.shape),'k:')
+plotAvg(xaxis, I, tau=tau)
+plt.plot(xaxis,Il*np.ones(xaxis.shape),'k:')
 plt.title('Current')
 plt.xlabel('us')
 plt.ylabel('A')
 plt.grid()
 plt.show()
+
