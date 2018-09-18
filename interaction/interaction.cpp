@@ -25,151 +25,37 @@ void signal_handler(int signum){
     if(exit_immediately){
         exit(signum);
     } else {
+        cout << endl;
         cout << "Completing and storing timestep before exiting. ";
         cout << "Press Ctrl+C again to force quit." << endl;
         exit_immediately = true;
     }
 }
 
-int main(int argc, char **argv){
+// Horrible, horrible list of arguments. Hopefully only temporary.
+template <size_t dim>
+int run(
+        std::shared_ptr<const df::Mesh> mesh,
+        df::MeshFunction<std::size_t> boundaries,
+        size_t steps,
+        double dt,
+        bool impose_current,
+        double imposed_current,
+        double imposed_voltage,
+        vector<int> npc,
+        vector<int> num,
+        vector<double> density,
+        vector<double> thermal,
+        vector<double> charge,
+        vector<double> mass,
+        vector<double> kappa,
+        vector<double> alpha,
+        vector<string> distribution
+){
 
-    signal(SIGINT, signal_handler);
-    df::set_log_level(df::WARNING);
-
-    //
-    // INPUT VARIABLES
-    //
-
-    // Global input
-    string fname_ifile;
-    string fname_mesh;
-    size_t steps = 0;
-    double dt = 0;
-    double dtwp;
-
-    // Object input
-    bool impose_current = true; 
-    double imposed_current;
-    double imposed_voltage;
-
-    // Species input
-    vector<int> npc;
-    vector<int> num;
-    vector<double> density;
-    vector<double> thermal;
-    vector<double> charge;
-    vector<double> mass;
-    vector<double> kappa;
-    vector<double> alpha;
-    vector<string> distribution;
-
-    po::options_description desc("Options");
-    desc.add_options()
-        ("help", "show help (this)")
-        ("input", po::value(&fname_ifile), "config file")
-        ("mesh", po::value(&fname_mesh), "mesh file")
-        ("steps", po::value(&steps), "number of timesteps")
-        ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
-        ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
-        
-        ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
-        ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
-        ("imposed_voltage", po::value(&imposed_voltage), "Voltage imposed on object [V]")
-
-        ("species.charge", po::value(&charge), "charge [elementary chages]")
-        ("species.mass", po::value(&mass), "mass [electron masses]")
-        ("species.density", po::value(&density), "number density [1/m^3]")
-        ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
-        ("species.alpha", po::value(&alpha), "spectral index alpha")
-        ("species.kappa", po::value(&kappa), "spectral index kappa")
-        ("species.npc", po::value(&npc), "number of particles per cell")
-        ("species.num", po::value(&num), "number of particles in total (overrides npc)")
-        ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
-    ;
-
-    // Setting config file as positional argument
-    po::positional_options_description pos_options;
-    pos_options.add("input", -1);
-
-    //
-    // PARSING INPUT
-    //
-
-    // Parse input from command line first, including name of config file.
-    // These settings takes precedence over input from config file.
-    po::variables_map options;
-    po::store(po::command_line_parser(argc, argv).
-              options(desc).positional(pos_options).run(), options);
-    po::notify(options);
-
-    // Parse input from config file.
-    if(options.count("input")){
-        ifstream ifile;
-        ifile.open(fname_ifile);
-        po::store(po::parse_config_file(ifile, desc), options);
-        po::notify(options);
-        ifile.close();
-    }
-
-    // Print help
-    if(options.count("help")){
-        cout << desc << endl;
-        return 1;
-    }
-
-    cout << "PUNC++ started!" << endl;
-
-    //
-    // PRE-PROCESS INPUT
-    //
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    size_t nSpecies = charge.size();
-    for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
-    }
-
-    if(dt==0){ // Float-comparison acceptable because it is initialized exactly
-        double wp0 = sqrt(pow(charge[0],2)*density[0]/(constants.eps0*mass[0]));
-        dt = dtwp/wp0;
-    }
-
-    if(num.size() != 0 && npc.size() != 0){
-        cout << "Use only npc or num. Not mixed." << endl;
-        return 1;
-    }
-    if(num.size() == 0) num = vector<int>(nSpecies, 0);
-    if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
-    if(kappa.size() == 0) kappa = vector<double>(nSpecies, 0);
-    if(alpha.size() == 0) alpha = vector<double>(nSpecies, 0);
-
-    // Sanity checks (avoids segfaults)
-    if(charge.size()       != nSpecies
-    || mass.size()         != nSpecies
-    || density.size()      != nSpecies
-    || distribution.size() != nSpecies 
-    || npc.size()          != nSpecies
-    || num.size()          != nSpecies
-    || thermal.size()      != nSpecies
-    || kappa.size()        != nSpecies
-    || alpha.size()        != nSpecies){
-
-        cout << "Wrong arguments for species." << endl;
-        return 1;
-    }
-
-    //
-    // CREATE MESH
-    //
-    auto mesh = load_mesh(fname_mesh);
-
-    // FIXME: This really shouldn't be necessary. This is what polymorphism is
-    // for. Well written code don't require recompilation for different input.
-    const std::size_t dim = 3;//mesh->geometry().dim();
-
-    auto boundaries = load_boundaries(mesh, fname_mesh);
     auto tags = get_mesh_ids(boundaries);
     size_t ext_bnd_id = tags[1];
 
@@ -243,11 +129,11 @@ int main(int argc, char **argv){
 
     auto u0 = std::make_shared<df::Constant>(0.0);
     df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-		std::make_shared<df::MeshFunction<size_t>>(boundaries), ext_bnd_id);
+        std::make_shared<df::MeshFunction<size_t>>(boundaries), ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
     ObjectBC object(V, boundaries, tags[2], eps0);
-	vector<ObjectBC> int_bc = {object};
+    vector<ObjectBC> int_bc = {object};
 
     vector<size_t> bnd_id{tags[2]};
     Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
@@ -523,4 +409,150 @@ int main(int argc, char **argv){
 
     cout << "PUNC++ finished successfully!" << endl;
     return 0;
+}
+
+int main(int argc, char **argv){
+
+    signal(SIGINT, signal_handler);
+    df::set_log_level(df::WARNING);
+
+    //
+    // INPUT VARIABLES
+    //
+
+    // Global input
+    string fname_ifile;
+    string fname_mesh;
+    size_t steps = 0;
+    double dt = 0;
+    double dtwp;
+
+    // Object input
+    bool impose_current = true; 
+    double imposed_current;
+    double imposed_voltage;
+
+    // Species input
+    vector<int> npc;
+    vector<int> num;
+    vector<double> density;
+    vector<double> thermal;
+    vector<double> charge;
+    vector<double> mass;
+    vector<double> kappa;
+    vector<double> alpha;
+    vector<string> distribution;
+
+    po::options_description desc("Options");
+    desc.add_options()
+        ("help", "show help (this)")
+        ("input", po::value(&fname_ifile), "config file")
+        ("mesh", po::value(&fname_mesh), "mesh file")
+        ("steps", po::value(&steps), "number of timesteps")
+        ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
+        ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
+        
+        ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
+        ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
+        ("imposed_voltage", po::value(&imposed_voltage), "Voltage imposed on object [V]")
+
+        ("species.charge", po::value(&charge), "charge [elementary chages]")
+        ("species.mass", po::value(&mass), "mass [electron masses]")
+        ("species.density", po::value(&density), "number density [1/m^3]")
+        ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
+        ("species.alpha", po::value(&alpha), "spectral index alpha")
+        ("species.kappa", po::value(&kappa), "spectral index kappa")
+        ("species.npc", po::value(&npc), "number of particles per cell")
+        ("species.num", po::value(&num), "number of particles in total (overrides npc)")
+        ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
+    ;
+
+    // Setting config file as positional argument
+    po::positional_options_description pos_options;
+    pos_options.add("input", -1);
+
+    //
+    // PARSING INPUT
+    //
+
+    // Parse input from command line first, including name of config file.
+    // These settings takes precedence over input from config file.
+    po::variables_map options;
+    po::store(po::command_line_parser(argc, argv).
+              options(desc).positional(pos_options).run(), options);
+    po::notify(options);
+
+    // Parse input from config file.
+    if(options.count("input")){
+        ifstream ifile;
+        ifile.open(fname_ifile);
+        po::store(po::parse_config_file(ifile, desc), options);
+        po::notify(options);
+        ifile.close();
+    }
+
+    // Print help
+    if(options.count("help")){
+        cout << desc << endl;
+        return 1;
+    }
+
+    cout << "PUNC++ started!" << endl;
+
+    //
+    // PRE-PROCESS INPUT
+    //
+    PhysicalConstants constants;
+    double eps0 = constants.eps0;
+
+    size_t nSpecies = charge.size();
+    for(size_t s=0; s<nSpecies; s++){
+        charge[s] *= constants.e;
+        mass[s] *= constants.m_e;
+    }
+
+    if(dt==0){ // Float-comparison acceptable because it is initialized exactly
+        double wp0 = sqrt(pow(charge[0],2)*density[0]/(constants.eps0*mass[0]));
+        dt = dtwp/wp0;
+    }
+
+    if(num.size() != 0 && npc.size() != 0){
+        cout << "Use only npc or num. Not mixed." << endl;
+        return 1;
+    }
+    if(num.size() == 0) num = vector<int>(nSpecies, 0);
+    if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
+    if(kappa.size() == 0) kappa = vector<double>(nSpecies, 0);
+    if(alpha.size() == 0) alpha = vector<double>(nSpecies, 0);
+
+    // Sanity checks (avoids segfaults)
+    if(charge.size()       != nSpecies
+    || mass.size()         != nSpecies
+    || density.size()      != nSpecies
+    || distribution.size() != nSpecies 
+    || npc.size()          != nSpecies
+    || num.size()          != nSpecies
+    || thermal.size()      != nSpecies
+    || kappa.size()        != nSpecies
+    || alpha.size()        != nSpecies){
+
+        cout << "Wrong arguments for species." << endl;
+        return 1;
+    }
+
+    //
+    // CREATE MESH
+    //
+    auto mesh = load_mesh(fname_mesh);
+    auto boundaries = load_boundaries(mesh, fname_mesh);
+    size_t dim = mesh->geometry().dim();
+
+    if(dim==2){
+        return run<2>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+    } else if(dim==3){
+        return run<3>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+    } else {
+        cout << "Only 2D and 3D supported" << endl;
+        return 1;
+    }
 }
