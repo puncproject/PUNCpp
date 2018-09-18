@@ -57,8 +57,8 @@ static inline std::vector<double> cross(const std::vector<double> &v1,
  * velocities are at half-integer time-steps, the particles can be accelerated
  * only half a time-step the first time.
  */
-template <std::size_t len>
-double accel(Population<len> &pop, const df::Function &E, double dt)
+template <typename PopulationType>
+double accel(PopulationType &pop, const df::Function &E, double dt)
 {
     auto W = E.function_space();
     auto mesh = W->mesh();
@@ -123,8 +123,8 @@ double accel(Population<len> &pop, const df::Function &E, double dt)
     return KE;
 }
 
-template <std::size_t len>
-double accel_cg1(Population<len> &pop, const df::Function &E, double dt)
+template <typename PopulationType>
+double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
 {
 
     auto W = E.function_space();
@@ -199,8 +199,8 @@ double accel_cg1(Population<len> &pop, const df::Function &E, double dt)
  * velocities are at half-integer time-steps, the particles must be accelerated
  * only half a time-step the first time.
  */
-template <std::size_t len>
-double boris(Population<len> &pop, const df::Function &E,
+template <typename PopulationType>
+double boris(PopulationType &pop, const df::Function &E,
              const std::vector<double> &B, double dt)
 {
     auto g_dim = B.size();
@@ -325,8 +325,8 @@ double boris(Population<len> &pop, const df::Function &E,
  *
  * Same as punc::boris but for inhomogeneous magnetic field.
  */
-template <std::size_t len>
-double boris(Population<len> &pop, const df::Function &E,
+template <typename PopulationType>
+double boris(PopulationType &pop, const df::Function &E,
              const df::Function &B, double dt)
 {
     auto g_dim = pop.g_dim;
@@ -450,8 +450,8 @@ double boris(Population<len> &pop, const df::Function &E,
  *      \approx \dot\mathbf{x} = \mathbf{v}
  * \f]
  */
-template <std::size_t len>
-void move(Population<len> &pop, const double dt)
+template <typename PopulationType>
+void move(PopulationType &pop, double dt)
 {
     auto g_dim = pop.g_dim;
     for (auto &cell : pop.cells)
@@ -468,8 +468,8 @@ void move(Population<len> &pop, const double dt)
 
 // FIXME: Make a separate function for imposing periodic BCs *after* move
 // FIXME: This function works only for meshes that have one of the corners at the origin
-template <std::size_t len>
-void move_periodic(Population<len> &pop, const double dt, const std::vector<double> &Ld)
+template <typename PopulationType>
+void move_periodic(PopulationType &pop, const double dt, const std::vector<double> &Ld)
 {
     auto g_dim = Ld.size();
     for (auto &cell : pop.cells)

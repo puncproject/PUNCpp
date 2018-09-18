@@ -293,8 +293,8 @@ std::vector<double> rejection_sampler(const std::size_t N,
 std::vector<double> random_facet_points(const std::size_t N, 
                                         const std::vector<double> &vertices);
 
-template <std::size_t len>
-void inject_particles(Population<len> &pop, std::vector<Species> &species,
+template <typename PopulationType>
+void inject_particles(PopulationType &pop, std::vector<Species> &species,
                       std::vector<Facet> &facets, const double dt)
 {
     std::mt19937_64 rng{random_seed_seq::get_instance()};
@@ -354,8 +354,8 @@ void inject_particles(Population<len> &pop, std::vector<Species> &species,
     }
 }
 
-template <std::size_t len>
-void load_particles(Population<len> &pop, std::vector<Species> &species)
+template <typename PopulationType>
+void load_particles(PopulationType &pop, std::vector<Species> &species)
 {
     auto num_species = species.size();
     std::vector<double> xs, vs;

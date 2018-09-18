@@ -80,8 +80,8 @@ int main(int argc, char **argv){
         ("species.mass", po::value(&mass), "mass [electron masses]")
         ("species.density", po::value(&density), "number density [1/m^3]")
         ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
-	("species.alpha", po::value(&alpha), "spectral index alpha")
-	("species.kappa", po::value(&kappa), "spectral index kappa")
+        ("species.alpha", po::value(&alpha), "spectral index alpha")
+        ("species.kappa", po::value(&kappa), "spectral index kappa")
         ("species.npc", po::value(&npc), "number of particles per cell")
         ("species.num", po::value(&num), "number of particles in total (overrides npc)")
         ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
@@ -167,7 +167,7 @@ int main(int argc, char **argv){
 
     // FIXME: This really shouldn't be necessary. This is what polymorphism is
     // for. Well written code don't require recompilation for different input.
-    const std::size_t dim = 2;//mesh->geometry().dim();
+    const std::size_t dim = 3;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname_mesh);
     auto tags = get_mesh_ids(boundaries);
@@ -306,7 +306,7 @@ int main(int argc, char **argv){
     } else {
         cout << "Starting new simulation" << endl;
 
-        load_particles<dim>(pop, species);
+        load_particles(pop, species);
         file_hist.open(fname_hist, ofstream::out);
 
         // Preamble for metaplot
@@ -412,7 +412,7 @@ int main(int argc, char **argv){
 
         // POTENTIAL ENERGY
         timer.reset();
-        PE = particle_potential_energy_cg1<dim>(pop, phi);
+        PE = particle_potential_energy_cg1(pop, phi);
         t_potential[n] = timer.elapsed();
 
         // COUNT PARTICLES
@@ -430,7 +430,7 @@ int main(int argc, char **argv){
         old_charge = int_bc[0].charge;
 
         timer.reset();
-        KE = accel_cg1<dim>(pop, E, (1.0-0.5*(n == 0))*dt);
+        KE = accel_cg1(pop, E, (1.0-0.5*(n == 0))*dt);
         if(n==0) KE = kinetic_energy(pop);
         t_accel[n] = timer.elapsed();
 
@@ -450,7 +450,7 @@ int main(int argc, char **argv){
         // MOVE PARTICLES
         // Advancing position to n+1
         timer.reset();
-        move<dim>(pop, dt);
+        move(pop, dt);
         t_move[n] = timer.elapsed();
         t += dt;
 
@@ -464,7 +464,7 @@ int main(int argc, char **argv){
 
         // INJECT PARTICLES
         timer.reset();
-        inject_particles<dim>(pop, species, facet_vec, dt);
+        inject_particles(pop, species, facet_vec, dt);
         t_inject[n] = timer.elapsed();
         
         // SAVE STATE AND BREAK LOOP

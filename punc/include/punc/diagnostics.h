@@ -43,8 +43,8 @@ namespace df = dolfin;
  * \f]
  * where \f$N\f$ is the number of particles in the simulation domain.
  */
-template <std::size_t len>
-double kinetic_energy(Population<len> &pop)
+template <typename PopulationType>
+double kinetic_energy(PopulationType &pop)
 {
     double KE = 0.0;
     for (auto &cell : pop.cells)
@@ -90,8 +90,8 @@ double mesh_potential_energy(df::Function &phi, df::Function &rho);
  * where \f$N\f$ is the number of particles in the simulation domain, and 
  * \f$\mathbf{x}_i\f$ is the position of particle \f$i\f$.
  */
-template <std::size_t len>
-double particle_potential_energy(Population<len> &pop, const df::Function &phi)
+template <typename PopulationType>
+double particle_potential_energy(PopulationType &pop, const df::Function &phi)
 {
     auto V = phi.function_space();
     auto mesh = V->mesh();
@@ -174,8 +174,8 @@ double particle_potential_energy(Population<len> &pop, const df::Function &phi)
  * where \f$N\f$ is the number of particles in the simulation domain, and 
  * \f$\mathbf{x}_i\f$ is the position of particle \f$i\f$.
  */
-template <std::size_t len>
-double particle_potential_energy_cg1(Population<len> &pop, const df::Function &phi)
+template <typename PopulationType>
+double particle_potential_energy_cg1(PopulationType &pop, const df::Function &phi)
 {
     auto V = phi.function_space();
     auto mesh = V->mesh();

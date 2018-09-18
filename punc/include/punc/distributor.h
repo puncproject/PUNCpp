@@ -87,9 +87,9 @@ std::vector<double> weighted_element_volume(const df::FunctionSpace &V);
  *       \rho_{j} = \frac{1}{\mathcal{V}_j}\sum_{p}q_p\psi_j(\mathbf{x}_{p}).
  * \f]
  */
-template <std::size_t len>
+template <typename PopulationType>
 df::Function distribute(const df::FunctionSpace &V,
-                        Population<len> &pop,
+                        PopulationType &pop,
                         const std::vector<double> &dv_inv)
 {
     auto mesh = V.mesh();
@@ -168,9 +168,9 @@ df::Function distribute(const df::FunctionSpace &V,
  *       \rho_{j} = \frac{1}{\mathcal{V}_j}\sum_{p}q_p\psi_j(\mathbf{x}_{p}).
  * \f]
  */
-template <std::size_t len>
+template <typename PopulationType>
 df::Function distribute_cg1(const df::FunctionSpace &V,
-                            Population<len> &pop,
+                            PopulationType &pop,
                             const std::vector<double> &dv_inv)
 {
     auto mesh = V.mesh();
@@ -231,8 +231,8 @@ df::Function distribute_cg1(const df::FunctionSpace &V,
  *       \rho_{k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p}q_p,
  * \f]
  */
-template <std::size_t len>
-df::Function distribute_dg0(const df::FunctionSpace &Q, Population<len> &pop)
+template <typename PopulationType>
+df::Function distribute_dg0(const df::FunctionSpace &Q, PopulationType &pop)
 {
     df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
     auto rho_vec = rho.vector();
