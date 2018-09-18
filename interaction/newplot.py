@@ -35,6 +35,7 @@ def plotAvg(x, y, label=None, tau=0.1):
     # returning this allows color to be extracted
     return p
 
+
 eps0 = constants('electric constant')
 e    = constants('elementary charge')
 me   = constants('electron mass')
@@ -47,12 +48,14 @@ wpe   = np.sqrt(e**2*ne/(eps0*me))
 vthe  = wpe*debye
 vthi  = vthe*np.sqrt(me/mp)
 
-Rp    = 10*debye
+Rp    = 1*debye
 Te    = me*vthe**2/kB
 V0    = kB*Te/e;
 I0    = -e*ne*Rp**2*np.sqrt(8*np.pi*kB*Te/me)
-Vl = 25*V0
-Il = 21.895*I0 
+# Vl = 25*V0
+# Il = 6.053*I0
+Vl    = 2*V0
+Il    = 2.945*I0
 
 data = []
 if len(sys.argv)>1:
@@ -66,7 +69,7 @@ with open(fname) as f:
 
 data = np.array(data, dtype=np.float)
 
-tau = 0.5
+tau = 1
 xaxis = data[:,1]*1e6
 
 V = data[:,6]
@@ -79,14 +82,14 @@ Im = expAvg(I, dx, tau)[-1]
 print("Voltage error: {}".format(np.abs((Vm-Vl)/Vl)))
 print("Current error: {}".format(np.abs((Im-Il)/Il)))
 
-plt.figure()
-plotAvg(xaxis, V, tau=tau)
-plt.plot(xaxis,Vl*np.ones(xaxis.shape),'k:')
-plt.title('Potential')
-plt.xlabel('us')
-plt.ylabel('V')
-plt.grid()
-plt.show()
+# plt.figure()
+# plotAvg(xaxis, V, tau=tau)
+# plt.plot(xaxis,Vl*np.ones(xaxis.shape),'k:')
+# plt.title('Potential')
+# plt.xlabel('us')
+# plt.ylabel('V')
+# plt.grid()
+# plt.show()
 
 plt.figure()
 plotAvg(xaxis, I, tau=tau)
