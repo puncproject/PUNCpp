@@ -59,6 +59,8 @@ int main(int argc, char **argv){
     vector<double> thermal;
     vector<double> charge;
     vector<double> mass;
+    vector<double> kappa;
+    vector<double> alpha;
     vector<string> distribution;
 
     po::options_description desc("Options");
@@ -78,6 +80,8 @@ int main(int argc, char **argv){
         ("species.mass", po::value(&mass), "mass [electron masses]")
         ("species.density", po::value(&density), "number density [1/m^3]")
         ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
+	("species.alpha", po::value(&alpha), "spectral index alpha")
+	("species.kappa", po::value(&kappa), "spectral index kappa")
         ("species.npc", po::value(&npc), "number of particles per cell")
         ("species.num", po::value(&num), "number of particles in total (overrides npc)")
         ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
@@ -138,6 +142,8 @@ int main(int argc, char **argv){
     }
     if(num.size() == 0) num = vector<int>(nSpecies, 0);
     if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
+    if(kappa.size() == 0) kappa = vector<double>(nSpecies, 0);
+    if(alpha.size() == 0) alpha = vector<double>(nSpecies, 0);
 
     // Sanity checks (avoids segfaults)
     if(charge.size()       != nSpecies
@@ -146,7 +152,9 @@ int main(int argc, char **argv){
     || distribution.size() != nSpecies 
     || npc.size()          != nSpecies
     || num.size()          != nSpecies
-    || thermal.size()      != nSpecies){
+    || thermal.size()      != nSpecies
+    || kappa.size()        != nSpecies
+    || alpha.size()        != nSpecies){
 
         cout << "Wrong arguments for species." << endl;
         return 1;
@@ -159,7 +167,7 @@ int main(int argc, char **argv){
 
     // FIXME: This really shouldn't be necessary. This is what polymorphism is
     // for. Well written code don't require recompilation for different input.
-    const std::size_t dim = 3;//mesh->geometry().dim();
+    const std::size_t dim = 2;//mesh->geometry().dim();
 
     auto boundaries = load_boundaries(mesh, fname_mesh);
     auto tags = get_mesh_ids(boundaries);
@@ -186,6 +194,12 @@ int main(int argc, char **argv){
 
         if(distribution[s]=="maxwellian"){
             vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd));
+        } else if (distribution[s]=="kappa") {
+            vdfs.push_back(std::make_shared<Kappa>(thermal[s], vd, kappa[s]));
+        }else if (distribution[s] == "cairns"){
+            vdfs.push_back(std::make_shared<Cairns>(thermal[s], vd, alpha[s]));
+        }else if (distribution[s] == "kappa-cairns"){
+            vdfs.push_back(std::make_shared<KappaCairns>(thermal[s], vd, kappa[s], alpha[s]));
         } else {
             cout << "Unsupported velocity distribution: ";
             cout << distribution[s] << endl;
