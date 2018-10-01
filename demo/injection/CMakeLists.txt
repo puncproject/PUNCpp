@@ -7,6 +7,7 @@ file(GLOB RUN "injection.cpp")
 # link to punc:
 add_library(libpunc SHARED IMPORTED)
 set_property(TARGET libpunc PROPERTY IMPORTED_LOCATION "/usr/lib/libpunc.so")
+include_directories(../../punc/include)
 
 set (PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-files = ['build/KE.txt', 'build/PE.txt','build/TE.txt']
+files = ['KE.txt', 'PE.txt','TE.txt']
 
 data = []
 for fname in files:

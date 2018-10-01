@@ -15,96 +15,82 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/distributor.h"
+/**
+ * @file		diagnostics.cpp
+ * @brief		Kinetic and potential energy calculations
+ *
+ * Functions for calculating the kinetic and potential energies.
+ */
+
+#include "../include/punc/distributor.h"
+#include "../ufl/WeightedVolume.h"
 
 namespace punc
 {
 
-std::vector<double> voronoi_volume_approx(const df::FunctionSpace &V)
+std::vector<double> element_volume(const df::FunctionSpace &V, bool voronoi)
 {
     auto num_dofs = V.dim();
     auto dof_indices = df::vertex_to_dof_map(V);
     std::vector<double> volumes(num_dofs, 0.0);
 
     auto mesh = V.mesh();
-    auto tdim = mesh->topology().dim();
-    auto gdim = mesh->geometry().dim();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
     int j = 0;
-    mesh->init(0, tdim);
+    mesh->init(0, t_dim);
     for (df::MeshEntityIterator e(*mesh, 0); !e.end(); ++e)
     {
-        auto cells = e->entities(tdim);
-        auto num_cells = e->num_entities(tdim);
+        auto num_cells = e->num_entities(t_dim);
         for (std::size_t i = 0; i < num_cells; ++i)
         {
-            df::Cell cell(*mesh, e->entities(tdim)[i]);
+            df::Cell cell(*mesh, e->entities(t_dim)[i]);
             volumes[dof_indices[j]] += cell.volume();
         }
         j++;
     }
-    for (std::size_t i = 0; i < num_dofs; ++i)
+    if(voronoi)
     {
-        volumes[i] = (gdim + 1.0) / volumes[i];
+        for (std::size_t i = 0; i < num_dofs; ++i)
+        {
+            volumes[i] = (g_dim + 1.0) / volumes[i];
+        }
+    }else{
+        for (std::size_t i = 0; i < num_dofs; ++i)
+        {
+            volumes[i] = 1.0 / volumes[i];
+        }
+    }
+
+    return volumes;
+}
+
+std::vector<double> weighted_element_volume(const df::FunctionSpace &V)
+{
+    auto g_dim = V.mesh()->geometry().dim();
+    std::shared_ptr<df::Form> volume;
+    df::PETScVector volume_vector;
+    auto V_ptr = std::make_shared<const df::FunctionSpace>(V);
+    if (g_dim == 1)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form1D>(V_ptr);
+    }
+    else if (g_dim == 2)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form2D>(V_ptr);
+    }
+    else if (g_dim == 3)
+    {
+        volume = std::make_shared<WeightedVolume::Form_form3D>(V_ptr);
+    }
+    df::assemble(volume_vector, *volume);
+    std::vector<double> volumes;
+    volume_vector.get_local(volumes);
+    for(std::size_t i = 0; i<volumes.size(); ++i)
+    {
+        volumes[i] = 1.0/volumes[i];
     }
     return volumes;
 }
 
-df::Function distribute(const df::FunctionSpace &V,
-                        Population &pop,
-                        const std::vector<double> &dv_inv)
-{
-    auto mesh = V.mesh();
-    auto tdim = mesh->topology().dim();
-    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
-
-    auto element = V.element();
-    auto s_dim = element->space_dimension();
-
-    std::vector<double> basis_matrix(s_dim);
-    std::vector<double> vertex_coordinates;
-
-    for (df::MeshEntityIterator e(*mesh, tdim); !e.end(); ++e)
-    {
-        auto cell_id = e->index();
-        df::Cell _cell(*mesh, cell_id);
-        _cell.get_vertex_coordinates(vertex_coordinates);
-        auto cell_orientation = _cell.orientation();
-        auto dof_id = V.dofmap()->cell_dofs(cell_id);
-
-        std::vector<double> basis(1);
-        std::vector<double> accum(s_dim, 0.0);
-
-        std::size_t num_particles = pop.cells[cell_id].particles.size();
-        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
-        {
-            auto particle = pop.cells[cell_id].particles[p_id];
-
-            for (std::size_t i = 0; i < s_dim; ++i)
-            {
-                element->evaluate_basis(i, basis.data(),
-                                        particle.x.data(),
-                                        vertex_coordinates.data(),
-                                        cell_orientation);
-                basis_matrix[i] = basis[0];
-                accum[i] += particle.q * basis_matrix[i];
-            }
-
-        }
-        for (std::size_t i = 0; i < s_dim; ++i)
-        {
-            rho0[dof_id[i]] += accum[i];
-        }
-    }
-    for (std::size_t i = 0; i < len_rho; ++i)
-    {
-        rho0[i] *= dv_inv[i];
-    }
-    rho.vector()->set_local(rho0);
-    return rho;
-}
-
-}
+} // namespace punc

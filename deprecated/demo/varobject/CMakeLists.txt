@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 set(PROJECT_NAME varobject)
 project(${PROJECT_NAME})
- 
+
 file(GLOB RUN "varobject.cpp")
 
 # link to punc:
-set ( PROJECT_LINK_LIBS libpunc.so )
-link_directories( /home/diako/Documents/cpp/punc_experimental/build )
-include_directories(/home/diako/Documents/cpp/punc_experimental/punc)
+add_library(libpunc SHARED IMPORTED)
+set_property(TARGET libpunc PROPERTY IMPORTED_LOCATION "/usr/lib/libpunc.so")
+
+set (PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Set CMake behavior
 cmake_policy(SET CMP0004 NEW)
@@ -37,4 +38,4 @@ add_executable(${PROJECT_NAME} ${RUN})
 
 # Target libraries
 target_link_libraries(${PROJECT_NAME} ${DOLFIN_LIBRARIES}
-${DOLFIN_3RD_PARTY_LIBRARIES} ${PROJECT_LINK_LIBS})
+${DOLFIN_3RD_PARTY_LIBRARIES} libpunc)

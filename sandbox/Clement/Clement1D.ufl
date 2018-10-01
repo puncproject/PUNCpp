@@ -1,0 +1,26 @@
+# UFL input for formulation of Clement interpolation 1D
+
+cell = interval   
+
+DG = "Discontinuous Lagrange"
+CG = "Lagrange" 
+
+degree0 = 0
+degree1 = 1
+
+DG0 = FiniteElement(DG, cell, degree0)
+CG1 = FiniteElement(CG, cell, degree1)
+
+v  = TestFunction(CG1)
+
+p  = TrialFunction(DG0)
+q  = TestFunction(DG0)
+
+c1  = Constant(cell)
+c2  = Constant(cell)
+cv  = CellVolume(cell)
+
+a = c1*inner(p, v)*dx(metadata={'form_compiler_parameters': {'quadrature_degree': 1, 'quadrature_scheme': 'vertex'}})
+b = (1/cv)*inner(c2, q)*dx
+
+forms = [a, b]

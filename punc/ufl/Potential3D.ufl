@@ -17,6 +17,8 @@
 
 # UFL input for formulation of Poisson equation 3D
 
+# Both the electric potential, phi, and the Volume charge density, rho, are in CG.
+
 cell = tetrahedron
 
 family = "Lagrange" # or "CG"
@@ -25,9 +27,11 @@ degree = 1
 
 element = FiniteElement(family, cell, degree)
 
+eps0 = Constant(cell)
+
 phi  = TrialFunction(element)
 phi_ = TestFunction(element)
 rho  = Coefficient(element)
 
-a = inner(grad(phi), grad(phi_))*dx
+a = eps0*inner(grad(phi), grad(phi_))*dx
 L = rho*phi_*dx

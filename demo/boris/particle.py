@@ -1,7 +1,7 @@
 from numpy import *
 import matplotlib.pyplot as plt
 
-fnames = ["build/pos.txt"]
+fnames = ["pos.txt"]
 
 for fname in fnames:
 	pos = []

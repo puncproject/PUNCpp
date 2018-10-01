@@ -1,0 +1,24 @@
+# UFL input for formulation of Poisson equation 2D
+
+# The electric potential, phi, is in CG,
+# The Volume charge density, rho, is in DG.
+
+cell = triangle   
+
+family0 = "Discontinuous Lagrange"
+family1 = "Lagrange" 
+
+degree0 = 0
+degree1 = 1
+
+element0 = FiniteElement(family0, cell, degree0)
+element1 = FiniteElement(family1, cell, degree1)
+
+eps0 = Constant(cell)
+
+phi  = TrialFunction(element1)
+phi_ = TestFunction(element1)
+rho  = Coefficient(element0)
+
+a = eps0*inner(grad(phi), grad(phi_))*dx
+L = rho*phi_*dx

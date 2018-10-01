@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-files = ['build/num_e.txt', 'build/num_i.txt',
-         'build/num_tot.txt', "build/outside.txt", "build/injected.txt"]
+files = ['num_e.txt', 'num_i.txt',
+         'num_tot.txt', "outside.txt", "injected.txt"]
 
 data = []
 for fname in files:
@@ -31,6 +31,7 @@ plt.figure()
 plt.plot(num_tot, label="Total number of particles")
 plt.grid()
 plt.legend(loc='best')
+plt.savefig('total.png')
 
 plt.figure()
 plt.plot(injected, label="Particles injected")
@@ -39,5 +40,5 @@ plt.legend(loc='best')
 plt.grid()
 plt.xlabel("Timestep")
 plt.ylabel("Number")
-
+plt.savefig('injector.png')
 plt.show()

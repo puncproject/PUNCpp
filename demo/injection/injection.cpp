@@ -1,5 +1,5 @@
 #include <dolfin.h>
-#include "../../punc/include/punc.h"
+#include <punc.h>
 
 using namespace punc;
 
@@ -7,56 +7,74 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
-    double dt = 0.1;
-    std::size_t steps = 100;
-    int gdim = 2;
+    Timer timer;
+
+    const int dim = 3;
 
     std::string fname;
-    if (gdim==2)
+    if (dim==2)
     {
-        fname = "/home/diako/Documents/cpp/punc/mesh/2D/nothing_in_square";
-    }else if (gdim==3){
-        fname = "/home/diako/Documents/cpp/punc/mesh/3D/nothing_in_cube";
+        fname = "../../mesh/2D/nothing_in_square";
+    }else if (dim==3){
+        fname = "../../mesh/3D/nothing_in_cube";
     }
 
     auto mesh = load_mesh(fname);
-    auto dim = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
 
     auto boundaries = load_boundaries(mesh, fname);
     auto tags = get_mesh_ids(boundaries);
     std::size_t ext_bnd_id = tags[1];
 
     auto ext_bnd = exterior_boundaries(boundaries, ext_bnd_id);
-
+    std::cout<<"num_facets = "<<ext_bnd.size()<<'\n';
     std::vector<double> Ld = get_mesh_size(mesh);
+
+    PhysicalConstants constants;
+    double e = constants.e;
+    double me = constants.m_e;
+    double mi = constants.m_i;
+    double kB = constants.k_B;
+    double eps0 = constants.eps0;
+
+    int npc = 64;
+    double ne = 1.0e10;
+    double debye = 1.0;
+    double wpe = sqrt(ne * e * e / (eps0 * me));
+
+    double vthe = debye * wpe;
     std::vector<double> vd(dim, 0.0);
-    for (std::size_t i = 0; i<dim; ++i)
+
+    UniformPosition pdf(mesh); // Position distribution
+    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
+    Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
+    // Cairns vdf(vthe, vd, 2.0); // Cairns velocity distribution
+    // KappaCairns vdf(vthe, vd, 3.0, 1.0); // Kappa-Cairns velocity distribution
+
+    std::size_t steps = 1000;
+    double dt = 0.05;
+
+    CreateSpecies create_species(mesh);
+
+    bool si_units = true;
+    if (!si_units)
     {
-        vd[i] = 0.0;
+        create_species.X = Ld[0];
+        create_species.create(-e, me, ne, pdf, vdf, npc);
+        eps0 = 1.0;
+    }
+    else
+    {
+        dt /= wpe;
+        create_species.create_raw(-e, me, ne, pdf, vdf, npc);
     }
 
-    double vth = 1.0;
-
-    int npc = 100;
-    double ne = 100;
-    CreateSpecies create_species(mesh, ext_bnd, Ld[0]);
-
-    auto pdf = [](std::vector<double> t)->double{return 1.0;};
-
-    // PhysicalConstants constants;
-    // double e = constants.e;
-    // double me = constants.m_e;
-    // double mi = constants.m_i;
-    // create_species.create(-e, me, ne, npc, vth, vd, pdf, 1.0);
-    // create_species.create(e, mi, 100, npc, vth, vd, pdf, 1.0);
-
-    create_species.create_raw(-1., 1., ne, npc, vth, vd, pdf, 1.0);
-
     auto species = create_species.species;
-    Population pop(mesh, boundaries);
 
-    load_particles(pop, species);
+    create_flux(species, ext_bnd);
+
+    Population<dim> pop(mesh, boundaries);
+
+    load_particles<dim>(pop, species);
 
     std::string file_name1{"vels_pre.txt"};
     pop.save_vel(file_name1);
@@ -78,22 +96,45 @@ int main()
     num_i[0] = pop.num_of_positives();
     num_tot[0] = pop.num_of_particles();
 
-    for(int i=1; i<steps;++i)
+    std::vector<double> t_move(steps), t_update(steps), t_inject(steps);
+
+    for(int i = 1; i < steps; ++i)
     {
         auto tot_num0 = pop.num_of_particles();
-        move(pop, dt);
+
+        timer.reset();
+        move<dim>(pop, dt);
+        t_move[i] = timer.elapsed();
+        
+        timer.reset();
         pop.update();
+        t_update[i] = timer.elapsed();
+
         auto tot_num1 = pop.num_of_particles();
         num_particles_outside[i-1] = tot_num0-tot_num1;
-        inject_particles(pop, species, ext_bnd, dt);
+        
+        timer.reset();
+        inject_particles<dim>(pop, species, ext_bnd, dt);
+        t_inject[i] = timer.elapsed();
+        
         auto tot_num2 = pop.num_of_particles();
         num_injected_particles[i-1] = tot_num2 - tot_num1;
         num_e[i] = pop.num_of_negatives();
         num_i[i] = pop.num_of_positives();
         num_tot[i] = pop.num_of_particles();
+
         std::cout<<"step: "<< i<< ", total number of particles: "<<num_tot[i]<<'\n';
     }
 
+    auto time_move = std::accumulate(t_move.begin(), t_move.end(), 0.0);
+    auto time_update = std::accumulate(t_update.begin(), t_update.end(), 0.0);
+    auto time_inject = std::accumulate(t_inject.begin(), t_inject.end(), 0.0);
+    
+    std::cout << "-----Measured time for each task----------" << '\n';
+    std::cout << "Move:      " << time_move << '\n';
+    std::cout << "Update:    " << time_update << '\n';
+    std::cout << "Inject:    " << time_inject << '\n';
+    
     std::string file_name{"vels_post.txt"};
     pop.save_vel(file_name);
 

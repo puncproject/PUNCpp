@@ -44,8 +44,8 @@ if case ==1:
 	plt.show()
 elif case == 2:
 
-	fnames = ["build/vs1.txt", "build/vs2.txt", "build/vs3.txt", "build/vs4.txt",
-			  "build/vs5.txt", "build/vs6.txt"]
+	fnames = ["vs1.txt", "vs2.txt", "vs3.txt", "vs4.txt",
+			  "vs5.txt", "vs6.txt"]
 	for i, fname in enumerate(fnames[:2*dim]):
 		with open(fname) as f:
 			content = f.readlines()
@@ -82,7 +82,7 @@ elif case == 2:
             # plt.hist(vs[:,1], bins=300, color = 'blue', normed=1)
             # plt.plot(xs, pdf_maxwellian(1,xs), color='red')
 
-		if fname == "build/vs5.txt":
+		if fname == "vs5.txt":
 			plt.figure()
 			plt.hist2d(vs[:, 0], vs[:, 1], bins=100, norm=LogNorm())
 			plt.axis('equal')

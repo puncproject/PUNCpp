@@ -1,0 +1,22 @@
+# UFL input for formulation of EField in DG0 1D
+
+cell = interval   
+
+DG = "Discontinuous Lagrange"
+CG = "Lagrange" 
+
+degree0 = 0
+degree1 = 1
+
+Q = VectorElement(DG, cell, degree0)
+V = FiniteElement(CG, cell, degree1)
+
+#p  = TrialFunction(Q)
+q  = TestFunction(Q)
+
+cv  = CellVolume(cell)
+
+phi =  Coefficient(V)
+
+a = (1/cv)*inner(-1*grad(phi), q)*dx
+forms = [a]

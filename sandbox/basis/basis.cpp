@@ -11,6 +11,9 @@
 #include <fstream>
 #include <chrono>
 #include <dolfin.h>
+#include "../../punc/ufl/Potential1D.h"
+#include "../../punc/ufl/Potential2D.h"
+#include "../../punc/ufl/Potential3D.h"
 
 namespace df = dolfin;
 
@@ -109,15 +112,15 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     return ext_facets;
 }
 
-const df::Mesh load_mesh(std::string fname)
+std::shared_ptr<const df::Mesh> load_mesh(std::string fname)
 {
-    df::Mesh mesh(fname + ".xml");
+    auto mesh = std::make_shared<const df::Mesh>(fname + ".xml");
     return mesh;
 }
 
-df::MeshFunction<std::size_t> load_boundaries(const df::Mesh mesh, std::string fname)
+df::MeshFunction<std::size_t> load_boundaries(std::shared_ptr<const df::Mesh> mesh, std::string fname)
 {
-    df::MeshFunction<std::size_t> boundaries(std::make_shared<const df::Mesh>(mesh), fname + "_facet_region.xml");
+    df::MeshFunction<std::size_t> boundaries(mesh, fname + "_facet_region.xml");
 
     return boundaries;
 }
@@ -137,16 +140,112 @@ std::vector<std::size_t> get_mesh_ids(df::MeshFunction<std::size_t> &boundaries)
     return tags;
 }
 
+class PoissonSolver
+{
+public:
+    PoissonSolver(const df::FunctionSpace &V,
+                  boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
+                  bool remove_null_space = false,
+                  std::string method = "gmres",
+                  std::string preconditioner = "hypre_amg");
+
+    df::Function solve(const df::Function &rho);
+
+    double residual(const std::shared_ptr<df::Function> &phi);
+
+private:
+    boost::optional<std::vector<df::DirichletBC> &> ext_bc;
+    bool remove_null_space;
+    df::PETScKrylovSolver solver;
+    std::shared_ptr<df::Form> a, L;
+    df::PETScMatrix A;
+    df::PETScVector b;
+    std::shared_ptr<df::VectorSpaceBasis> null_space;
+    std::size_t num_bcs = 0;
+};
+
+PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
+                             boost::optional<std::vector<df::DirichletBC>& > ext_bc,
+                             bool remove_null_space,
+                             std::string method,
+                             std::string preconditioner) : ext_bc(ext_bc),
+                             remove_null_space(remove_null_space),
+                             solver(V.mesh()->mpi_comm(), method, preconditioner)
+{
+    auto dim = V.mesh()->geometry().dim();
+    auto V_shared = std::make_shared<df::FunctionSpace>(V);
+    if (dim == 1)
+    {
+        a = std::make_shared<Potential1D::BilinearForm>(V_shared, V_shared);
+        L = std::make_shared<Potential1D::LinearForm>(V_shared);
+    }
+    else if (dim == 2)
+    {
+        a = std::make_shared<Potential2D::BilinearForm>(V_shared, V_shared);
+        L = std::make_shared<Potential2D::LinearForm>(V_shared);
+    }
+    else if (dim == 3)
+    {
+        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared);
+        L = std::make_shared<Potential3D::LinearForm>(V_shared);
+    }
+
+    df::assemble(A, *a);
+    if(ext_bc)
+    {
+        num_bcs = ext_bc->size();
+    }
+    for(auto i = 0; i<num_bcs; ++i)
+    {
+        ext_bc.get()[i].apply(A);
+    }
+
+    solver.parameters["absolute_tolerance"] = 1e-14;
+    solver.parameters["relative_tolerance"] = 1e-12;
+    solver.parameters["maximum_iterations"] = 1000;
+    solver.set_reuse_preconditioner(true);
+
+    if (remove_null_space)
+    {
+        df::Function u(std::make_shared<df::FunctionSpace>(V));
+        auto null_space_vector = u.vector()->copy();
+        *null_space_vector = sqrt(1.0 / null_space_vector->size());
+
+        std::vector<std::shared_ptr<df::GenericVector>> basis{null_space_vector};
+        null_space = std::make_shared<df::VectorSpaceBasis>(basis);
+        A.set_nullspace(*null_space);
+    }
+}
+
+df::Function PoissonSolver::solve(const df::Function &rho)
+{
+    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
+    df::assemble(b, *L);
+
+    for(auto i = 0; i<num_bcs; ++i)
+    {
+        ext_bc.get()[i].apply(b);
+    }
+
+    if (remove_null_space)
+    {
+        null_space->orthogonalize(b);
+    }
+    df::Function phi(rho.function_space());
+    solver.solve(A, *phi.vector(), b);
+    return phi;
+ }
+
 int main()
 {
 
-    std::string fname{"/home/diako/Documents/cpp/punc_experimental/prototypes/mesh/square"};
+    std::string fname{"/home/diako/Documents/cpp/punc/mesh/2D/nothing_in_square"};
     // std::string fname{"/home/diako/Documents/cpp/punc_experimental/demo/injection/mesh/box"};
 
     auto mesh = load_mesh(fname);
     auto boundaries = load_boundaries(mesh, fname);
-    auto gdim = mesh.geometry().dim();
-    auto tdim = mesh.topology().dim();
+    auto gdim = mesh->geometry().dim();
+    auto tdim = mesh->topology().dim();
     printf("gdim: %zu, tdim: %zu \n", gdim, tdim);
     // df::plot(mesh);
     // df::interactive();
@@ -179,5 +278,19 @@ int main()
     auto ind = std::distance(v.begin()+3,
                         std::lower_bound(v.begin()+3, v.begin()+6, 5));
     std::cout<<v[ind]<<'\n';
+
+    Potential2D::FunctionSpace V(mesh);
+
+    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V),
+                       std::make_shared<df::Constant>(1.0),
+                       std::make_shared<df::MeshFunction<std::size_t>>(boundaries),
+                       ext_bnd_id);
+    std::vector<df::DirichletBC> ext_bc{bc};
+
+    df::Function rho(std::make_shared<df::FunctionSpace>(V));
+
+    PoissonSolver solver(V, ext_bc);
+    auto phi = solver.solve(rho);
+
     return 0;
 }

@@ -15,7 +15,33 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#include "../include/poisson.h"
+#include "../include/punc/poisson.h"
+#include "../ufl/Potential1D.h"
+#include "../ufl/Potential2D.h"
+#include "../ufl/Potential3D.h"
+#include "../ufl/PotentialDG1D.h"
+#include "../ufl/PotentialDG2D.h"
+#include "../ufl/PotentialDG3D.h"
+#include "../ufl/EField1D.h"
+#include "../ufl/EField2D.h"
+#include "../ufl/EField3D.h"
+#include "../ufl/Clement1D.h"
+#include "../ufl/Clement2D.h"
+#include "../ufl/Clement3D.h"
+#include "../ufl/Mean1D.h"
+#include "../ufl/Mean2D.h"
+#include "../ufl/Mean3D.h"
+#include "../ufl/EFieldDG01D.h"
+#include "../ufl/EFieldDG02D.h"
+#include "../ufl/EFieldDG03D.h"
+#include "../ufl/ErrorNorm1D.h"
+#include "../ufl/ErrorNorm2D.h"
+#include "../ufl/ErrorNorm3D.h"
+#include "../ufl/ErrorNormVec1D.h"
+#include "../ufl/ErrorNormVec2D.h"
+#include "../ufl/ErrorNormVec3D.h"
+#include "../ufl/Surface.h"
+#include "../ufl/Volume.h"
 
 namespace punc
 {
@@ -148,18 +174,26 @@ double surface_area(std::shared_ptr<const df::Mesh> &mesh,
 df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
                                  boost::optional<std::shared_ptr<PeriodicBoundary>> constr)
 {
-    if (mesh->geometry().dim() == 1)
+
+    std::size_t dim = mesh->geometry().dim();
+
+    if(dim<1 || dim>3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
     {
         if(constr)
         {
             Potential1D::FunctionSpace V(mesh, constr.get());
             return V;
-        }else{
+        }
+        else
+        {
             Potential1D::FunctionSpace V(mesh);
             return V;
         }
     }
-    else if (mesh->geometry().dim() == 2)
+    else if (dim == 2)
     {
         if (constr)
         {
@@ -172,7 +206,7 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
             return V;
         }
     }
-    else if (mesh->geometry().dim() == 3)
+    else
     {
         if (constr)
         {
@@ -185,30 +219,30 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
             return V;
         }
     }
-    else
-        df::error("PUNC is programmed for dimensions up to 3D only.");
-
 }
 
-df::FunctionSpace var_function_space(std::shared_ptr<const df::Mesh> &mesh)
+df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh)
 {
-    if (mesh->geometry().dim() == 1)
+    std::size_t dim = mesh->geometry().dim();
+
+    if(dim<1 || dim>3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
     {
-        VarPotential1D::FunctionSpace V(mesh);
-        return V;
+        PotentialDG1D::CoefficientSpace_rho Q(mesh);
+        return Q;
     }
-    else if (mesh->geometry().dim() == 2)
+    else if (dim == 2)
     {
-        VarPotential2D::FunctionSpace V(mesh);
-        return V;
-    }
-    else if (mesh->geometry().dim() == 3)
-    {
-        VarPotential3D::FunctionSpace V(mesh);
-        return V;
+        PotentialDG2D::CoefficientSpace_rho Q(mesh);
+        return Q;
     }
     else
-        df::error("PUNC is programmed for dimensions up to 3D only.");
+    {
+        PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh);
+        return Q;
+    }
 }
 
 PhiBoundary::PhiBoundary(const std::vector<double> &B,
@@ -283,46 +317,76 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
     }
 }
 
-PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
+PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
+                             boost::optional<Circuit& > circuit,
+                             double eps0,
                              bool remove_null_space,
                              std::string method,
-                             std::string preconditioner) : ext_bc(ext_bc),
-                             remove_null_space(remove_null_space),
-                             solver(V.mesh()->mpi_comm(), method, preconditioner)
+                             std::string preconditioner) : 
+                             ext_bc(ext_bc),
+                             remove_null_space(remove_null_space)
 {
     auto dim = V.mesh()->geometry().dim();
+    auto eps0_ = std::make_shared<df::Constant>(eps0);
     auto V_shared = std::make_shared<df::FunctionSpace>(V);
     if (dim == 1)
     {
-        a = std::make_shared<Potential1D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential1D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential1D::LinearForm>(V_shared);
     }
     else if (dim == 2)
     {
-        a = std::make_shared<Potential2D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential2D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential2D::LinearForm>(V_shared);
     }
     else if (dim == 3)
     {
-        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared);
+        a = std::make_shared<Potential3D::BilinearForm>(V_shared, V_shared, eps0_);
         L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
 
-    df::assemble(A, *a);
+    bool has_charge_constraints = circuit && circuit.get().has_charge_constraints();
+    if(has_charge_constraints){
+        if(method=="" && preconditioner==""){
+            method = "bicgstab";
+            preconditioner = "ilu";
+        } else {
+            // FIXME: Write proper status/warning/error message system
+            std::cerr << "Some linear algebra solvers/preconditioners may not work for circuits with charge constraints.\n";
+        }
+    } else {
+        if(method=="" && preconditioner==""){
+            method = "gmres";
+            preconditioner = "hypre_amg";
+        }
+    }
+
+    solver = std::make_shared<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
+
     if(ext_bc)
     {
         num_bcs = ext_bc->size();
     }
-    for(auto i = 0; i<num_bcs; ++i)
+    
+    if(circuit)
+    {
+        df::PETScMatrix A0;
+        df::assemble(A0, *a);
+        circuit.get().apply(A0, A);
+    }else{
+        df::assemble(A, *a);
+    }
+
+    for (std::size_t i = 0; i < num_bcs; ++i)
     {
         ext_bc.get()[i].apply(A);
     }
 
-    solver.parameters["absolute_tolerance"] = 1e-14;
-    solver.parameters["relative_tolerance"] = 1e-12;
-    solver.parameters["maximum_iterations"] = 1000;
-    solver.set_reuse_preconditioner(true);
+    solver->parameters["absolute_tolerance"] = 1e-14;
+    solver->parameters["relative_tolerance"] = 1e-12;
+    solver->parameters["maximum_iterations"] = 1000;
+    solver->set_reuse_preconditioner(true);
 
     if (remove_null_space)
     {
@@ -341,7 +405,7 @@ df::Function PoissonSolver::solve(const df::Function &rho)
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
 
-    for(auto i = 0; i<num_bcs; ++i)
+    for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }
@@ -351,7 +415,7 @@ df::Function PoissonSolver::solve(const df::Function &rho)
         null_space->orthogonalize(b);
     }
     df::Function phi(rho.function_space());
-    solver.solve(A, *phi.vector(), b);
+    solver->solve(A, *phi.vector(), b);
     return phi;
  }
 
@@ -360,7 +424,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
-    for(auto i = 0; i<num_bcs; ++i)
+    for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }
@@ -369,7 +433,31 @@ df::Function PoissonSolver::solve(const df::Function &rho,
         bc.apply(A, b);
     }
     df::Function phi(rho.function_space());
-    solver.solve(A, *phi.vector(), b);
+    solver->solve(A, *phi.vector(), b);
+    return phi;
+}
+
+df::Function PoissonSolver::solve(const df::Function &rho,
+                                  std::vector<ObjectBC> &objects,
+                                  Circuit &circuit,
+                                  const df::FunctionSpace &V)
+{
+    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
+    df::assemble(b, *L);
+    for(std::size_t i = 0; i<num_bcs; ++i)
+    {
+        ext_bc.get()[i].apply(b);
+    }
+    for(auto& bc: objects)
+    {
+        bc.apply(A);
+        bc.apply(b);
+    }
+
+    circuit.apply(b);
+    auto V_shared = std::make_shared<df::FunctionSpace>(V);
+    df::Function phi(V_shared);
+    solver->solve(A, *phi.vector(), b);
     return phi;
 }
 
@@ -474,67 +562,143 @@ df::Function ESolver::solve(df::Function &phi)
     return E;
 }
 
-VarPoissonSolver::VarPoissonSolver(df::FunctionSpace &W,
-                                   std::vector<df::DirichletBC> &ext_bc,
-                                   VObject &vobject,
-                                   std::string method,
-                                   std::string preconditioner) :
-                                   V(std::make_shared<df::FunctionSpace>(W)),
-                                   ext_bc(ext_bc),
-                                   solver(method, preconditioner)
+EFieldDG0::EFieldDG0(std::shared_ptr<const df::Mesh> mesh)
 {
-    auto dim = V->mesh()->geometry().dim();
-    if (dim == 1)
-    {
-        a = std::make_shared<VarPotential1D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential1D::LinearForm>(V);
-    }
-    else if (dim == 2)
-    {
-        a = std::make_shared<VarPotential2D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential2D::LinearForm>(V);
-    }
-    else if (dim == 3)
-    {
-        a = std::make_shared<VarPotential3D::BilinearForm>(V, V);
-        L = std::make_shared<VarPotential3D::LinearForm>(V);
-    }
-    a->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(vobject.bnd));
-    L->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(vobject.bnd));
-
-    df::assemble(A, *a);
-    for (auto &bc : ext_bc)
-    {
-        bc.apply(A);
-    }
-    auto mesh = V->mesh();
-    auto surface = surface_area(mesh, vobject.bnd);
-    S = std::make_shared<df::Constant>(surface);
-    L->set_coefficient("S", S);
-
-    solver.parameters["absolute_tolerance"] = 1e-14;
-    solver.parameters["relative_tolerance"] = 1e-12;
-    solver.parameters["maximum_iterations"] = 100000;
-    solver.set_reuse_preconditioner(true);
+	auto gdim = mesh->geometry().dim();
+	if (gdim == 1)
+	{
+		Q = std::make_shared<EFieldDG01D::FunctionSpace>(mesh);
+		M = std::make_shared<EFieldDG01D::LinearForm>(Q);
+	}
+	else if (gdim == 2)
+	{
+		Q = std::make_shared<EFieldDG02D::FunctionSpace>(mesh);
+		M = std::make_shared<EFieldDG02D::LinearForm>(Q);
+	}
+	else if (gdim == 3)
+	{
+		Q = std::make_shared<EFieldDG03D::FunctionSpace>(mesh);
+		M = std::make_shared<EFieldDG03D::LinearForm>(Q);
+	}
 }
 
-df::Function VarPoissonSolver::solve(const df::Function &rho, double Q, VObject &int_bc)
+df::Function EFieldDG0::solve(const df::Function &phi)
 {
-    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
-    L->set_coefficient("Q", std::make_shared<df::Constant>(Q));
+	M->set_coefficient("phi", std::make_shared<df::Function>(phi));
+	
+	df::Function E(Q);
+	df::assemble(*E.vector(), *M);
+	return E;
+}
 
-    df::assemble(b, *L);
-    for (auto &bc : ext_bc)
+EFieldMean::EFieldMean(std::shared_ptr<const df::Mesh> mesh, bool arithmetic_mean)
+{
+    auto gdim = mesh->geometry().dim();
+    auto tdim = mesh->topology().dim();
+    std::vector<double> one_vec(gdim, 1.0);
+    if (gdim == 1)
     {
-        bc.apply(b);
+        V = std::make_shared<Mean1D::Form_a_FunctionSpace_0>(mesh);
+        Q = std::make_shared<Mean1D::Form_a_FunctionSpace_1>(mesh);
+        W = std::make_shared<Mean1D::Form_d_FunctionSpace_0>(mesh);
+        a = std::make_shared<Mean1D::Form_a>(Q, V);
+        c = std::make_shared<Mean1D::Form_c>(Q, V);
+        b = std::make_shared<Mean1D::Form_b>(Q);
+        d = std::make_shared<Mean1D::Form_d>(W);
+    }
+    else if (gdim == 2)
+    {
+        V = std::make_shared<Mean2D::Form_a_FunctionSpace_0>(mesh);
+        Q = std::make_shared<Mean2D::Form_a_FunctionSpace_1>(mesh);
+        W = std::make_shared<Mean2D::Form_d_FunctionSpace_0>(mesh);
+        a = std::make_shared<Mean2D::Form_a>(Q, V);
+        c = std::make_shared<Mean2D::Form_c>(Q, V);
+        b = std::make_shared<Mean2D::Form_b>(Q);
+        d = std::make_shared<Mean2D::Form_d>(W);
+    }
+    else if (gdim == 3)
+    {
+        V = std::make_shared<Mean3D::Form_a_FunctionSpace_0>(mesh);
+        Q = std::make_shared<Mean3D::Form_a_FunctionSpace_1>(mesh);
+        W = std::make_shared<Mean3D::Form_d_FunctionSpace_0>(mesh);
+        a = std::make_shared<Mean3D::Form_a>(Q, V);
+        c = std::make_shared<Mean3D::Form_c>(Q, V);
+        b = std::make_shared<Mean3D::Form_b>(Q);
+        d = std::make_shared<Mean3D::Form_d>(W);
+    }
+    a->set_coefficient("c1", std::make_shared<df::Constant>(tdim + 1.0));
+    b->set_coefficient("c2", std::make_shared<df::Constant>(one_vec));
+
+    if (arithmetic_mean)
+    {
+        df::assemble(A, *c);
+    }
+    else
+    {
+        df::assemble(A, *a);
     }
 
-    int_bc.apply(b);
-    int_bc.apply(A);
+    df::assemble(ones, *b);
+    A.mult(ones, Av);
+    auto A_vec = Av.vec();
+    auto A_mat = A.mat();
 
-    df::Function wh(V);
-    solver.solve(A, *wh.vector(), b);
-    return wh[0];
+    VecReciprocal(A_vec);
+    MatDiagonalScale(A_mat, A_vec, NULL);
+}
+
+df::Function EFieldMean::mean(const df::Function &phi)
+{
+    // df::parameters["linear_algebra_backend"] = "PETSc";
+    d->set_coefficient("phi", std::make_shared<df::Function>(phi));
+    df::assemble(e_dg0, *d);
+
+    df::Function E(V);
+    A.mult(e_dg0, *E.vector());
+    // E.vector()->update_ghost_values();
+    return E;
+}
+
+ClementInterpolant::ClementInterpolant(std::shared_ptr<const df::Mesh> mesh)
+{
+	auto gdim = mesh->geometry().dim();
+	auto tdim = mesh->topology().dim();
+	if (gdim == 1){
+		V = std::make_shared<Clement1D::Form_a_FunctionSpace_0>(mesh); 
+		Q = std::make_shared<Clement1D::Form_a_FunctionSpace_1>(mesh);
+		a = std::make_shared<Clement1D::BilinearForm>(Q, V);
+		b = std::make_shared<Clement1D::LinearForm>(Q);
+	}else if (gdim==2){
+		V = std::make_shared<Clement2D::Form_a_FunctionSpace_0>(mesh);
+		Q = std::make_shared<Clement2D::Form_a_FunctionSpace_1>(mesh);
+		a = std::make_shared<Clement2D::BilinearForm>(Q, V);
+		b = std::make_shared<Clement2D::LinearForm>(Q);
+	} else if (gdim==3){
+		V = std::make_shared<Clement3D::Form_a_FunctionSpace_0>(mesh); 
+		Q = std::make_shared<Clement3D::Form_a_FunctionSpace_1>(mesh);
+		a = std::make_shared<Clement3D::BilinearForm>(Q, V);
+		b = std::make_shared<Clement3D::LinearForm>(Q);
+	}
+	a->set_coefficient("c1", std::make_shared<df::Constant>(tdim+1.0));
+	b->set_coefficient("c2", std::make_shared<df::Constant>(1.0));
+
+	df::assemble(A, *a);
+	df::assemble(ones, *b);
+	A.mult(ones, Av);
+	auto A_vec = Av.vec();
+	auto A_mat = A.mat();
+
+	VecReciprocal(A_vec);
+	MatDiagonalScale(A_mat, A_vec, NULL);
+}
+
+df::Function ClementInterpolant::interpolate(const df::Function &u)
+{
+	df::Function ui(V);
+	auto u_vec = u.vector();
+	auto ui_vec = ui.vector();
+	A.mult(*u_vec, *ui_vec);
+	return ui;
 }
 
 }

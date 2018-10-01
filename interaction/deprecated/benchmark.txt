@@ -1,0 +1,168 @@
+With templates and custom accel, 100 steps, npc=4:
+
+    Num positives:  36244, num negatives: 36244 total: 72488
+
+    ----------------Measured time for each task----------------
+            Task          Time     Percentage 
+    inject:              1.66491    21.3086
+    update:              1.73929    22.2607
+    poisson:             1.88655    24.1453
+    efield:              1.45681    18.6452
+    accel:               0.381465    4.88225
+    potential energy:    0.287004    3.67327
+    Distribution:        0.161177    2.06285
+    counting particles:  0.135256    1.73109
+    move:                0.0967529    1.23831
+    write history:       0.0040961    0.0524246
+    Total time:          7.81331    100
+    ./run.sh  16,47s user 1,49s system 101% cpu 17,721 total
+
+With templates and custom accel, 100 steps, npc=64:
+
+    Num positives:  579904, num negatives: 579904 total: 1.15981e+06
+
+    ----------------Measured time for each task----------------
+            Task          Time     Percentage 
+    inject:              8.31676    23.1055
+    update:              16.7858    46.634
+    poisson:             1.94343    5.39921
+    efield:              1.44348    4.01025
+    accel:               3.22061    8.94745
+    potential energy:    2.05778    5.71691
+    Distribution:        0.607052    1.6865
+    counting particles:  0.896652    2.49107
+    move:                0.719035    1.99761
+    write history:       0.00415421    0.0115412
+    Total time:          35.9947    100
+    ./run.sh  47,00s user 3,15s system 100% cpu 49,939 total
+
+Old code, 100 steps, npc=4:
+
+    Num positives:  36244, num negatives: 36244 total: 72488
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        0.960972    4.00914
+    Reset objects:       0    0
+    poisson:             2.09536    8.74175
+    efield:              1.67842    7.00233
+    update:              2.69076    11.2257
+    move:                0.735178    3.06714
+    inject:              1.51785    6.3324
+    accel:               9.50232    39.6433
+    potential energy:    3.24596    13.542
+    object potential:    0    0
+    counting particles:  1.54271    6.43614
+    Total time:          23.9695    100
+    ./run.sh  30,95s user 1,45s system 100% cpu 32,172 total
+
+Old code, 100 steps, npc=64:
+
+    Num positives:  579904, num negatives: 579904 total: 1.15981e+06
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        19.8958    6.14529
+    Reset objects:       0    0
+    poisson:             2.5413    0.784942
+    efield:              1.74808    0.539938
+    update:              40.7522    12.5873
+    move:                18.5215    5.72082
+    inject:              6.90862    2.13389
+    accel:               146.146    45.1406
+    potential energy:    49.5479    15.3041
+    object potential:    0    0
+    counting particles:  37.6956    11.6432
+    Total time:          323.757    100
+    ./run.sh  333,58s user 3,43s system 99% cpu 5:37,09 total
+
+================================OLD=====================================
+
+Raw C-arrays and optimize accel() (not successful):
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        0.0625471    0.193812
+    Reset objects:       0    0
+    poisson:             6.29401    19.503
+    efield:              1.87814    5.81971
+    update:              2.46872    7.64972
+    move:                0.0613558    0.19012
+    inject:              2.44779    7.58486
+    accel:               14.4841    44.8811
+    potential energy:    4.48816    13.9073
+    object potential:    0    0
+    counting particles:  0.0872614    0.270393
+    Total time:          32.272    100
+    ./run.sh  31,84s user 6,54s system 102% cpu 37,612 total
+
+With raw C-arrays in Particle (npc=64):
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        0.0622708    0.192581
+    Reset objects:       0    0
+    poisson:             6.29916    19.481
+    efield:              1.89642    5.86495
+    update:              2.54155    7.86009
+    move:                0.0616194    0.190567
+    inject:              2.44569    7.56363
+    accel:               14.4545    44.7026
+    potential energy:    4.48603    13.8737
+    object potential:    0    0
+    counting particles:  0.0875706    0.270824
+    Total time:          32.3348    100
+    ./run.sh  39,54s user 7,28s system 101% cpu 45,998 total
+
+With vectors in Particle (npc=64):
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        2.00722    4.23849
+    Reset objects:       0    0
+    poisson:             6.37175    13.4547
+    efield:              1.89561    4.00281
+    update:              5.45542    11.5198
+    move:                1.85915    3.92583
+    inject:              2.50913    5.29834
+    accel:               16.7222    35.311
+    potential energy:    6.84667    14.4576
+    object potential:    0    0
+    counting particles:  3.68979    7.79144
+    Total time:          47.357    100
+    ./run.sh  55,74s user 7,26s system 101% cpu 1:02,23 total
+
+With raw C-arrays in Particle (npc=4):
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        0.0170805    0.122739
+    Reset objects:       0    0
+    poisson:             6.2558    44.9536
+    efield:              1.88442    13.5413
+    update:              0.217118    1.56019
+    move:                0.00616617    0.0443095
+    inject:              1.49789    10.7637
+    accel:               2.31079    16.6052
+    potential energy:    1.71679    12.3367
+    object potential:    0    0
+    counting particles:  0.0100817    0.0724459
+    Total time:          13.9161    100
+
+With vectors in Particle (npc=4):
+
+    ----------------Measured time for each task----------------
+            Task          Time     Procentage 
+    Distribution:        0.0896174    0.609118
+    Reset objects:       0    0
+    poisson:             6.33636    43.0674
+    efield:              1.91485    13.015
+    update:              0.373457    2.53834
+    move:                0.0711686    0.483724
+    inject:              1.53054    10.4029
+    accel:               2.45427    16.6813
+    potential energy:    1.79682    12.2128
+    object potential:    0    0
+    counting particles:  0.145569    0.989411
+    Total time:          14.7126    100
+    ./run.sh  18,08s user 6,99s system 103% cpu 24,239 total
