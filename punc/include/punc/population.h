@@ -579,7 +579,7 @@ void Population<len>::update2(boost::optional<std::vector<ObjectBC> &> objects)
         for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
         {
             auto particle = cells[cell_id].particles[p_id];
-            new_cell_id = relocate2(particle.x, cell_id);
+            new_cell_id = relocate(particle.x, cell_id);
             if (new_cell_id != cell_id)
             {
                 to_delete.push_back(p_id);
