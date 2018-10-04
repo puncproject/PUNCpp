@@ -342,7 +342,7 @@ int run(
 
         // UPDATE PARTICLE POSITIONS
         timer.reset();
-        pop.update(int_bc);
+        pop.update2(int_bc);
         t_update[n]= timer.elapsed();
 
         current_measured = ((int_bc[0].charge - old_charge) / dt);
