@@ -285,17 +285,21 @@ void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets);
 
 void create_flux(std::vector<Species> &species, std::vector<Facet> &facets);
 
-std::vector<double> rejection_sampler(const std::size_t N,
+std::vector<double> rejection_sampler(std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
                                       double pdf_max, int dim,
-                                      const std::vector<double> &domain);
+                                      const std::vector<double> &domain,
+                                      std::uniform_real_distribution<double> &rand,
+                                      std::mt19937_64 &rng);
 
-std::vector<double> random_facet_points(const std::size_t N, 
-                                        const std::vector<double> &vertices);
+std::vector<double> random_facet_points(std::size_t N, 
+                                        const std::vector<double> &vertices,
+                                        std::uniform_real_distribution<double> &rand,
+                                        std::mt19937_64 &rng);
 
 template <typename PopulationType>
 void inject_particles(PopulationType &pop, std::vector<Species> &species,
-                      std::vector<Facet> &facets, const double dt)
+                      std::vector<Facet> &facets, double dt)
 {
     std::mt19937_64 rng{random_seed_seq::get_instance()};
     std::uniform_real_distribution<double> rand(0.0, 1.0);
@@ -326,10 +330,13 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
             while (count < N)
             {
                 auto n = N - count;
-                auto xs_new = random_facet_points(n, facets[j].vertices);
+                auto xs_new = random_facet_points(n, facets[j].vertices,
+                                                  rand, rng);
+
                 auto vs_new = rejection_sampler(n, vdf, pdf_max,
                                                 species[i].vdf.dim(),
-                                                species[i].vdf.domain());
+                                                species[i].vdf.domain(),
+                                                rand, rng);
 
                 for (auto k = 0; k < n; ++k)
                 {
@@ -357,6 +364,9 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
 template <typename PopulationType>
 void load_particles(PopulationType &pop, std::vector<Species> &species)
 {
+    std::mt19937_64 rng{random_seed_seq::get_instance()};
+    std::uniform_real_distribution<double> rand(0.0, 1.0);
+
     auto num_species = species.size();
     std::vector<double> xs, vs;
     for (std::size_t i = 0; i < num_species; ++i)
@@ -365,14 +375,16 @@ void load_particles(PopulationType &pop, std::vector<Species> &species)
         auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
         auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
 
-        xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain());
+        xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain(),
+                               rand, rng);
         if (s.vdf.has_cdf())
         {
             vs = s.vdf.cdf(s.num);
         }
         else
         {
-            vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain());
+            vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain(),
+                                   rand, rng);
         }
         pop.add_particles(xs, vs, s.q, s.m);
     }

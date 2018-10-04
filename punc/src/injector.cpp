@@ -22,7 +22,6 @@ namespace punc
 {
 
 typedef std::uniform_real_distribution<double> rand_uniform;
-typedef std::vector<std::uniform_real_distribution<double>> rand_uniform_vec;
 
 std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
                                        std::size_t ext_bnd_id)
@@ -487,34 +486,28 @@ void KappaCairns::eval(df::Array<double> &values, const df::Array<double> &x) co
                 pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
 }
 
-std::vector<double> rejection_sampler(const std::size_t N,
+std::vector<double> rejection_sampler(std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
                                       double pdf_max, int dim,
-                                      const std::vector<double> &domain)
+                                      const std::vector<double> &domain,
+                                      rand_uniform &rand,
+                                      std::mt19937_64 &rng)
 {
-    rand_uniform rand(0.0, pdf_max);
-    rand_uniform_vec rand_vec(dim);
-
-    for (int i = 0; i < dim; ++i)
-    {
-        rand_vec[i] = rand_uniform(domain[i], domain[i + dim]);
-    }
-
-    std::mt19937_64 rng(random_seed_seq::get_instance());
-
     std::vector<double> xs(N * dim), tmp(dim);
     std::size_t n = 0;
     while (n < N)
     {
         for (int i = 0; i < dim; ++i)
         {
-            tmp[i] = rand_vec[i](rng);
+            double lower = domain[i];
+            double upper = domain[i+dim];
+            tmp[i] = lower + (upper-lower)*rand(rng);
         }
-        if (rand(rng) < pdf(tmp))
+        if (rand(rng)*pdf_max < pdf(tmp))
         {
-            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            for(int i = 0; i < dim; ++i)
             {
-                xs[i] = tmp[i % dim];
+                xs[n*dim+i] = tmp[i];
             }
             n += 1;
         }
@@ -522,20 +515,18 @@ std::vector<double> rejection_sampler(const std::size_t N,
     return xs;
 }
 
-std::vector<double> random_facet_points(const std::size_t N, 
-                                        const std::vector<double> &vertices)
+std::vector<double> random_facet_points(std::size_t N, 
+                                        const std::vector<double> &vertices,
+                                        rand_uniform &rand,
+                                        std::mt19937_64 &rng)
 {
     auto size = vertices.size();
     auto g_dim = sqrt(size);
     std::vector<double> xs(N * g_dim);
 
-    std::mt19937_64 rng{random_seed_seq::get_instance()};
-    rand_uniform rand(0.0, 1.0);
-
-    double r;
     for (std::size_t i = 0; i < N; ++i)
     {
-        r = rand(rng);
+        double r = rand(rng);
         for (int j = 0; j < g_dim; ++j)
         {
             xs[i*g_dim + j] = (1.0 - r) * vertices[j] + r * vertices[j + g_dim];
