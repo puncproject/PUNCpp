@@ -24,8 +24,8 @@ vd = array([0.0,0.0])
 k = 3.0
 alpha = 1.0
 D = 1
-pdf_type = "kappa"# "kappa", "cairns", "maxwellian"
-dim = 3
+pdf_type = "maxwellian"# "kappa", "cairns", "maxwellian"
+dim = 2
 
 xs = linspace(vd[0] - 5 * vth, vd[0] + 5 * vth, 1000)
 

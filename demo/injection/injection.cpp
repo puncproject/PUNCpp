@@ -9,7 +9,7 @@ int main()
 
     Timer timer;
 
-    const int dim = 3;
+    const int dim = 2;
 
     std::string fname;
     if (dim==2)
@@ -36,7 +36,7 @@ int main()
     double kB = constants.k_B;
     double eps0 = constants.eps0;
 
-    int npc = 64;
+    int npc = 16;
     double ne = 1.0e10;
     double debye = 1.0;
     double wpe = sqrt(ne * e * e / (eps0 * me));
@@ -45,12 +45,12 @@ int main()
     std::vector<double> vd(dim, 0.0);
 
     UniformPosition pdf(mesh); // Position distribution
-    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
-    Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
+    Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
+    //Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
     // Cairns vdf(vthe, vd, 2.0); // Cairns velocity distribution
     // KappaCairns vdf(vthe, vd, 3.0, 1.0); // Kappa-Cairns velocity distribution
 
-    std::size_t steps = 1000;
+    std::size_t steps = 100;
     double dt = 0.05;
 
     CreateSpecies create_species(mesh);
@@ -74,7 +74,7 @@ int main()
 
     Population<dim> pop(mesh, boundaries);
 
-    load_particles<dim>(pop, species);
+    load_particles(pop, species);
 
     std::string file_name1{"vels_pre.txt"};
     pop.save_vel(file_name1);
@@ -103,7 +103,7 @@ int main()
         auto tot_num0 = pop.num_of_particles();
 
         timer.reset();
-        move<dim>(pop, dt);
+        move(pop, dt);
         t_move[i] = timer.elapsed();
         
         timer.reset();
@@ -114,7 +114,7 @@ int main()
         num_particles_outside[i-1] = tot_num0-tot_num1;
         
         timer.reset();
-        inject_particles<dim>(pop, species, ext_bnd, dt);
+        inject_particles2(pop, species, ext_bnd, dt);
         t_inject[i] = timer.elapsed();
         
         auto tot_num2 = pop.num_of_particles();
