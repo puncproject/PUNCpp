@@ -338,8 +338,7 @@ class Population
                        double q, double m);
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
-    void update(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
-    void update2(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
+    void update(std::vector<ObjectBC>& objects);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
@@ -497,18 +496,9 @@ signed long int Population<len>::relocate(const double *p, signed long int cell_
     }
 }
 
-// FIXME: Consider using default argument rather than boost::optional.
-// Empty default vector would be nice, but compiler may not be okay with
-// temporaries.
 template <std::size_t len>
-void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
+void Population<len>::update(std::vector<ObjectBC> &objects)
 {
-    std::size_t num_objects = 0;
-    if (objects)
-    {
-        num_objects = objects->size();
-    }
-
     // FIXME: Consider a different mechanism for boundaries than using negative
     // numbers, or at least circumvent the problem of casting num_cells to
     // signed. Not good practice. size_t may overflow to negative numbers upon
@@ -527,15 +517,18 @@ void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
                 to_delete.push_back(p_id);
                 if (new_cell_id >= 0)
                 {
+                    // Particle will actually be checked again if
+                    // new_cell_id>cell_id. Probably not worth avoiding.
                     cells[new_cell_id].particles.push_back(particle);
                 }
                 else
                 {
-                    for (std::size_t i = 0; i < num_objects; ++i)
-                    {
-                        if ((std::size_t)(-new_cell_id) == objects.get()[i].id)
+                    // Standard numbering scheme on objects and exterior
+                    // boundary would eliminate this loop.
+                    for(auto &object : objects){
+                        if ((std::size_t)(-new_cell_id) == object.id)
                         {
-                            objects.get()[i].charge += particle.q;
+                            object.charge += particle.q;
                         }
                     }
                 }
@@ -545,74 +538,10 @@ void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
         for (std::size_t it = size_to_delete; it-- > 0;)
         {
             auto p_id = to_delete[it];
-            if (p_id == num_particles - 1)
-            {
-                cells[cell_id].particles.pop_back();
-            }
-            else
-            {
-                std::swap(cells[cell_id].particles[p_id], cells[cell_id].particles.back());
-                cells[cell_id].particles.pop_back();
-            }
+            cells[cell_id].particles[p_id] = cells[cell_id].particles.back();
+            cells[cell_id].particles.pop_back();
         }
-    }
-}
 
-template <std::size_t len>
-void Population<len>::update2(boost::optional<std::vector<ObjectBC> &> objects)
-{
-    std::size_t num_objects = 0;
-    if (objects)
-    {
-        num_objects = objects->size();
-    }
-
-    // FIXME: Consider a different mechanism for boundaries than using negative
-    // numbers, or at least circumvent the problem of casting num_cells to
-    // signed. Not good practice. size_t may overflow to negative numbers upon
-    // truncation for large numbers.
-    signed long int new_cell_id;
-    for (signed long int cell_id = 0; cell_id < (signed long int)num_cells; ++cell_id)
-    {
-        std::vector<std::size_t> to_delete;
-        std::size_t num_particles = cells[cell_id].particles.size();
-        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
-        {
-            auto particle = cells[cell_id].particles[p_id];
-            new_cell_id = relocate(particle.x, cell_id);
-            if (new_cell_id != cell_id)
-            {
-                to_delete.push_back(p_id);
-                if (new_cell_id >= 0)
-                {
-                    cells[new_cell_id].particles.push_back(particle);
-                }
-                else
-                {
-                    for (std::size_t i = 0; i < num_objects; ++i)
-                    {
-                        if ((std::size_t)(-new_cell_id) == objects.get()[i].id)
-                        {
-                            objects.get()[i].charge += particle.q;
-                        }
-                    }
-                }
-            }
-        }
-        std::size_t size_to_delete = to_delete.size();
-        for (std::size_t it = size_to_delete; it-- > 0;)
-        {
-            auto p_id = to_delete[it];
-            if (p_id == num_particles - 1)
-            {
-                cells[cell_id].particles.pop_back();
-            }
-            else
-            {
-                std::swap(cells[cell_id].particles[p_id], cells[cell_id].particles.back());
-                cells[cell_id].particles.pop_back();
-            }
-        }
     }
 }
 
