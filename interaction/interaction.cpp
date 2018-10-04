@@ -350,7 +350,7 @@ int run(
 
         // INJECT PARTICLES
         timer.reset();
-        inject_particles(pop, species, facet_vec, dt);
+        inject_particles2(pop, species, facet_vec, dt);
         t_inject[n] = timer.elapsed();
         
         // SAVE STATE AND BREAK LOOP

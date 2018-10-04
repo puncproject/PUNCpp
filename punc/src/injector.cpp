@@ -552,6 +552,63 @@ std::vector<double> random_facet_points(const std::size_t N,
     return xs;
 }
 
+std::vector<double> rejection_sampler2(std::size_t N,
+                                      std::function<double(std::vector<double> &)> pdf,
+                                      double pdf_max, int dim,
+                                      const std::vector<double> &domain,
+                                      rand_uniform &rand,
+                                      std::mt19937_64 &rng)
+{
+    std::vector<double> xs(N * dim), tmp(dim);
+    std::size_t n = 0;
+    while (n < N)
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            double lower = domain[i];
+            double upper = domain[i+dim];
+            tmp[i] = lower + (upper-lower)*rand(rng);
+        }
+        if (rand(rng)*pdf_max < pdf(tmp))
+        {
+            for(int i = 0; i < dim; ++i)
+            {
+                xs[n*dim+i] = tmp[i];
+            }
+            n += 1;
+        }
+    }
+    return xs;
+}
+
+std::vector<double> random_facet_points2(std::size_t N, 
+                                        const std::vector<double> &vertices,
+                                        rand_uniform &rand,
+                                        std::mt19937_64 &rng)
+{
+    auto size = vertices.size();
+    auto g_dim = sqrt(size);
+    std::vector<double> xs(N * g_dim);
+
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        double r = rand(rng);
+        for (int j = 0; j < g_dim; ++j)
+        {
+            xs[i*g_dim + j] = (1.0 - r) * vertices[j] + r * vertices[j + g_dim];
+        }
+        for (int j = 1; j < g_dim-1; ++j)
+        {
+            r = sqrt(rand(rng));
+            for (int k = 0; k < g_dim; ++k)
+            {
+                xs[i*g_dim+k] = r * xs[i*g_dim+k] + (1.0 - r) * vertices[(j + 1) * g_dim + k];
+            }
+        }
+    }
+    return xs;
+}
+
 void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets)
 {
     auto num_species = species.size();
