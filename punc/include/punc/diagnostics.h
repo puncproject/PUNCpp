@@ -208,6 +208,57 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
     return PE;
 }
 
+/**
+ * @brief                 Volumetric number density
+ * @param[in]   Q         FunctionSpace DG0
+ * @param       pop       Population
+ * @param      ne, ni     Function - the volumetric number densities
+ * @param      dt         timestep
+ * @param      tau        relaxation time 
+ * @see distribute()
+ * 
+ * Calculates the volumetric number density in \f$\mathrm{DG}_0\f$ function 
+ * space. The number density in each cell \f$T_k\f$, is simply 
+ * calculated by adding together the number of particles of each species inside 
+ * the cell, and then dividing the total number inside the cell by the volume of 
+ * the cell:
+ * 
+ * \f[
+ *       \n_{k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p} (q_p==-1),
+ * \f]
+ */
+template <typename PopulationType>
+void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
+                 df::Function &ne, df::Function &ni, double dt, double tau)
+{
+    double w = 1.0 - exp(-dt/tau);
+    auto ne_vec = ne.vector();
+    auto ni_vec = ni.vector();
+
+    std::vector<double> ne0(ne_vec->size());
+    std::vector<double> ni0(ni_vec->size());
+    ne_vec->get_local(ne0);
+    ni_vec->get_local(ni0);
+
+    for (auto &cell : pop.cells)
+    {
+        auto dof_id = Q.dofmap()->cell_dofs(cell.id);
+        double accum_e, accum_i = 0.0, 0.0;
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q>0){
+                accum_i += 1;
+            }else{
+                accum_e += 1;
+            }
+        }
+        ne0[dof_id[0]] = w * (accum_e / cell.volume()) + (1.0 - w) * ne0[dof_id[0]];
+        ni0[dof_id[0]] = w * (accum_i / cell.volume()) + (1.0 - w) * ni0[dof_id[0]];
+    }
+    ne.vector()->set_local(ne0);
+    ni.vector()->set_local(ni0);
+}
+
 } // namespace punc
 
 #endif // DIAGNOSTICS_H
