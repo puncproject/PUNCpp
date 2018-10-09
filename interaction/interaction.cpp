@@ -39,6 +39,7 @@ int run(
         df::MeshFunction<std::size_t> boundaries,
         size_t steps,
         double dt,
+        double Bx,
         bool impose_current,
         double imposed_current,
         double imposed_voltage,
@@ -46,6 +47,7 @@ int run(
         vector<int> num,
         vector<double> density,
         vector<double> thermal,
+        vector<double> vx,
         vector<double> charge,
         vector<double> mass,
         vector<double> kappa,
@@ -63,12 +65,17 @@ int run(
 
     vector<double> Ld = get_mesh_size(mesh);
 
+    vector<double> B(dim, 0); // Magnetic field aligned with x-axis
+    B[0] = Bx;
+
+    double B_norm = accumulate(B.begin(), B.end(), 0.0);
+
     //
     // CREATE SPECIES
     //
 
     // FIXME: Move to input file
-    vector<double> vd(dim, 0);
+    vector<vector<double>> vd(charge.size(), vector<double>(dim));
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
@@ -76,16 +83,17 @@ int run(
     CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
+        vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
         pdfs.push_back(std::make_shared<UniformPosition>(mesh));
 
         if(distribution[s]=="maxwellian"){
-            vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd));
+            vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd[s]));
         } else if (distribution[s]=="kappa") {
-            vdfs.push_back(std::make_shared<Kappa>(thermal[s], vd, kappa[s]));
+            vdfs.push_back(std::make_shared<Kappa>(thermal[s], vd[s], kappa[s]));
         }else if (distribution[s] == "cairns"){
-            vdfs.push_back(std::make_shared<Cairns>(thermal[s], vd, alpha[s]));
+            vdfs.push_back(std::make_shared<Cairns>(thermal[s], vd[s], alpha[s]));
         }else if (distribution[s] == "kappa-cairns"){
-            vdfs.push_back(std::make_shared<KappaCairns>(thermal[s], vd, kappa[s], alpha[s]));
+            vdfs.push_back(std::make_shared<KappaCairns>(thermal[s], vd[s], kappa[s], alpha[s]));
         } else {
             cout << "Unsupported velocity distribution: ";
             cout << distribution[s] << endl;
@@ -197,11 +205,11 @@ int run(
 
         // Preamble for metaplot
         file_hist << "#:xaxis\tt\n";
-        file_hist << "#:name\tn\tt\tne\tni\tKE\tPE\tV\tI\n";
+        file_hist << "#:name\tn\tt\tne\tni\tKE\tPE\tV\tI\tQ\n";
         file_hist << "#:long\ttimestep\ttime\t\"electron density\"\t";
         file_hist << "\"ion density\"\t\"kinetic energy\"\t";
-        file_hist << "\"potential energy\"\tvoltage\tcurrent\n";
-        file_hist << "#:units\t1\ts\tm**(-3)\tm**(-3)\tJ\tJ\tV\tA\n";
+        file_hist << "\"potential energy\"\tvoltage\tcurrent\tcharge\n";
+        file_hist << "#:units\t1\ts\tm**(-3)\tm**(-3)\tJ\tJ\tV\tA\tC\n";
     }
 
     ifile_state.close();
@@ -316,12 +324,18 @@ int run(
         old_charge = int_bc[0].charge;
 
         timer.reset();
-        KE = accel_cg1(pop, E, (1.0-0.5*(n == 0))*dt);
+        if (B_norm==0.0)
+        {
+            KE = accel_cg1(pop, E, (1.0 - 0.5 * (n == 0)) * dt);
+        }else{
+            KE = boris_cg1(pop, E, B, (1.0 - 0.5 * (n == 0)) * dt);
+        }
+        
         if(n==0) KE = kinetic_energy(pop);
         t_accel[n] = timer.elapsed();
 
         // WRITE HISTORY
-        // Everything at n, except currents wich are at n-0.5.
+        // Everything at n, except currents which are at n-0.5.
         timer.reset();
         file_hist << n << "\t";
         file_hist << t << "\t";
@@ -330,7 +344,8 @@ int run(
         file_hist << KE << "\t";
         file_hist << PE << "\t";
         file_hist << potential << "\t";
-        file_hist << current_measured << endl;
+        file_hist << current_measured << "\t";
+        file_hist << old_charge << endl;
         t_io[n] = timer.elapsed();
 
         // MOVE PARTICLES
@@ -355,6 +370,10 @@ int run(
         
         // SAVE STATE AND BREAK LOOP
         if(exit_immediately || n==steps){
+            
+            df::File ofile("phi.pvd");
+            ofile<<phi;
+
             pop.save_file(fname_pop);
 
             ofstream state_file;
@@ -426,6 +445,7 @@ int main(int argc, char **argv){
     size_t steps = 0;
     double dt = 0;
     double dtwp;
+    double Bx = 0;
 
     // Object input
     bool impose_current = true; 
@@ -437,6 +457,7 @@ int main(int argc, char **argv){
     vector<int> num;
     vector<double> density;
     vector<double> thermal;
+    vector<double> vx;
     vector<double> charge;
     vector<double> mass;
     vector<double> kappa;
@@ -452,6 +473,8 @@ int main(int argc, char **argv){
         ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
         ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
         
+        ("Bx", po::value(&Bx), "magnetic field [T]")
+
         ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
         ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
         ("imposed_voltage", po::value(&imposed_voltage), "Voltage imposed on object [V]")
@@ -460,6 +483,7 @@ int main(int argc, char **argv){
         ("species.mass", po::value(&mass), "mass [electron masses]")
         ("species.density", po::value(&density), "number density [1/m^3]")
         ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
+        ("species.vx", po::value(&vx), "drift velocity [m/s]")
         ("species.alpha", po::value(&alpha), "spectral index alpha")
         ("species.kappa", po::value(&kappa), "spectral index kappa")
         ("species.npc", po::value(&npc), "number of particles per cell")
@@ -524,6 +548,7 @@ int main(int argc, char **argv){
     if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
     if(kappa.size() == 0) kappa = vector<double>(nSpecies, 0);
     if(alpha.size() == 0) alpha = vector<double>(nSpecies, 0);
+    if(vx.size() == 0) vx = vector<double>(nSpecies, 0);
 
     // Sanity checks (avoids segfaults)
     if(charge.size()       != nSpecies
@@ -533,6 +558,7 @@ int main(int argc, char **argv){
     || npc.size()          != nSpecies
     || num.size()          != nSpecies
     || thermal.size()      != nSpecies
+    || vx.size()           != nSpecies
     || kappa.size()        != nSpecies
     || alpha.size()        != nSpecies){
 
@@ -548,9 +574,9 @@ int main(int argc, char **argv){
     size_t dim = mesh->geometry().dim();
 
     if(dim==2){
-        return run<2>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+        return run<2>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution);
     } else if(dim==3){
-        return run<3>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+        return run<3>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;

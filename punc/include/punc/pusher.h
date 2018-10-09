@@ -177,10 +177,10 @@ double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
 }
 
 /**
- * @brief Accelerates particles in a homogeneous magnetic field
+ * @brief Accelerates particles in a homogeneous magnetic field (Only valid for E in CG1)
  * @param[in,out]   pop     Population
- * @param           E       Electric field
- * @param           B       Magnetic flux density
+ * @param           E       Electric field (CG1)
+ * @param           B       Magnetic flux density (std::vector)
  * @param           dt      Time-step
  * @return                  Kinetic energy at mid-step
  * @see accel()

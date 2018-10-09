@@ -11,13 +11,14 @@ m_e  = constants('electron mass')
 m_p  = constants('proton mass')
 
 # Probe input (spherical)
-R = 1
+R = 0.2
 
 # Electron input
 qe = -e
 me = m_e
-ne = 1e10
-Le = 1 # debye length
+ne = 1e13
+Le = 1 # Debye length
+T_ratio = 100 # temperature ratio
 
 # Electron, derived
 wpe = np.sqrt(ne*qe**2/(eps0*me))
@@ -28,12 +29,19 @@ Te = vthe**2*me/k
 qi = e
 mi = m_p
 ni = ne
-Ti = Te
+Ti = Te/T_ratio
 
 mi_e = mi/m_e
 
 # Ion, derived
-vthi = vthe/np.sqrt(mi/me)
+vthi = vthe/np.sqrt(T_ratio*mi/me)
+
+beta = 0.5 # magnetization: sqrt(m*n/eps0)*B, where B=||\vec{B}||
+M = 1.0    # Mach number
+cs = np.sqrt((k*(Te+(5./3.)*Ti)/mi)) # Ion acoustic speed
+
+B = beta*np.sqrt(mi*ni/eps0) # strength of magnetic field
+v = M*cs # Drift velocity
 
 # Probe, derived
 V0 = k*Te/np.abs(qe)
