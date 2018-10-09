@@ -338,7 +338,7 @@ class Population
                        double q, double m);
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
-    void update(boost::optional<std::vector<ObjectBC>& > objects = boost::none);
+    void update(std::vector<ObjectBC>& objects);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
@@ -458,49 +458,47 @@ signed long int Population<len>::locate(const double *p)
 template <std::size_t len>
 signed long int Population<len>::relocate(const double *p, signed long int cell_id)
 {
-    df::Cell _cell_(*mesh, cell_id);
-    df::Point point(g_dim, p);
-    if (_cell_.contains(point))
+    // One element for each facet.
+    // For 1D and 2D all aren't used, but slightly faster than vector.
+    double proj[4];
+
+    for (std::size_t i = 0; i < g_dim + 1; ++i)
     {
-        return cell_id;
+        proj[i] = 0.0;
+        for (std::size_t j = 0; j < g_dim; ++j)
+        {
+            proj[i] += (p[j] - cells[cell_id].facet_mids[i * g_dim + j]) *
+                       cells[cell_id].facet_normals[i * g_dim + j];
+        }
     }
-    else
-    {
-        std::vector<double> proj(g_dim + 1);
-        for (std::size_t i = 0; i < g_dim + 1; ++i)
-        {
-            proj[i] = 0.0;
-            for (std::size_t j = 0; j < g_dim; ++j)
-            {
-                proj[i] += (p[j] - cells[cell_id].facet_mids[i * g_dim + j]) *
-                           cells[cell_id].facet_normals[i * g_dim + j];
-            }
+
+    double proj_max = proj[0];
+    std::size_t proj_argmax = 0;
+    for(std::size_t i = 1; i < g_dim + 1; i++){
+        if(proj[i] > proj_max){
+            proj_max = proj[i];
+            proj_argmax = i;
         }
-        auto projarg = std::distance(proj.begin(), std::max_element(proj.begin(), proj.end()));
-        auto new_cell_id = cells[cell_id].facet_adjacents[projarg];
-        if (new_cell_id >= 0)
-        {
+    }
+
+    if(proj_max < 0){
+        return cell_id;
+    } else {
+        auto new_cell_id = cells[cell_id].facet_adjacents[proj_argmax];
+
+        // negative new_cell_id indicate that the particle hit a boundary with
+        // id (-new_cell_id).
+        if(new_cell_id >= 0){
             return relocate(p, new_cell_id);
-        }
-        else
-        {
+        } else {
             return new_cell_id;
         }
     }
 }
 
-// FIXME: Consider using default argument rather than boost::optional.
-// Empty default vector would be nice, but compiler may not be okay with
-// temporaries.
 template <std::size_t len>
-void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
+void Population<len>::update(std::vector<ObjectBC> &objects)
 {
-    std::size_t num_objects = 0;
-    if (objects)
-    {
-        num_objects = objects->size();
-    }
-
     // FIXME: Consider a different mechanism for boundaries than using negative
     // numbers, or at least circumvent the problem of casting num_cells to
     // signed. Not good practice. size_t may overflow to negative numbers upon
@@ -519,15 +517,18 @@ void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
                 to_delete.push_back(p_id);
                 if (new_cell_id >= 0)
                 {
+                    // Particle will actually be checked again if
+                    // new_cell_id>cell_id. Probably not worth avoiding.
                     cells[new_cell_id].particles.push_back(particle);
                 }
                 else
                 {
-                    for (std::size_t i = 0; i < num_objects; ++i)
-                    {
-                        if ((std::size_t)(-new_cell_id) == objects.get()[i].id)
+                    // Standard numbering scheme on objects and exterior
+                    // boundary would eliminate this loop.
+                    for(auto &object : objects){
+                        if ((std::size_t)(-new_cell_id) == object.id)
                         {
-                            objects.get()[i].charge += particle.q;
+                            object.charge += particle.q;
                         }
                     }
                 }
@@ -537,16 +538,10 @@ void Population<len>::update(boost::optional<std::vector<ObjectBC> &> objects)
         for (std::size_t it = size_to_delete; it-- > 0;)
         {
             auto p_id = to_delete[it];
-            if (p_id == num_particles - 1)
-            {
-                cells[cell_id].particles.pop_back();
-            }
-            else
-            {
-                std::swap(cells[cell_id].particles[p_id], cells[cell_id].particles.back());
-                cells[cell_id].particles.pop_back();
-            }
+            cells[cell_id].particles[p_id] = cells[cell_id].particles.back();
+            cells[cell_id].particles.pop_back();
         }
+
     }
 }
 
