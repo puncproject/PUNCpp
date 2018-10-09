@@ -200,6 +200,121 @@ double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
  * only half a time-step the first time.
  */
 template <typename PopulationType>
+double boris_cg1(PopulationType &pop, const df::Function &E,
+             const std::vector<double> &B, double dt)
+{
+    auto W = E.function_space();
+    auto element = W->element();
+    auto mesh = W->mesh();
+    auto t_dim = mesh->topology().dim();
+    auto g_dim = mesh->geometry().dim();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / v_dim; // Number of vertices
+
+    auto B_dim = B.size();
+    assert(B_dim == 3 && "The algorithm is only valid for 3D.");
+
+    double KE = 0.0;
+    double t_mag2;
+
+    std::vector<double> v_minus(g_dim), v_prime(g_dim), v_plus(g_dim);
+    std::vector<double> t(g_dim), s(g_dim);
+
+    std::vector<double> vertex_coordinates(t_dim);
+    double Ei[v_dim];
+    double coeffs[n_dim];
+    double values[s_dim];
+
+    for (auto &cell : pop.cells)
+    {
+        E.restrict(values, *element, cell, cell.vertex_coordinates.data(), cell.ufc_cell);
+
+        for (auto &particle : cell.particles)
+        {
+            double m = particle.m;
+            double q = particle.q;
+            auto &vel = particle.v;
+
+            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
+                                  particle.x, n_dim, n_dim);
+
+            for (std::size_t j = 0; j < v_dim; j++)
+            {
+                Ei[j] = 0.0;
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {
+                    Ei[j] += coeffs[i] * values[j * n_dim + i];
+                }
+            }
+
+            t_mag2 = 0.0;
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                t[i] = tan((dt * q / (2.0 * m)) * B[i]);
+                t_mag2 += t[i] * t[i];
+            }
+
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                s[i] = 2 * t[i] / (1 + t_mag2);
+            }
+
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                v_minus[i] = vel[i] + 0.5 * dt * (q / m) * Ei[i];
+            }
+
+            for (std::size_t i = 0; i < g_dim; i++)
+            {
+                KE += 0.5 * m * v_minus[i] * v_minus[i];
+            }
+
+            auto v_minus_cross_t = cross(v_minus, t);
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                v_prime[i] = v_minus[i] + v_minus_cross_t[i];
+            }
+
+            auto v_prime_cross_s = cross(v_prime, s);
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                v_plus[i] = v_minus[i] + v_prime_cross_s[i];
+            }
+
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                particle.v[i] = v_plus[i] + 0.5 * dt * (q / m) * Ei[i];
+            }
+        }
+    }
+    return KE;
+}
+
+/**
+ * @brief Accelerates particles in a homogeneous magnetic field
+ * @param[in,out]   pop     Population
+ * @param           E       Electric field
+ * @param           B       Magnetic flux density
+ * @param           dt      Time-step
+ * @return                  Kinetic energy at mid-step
+ * @see accel()
+ *
+ * Advances particle velocities according to the Boris scheme:
+ * \f[
+ *      \frac{\mathbf{v}^\mathrm{new}-\mathbf{v}^\mathrm{old}}{\Delta t}
+ *      \approx \dot{\mathbf{v}} =
+ *      \frac{q}{m}(\mathbf{E}+\mathbf{v}\times\mathbf{B})
+ *      \approx \frac{q}{m}\left(\mathbf{E}+
+ *      \frac{\mathbf{v}^\mathrm{new}+\mathbf{v}^\mathrm{old}}{2}
+ *      \times\mathbf{B}\right)
+ * \f]
+ * 
+ * To initialize from time-step \f$ n=0 \f$ a time-staggered grid where
+ * velocities are at half-integer time-steps, the particles must be accelerated
+ * only half a time-step the first time.
+ */
+template <typename PopulationType>
 double boris(PopulationType &pop, const df::Function &E,
              const std::vector<double> &B, double dt)
 {

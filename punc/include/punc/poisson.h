@@ -126,6 +126,10 @@ public:
 
     df::Function solve(const df::Function &rho,
                        std::vector<ObjectBC> &objects,
+                       const df::FunctionSpace &V);
+
+    df::Function solve(const df::Function &rho,
+                       std::vector<ObjectBC> &objects,
                        Circuit &circuit,
                        const df::FunctionSpace &V);
 

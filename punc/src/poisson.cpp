@@ -439,6 +439,28 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 
 df::Function PoissonSolver::solve(const df::Function &rho,
                                   std::vector<ObjectBC> &objects,
+                                  const df::FunctionSpace &V)
+{
+    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
+    df::assemble(b, *L);
+    for (std::size_t i = 0; i < num_bcs; ++i)
+    {
+        ext_bc.get()[i].apply(b);
+    }
+    for (auto &bc : objects)
+    {
+        bc.apply(A);
+        bc.apply(b);
+    }
+
+    auto V_shared = std::make_shared<df::FunctionSpace>(V);
+    df::Function phi(V_shared);
+    solver->solve(A, *phi.vector(), b);
+    return phi;
+}
+
+df::Function PoissonSolver::solve(const df::Function &rho,
+                                  std::vector<ObjectBC> &objects,
                                   Circuit &circuit,
                                   const df::FunctionSpace &V)
 {
