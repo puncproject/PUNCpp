@@ -29,7 +29,5 @@ message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
 
 add_executable(${PROJECT_NAME} ${RUN})
-
-# Target libraries
 target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${PUNC} ${DOLFIN_LIBRARIES}
     ${DOLFIN_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
