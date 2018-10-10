@@ -224,7 +224,7 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
  * the cell:
  * 
  * \f[
- *       \n_{k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p} (q_p==-1),
+ *       \n_{e,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p} (q_p==-1),
  * \f]
  */
 template <typename PopulationType>

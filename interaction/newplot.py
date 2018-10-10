@@ -55,7 +55,7 @@ I0    = -e*ne*Rp**2*np.sqrt(8*np.pi*kB*Te/me)
 # Vl = 25*V0
 # Il = 6.053*I0
 Vl    = 2*V0
-Il    = 2.945*I0
+Il = np.finfo(float).eps * I0
 
 data = []
 if len(sys.argv)>1:
@@ -79,16 +79,18 @@ dx = xaxis[1]-xaxis[0]
 Vm = expAvg(V, dx, tau)[-1]
 Im = expAvg(I, dx, tau)[-1]
 
+current_error = np.abs((Im - Il) / Il) if (Im -
+                                           Il) > np.finfo(float).eps else np.finfo(float).eps
 print("Voltage error: {}".format(np.abs((Vm-Vl)/Vl)))
-print("Current error: {}".format(np.abs((Im-Il)/Il)))
+print("Current error: {}".format(current_error))
 
-# plt.figure()
-# plotAvg(xaxis, V, tau=tau)
-# plt.plot(xaxis,Vl*np.ones(xaxis.shape),'k:')
-# plt.title('Potential')
-# plt.xlabel('us')
-# plt.ylabel('V')
-# plt.grid()
+plt.figure()
+plotAvg(xaxis, V, tau=tau)
+plt.plot(xaxis,Vl*np.ones(xaxis.shape),'k:')
+plt.title('Potential')
+plt.xlabel('us')
+plt.ylabel('V')
+plt.grid()
 # plt.show()
 
 plt.figure()
