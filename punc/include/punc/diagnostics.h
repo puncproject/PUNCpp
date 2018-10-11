@@ -243,7 +243,7 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
     for (auto &cell : pop.cells)
     {
         auto dof_id = Q.dofmap()->cell_dofs(cell.id);
-        double accum_e, accum_i = 0.0, 0.0;
+        double accum_e = 0.0, accum_i = 0.0;
         for (auto &particle : cell.particles)
         {
             if (particle.q>0){
