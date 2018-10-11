@@ -536,7 +536,7 @@ int main(int argc, char **argv){
     }
 
     if(dt==0){ // Float-comparison acceptable because it is initialized exactly
-        double wp0 = sqrt(pow(charge[0],2)*density[0]/(constants.eps0*mass[0]));
+        double wp0 = sqrt(pow(charge[0],2)*density[0]/(eps0*mass[0]));
         dt = dtwp/wp0;
     }
 
