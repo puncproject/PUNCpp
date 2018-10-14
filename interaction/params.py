@@ -16,7 +16,7 @@ R = 0.2
 # Electron input
 qe = -e
 me = m_e
-ne = 1e13
+ne = 1e10
 Le = 1 # Debye length
 T_ratio = 100 # temperature ratio
 

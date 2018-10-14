@@ -26,11 +26,175 @@
 #define DIAGNOSTICS_H
 
 #include "population.h"
+#include <chrono>
+#include <iomanip>
 
 namespace punc
 {
 
 namespace df = dolfin;
+
+/**
+ * @brief Measures time for a given set of tasks
+ */
+class Timer
+{
+  public:
+    /**
+       * Timer constructor - starts timing of tasks
+       * @param  tasks - a vector of tasks
+       */
+    Timer(std::vector<std::string> tasks) : tasks(tasks),
+                                            times(std::vector<double>(tasks.size(), 0.0)),
+                                            _begin(_clock::now()) {}
+    
+    /**
+       * Resets the timer to current time
+       */
+    void reset() { _begin = _clock::now(); }
+
+    /**
+       * Shows the progress of the program and prints the remaining time.
+       * @param  n - timestep
+       * @param  steps - number of timesteps
+       * @param  n_previous - number of timesteps from previous simulation  
+       */
+    void progress(std::size_t n, std::size_t steps, std::size_t n_previous)
+    {
+        auto time_taken = std::chrono::duration_cast<_second>(_clock::now() - _begin).count();
+        auto percent = (double)(n - n_previous) / (steps - n_previous);
+        auto time_left = time_taken * (1.0 / percent - 1.0);
+
+        std::cout << "Step " << n << " of " << steps;        
+        if(n - n_previous > 0)
+        {
+            std::cout << ". Time remaining: ";
+            std::cout << formatter(time_left);
+        }
+        std::cout << '\n';
+    }
+
+    /**
+       * Starts measuring time for a given task
+       * @param   tag - (std::string) name of the task
+       */
+    void tic(std::string tag)
+    {
+        _index = std::distance(tasks.begin(), std::find(tasks.begin(), tasks.end(), tag));
+        _time = _clock::now();
+    }
+
+    /**
+       * Stops measuring time for the task started by tic()
+       */
+    void toc()
+    {
+        times[_index] += std::chrono::duration_cast<_second>(_clock::now() - _time).count();
+    }
+
+    /**
+       * Calculates the elapsed time
+       * @return The time elapsed
+       */
+    double elapsed() const
+    {
+        return std::chrono::duration_cast<_second>(_clock::now() - _begin).count();
+    }
+
+    /**
+       * Prints the total time elapsed by each task, and print to the screen.
+       */
+    void summary()
+    {
+        auto total_time = elapsed();
+
+        auto blanks_tasks = aligner(tasks);
+        std::vector<std::string> times_formatted(tasks.size());
+        for(std::size_t i = 0; i<tasks.size(); ++i)
+        {
+            times_formatted[i] = formatter(times[i]);
+        }
+        auto blanks_times = aligner(times_formatted);
+
+        std::cout << "-----------------------------------------------------------" << '\n';
+        std::cout << "                      Summary of tasks                     " << '\n';
+        std::cout << "-----------------------------------------------------------" << '\n';
+        std::cout << " Task                        Time           Percentage     " << '\n';
+        std::cout << "-----------------------------------------------------------" << '\n';
+        for (std::size_t i = 0; i < times.size(); ++i)
+        {
+            std::cout << tasks[i] << std::setw(blanks_tasks[i]) << " ";
+            std::cout << times_formatted[i] << std::setw(blanks_times[i]) << " ";
+            std::cout << 100 * times[i] / total_time << '\n';
+        }
+
+        std::cout << "-----------------------------------------------------------" << '\n';
+        std::cout << "            Total run time:    ";
+        std::cout << formatter(total_time);
+        std::cout << '\n';
+        std::cout << "-----------------------------------------------------------" << '\n';
+    }
+
+    /**
+       * Given a time (in seconds), returns the time in the format day hour:min:sec
+       * @param   time_range - time in seconds
+       * @return time in the format day hour:min:sec
+       */
+    std::string formatter(double time_range)
+    {
+        auto duration = std::chrono::duration<double>(time_range);
+        if(duration.count()<1)
+        {
+            auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
+            return std::to_string(int_ms.count()) + " ms";
+        }else{
+            days day = std::chrono::duration_cast<days>(duration);
+            duration -= day;
+            std::chrono::hours hour = std::chrono::duration_cast<std::chrono::hours>(duration);
+            duration -= hour;
+            std::chrono::minutes min = std::chrono::duration_cast<std::chrono::minutes>(duration);
+            duration -= min;
+            std::chrono::seconds sec = std::chrono::duration_cast<std::chrono::seconds>(duration);
+            duration -= sec;
+
+            return std::to_string(day.count()) + " d " + std::to_string(hour.count()) + ':' + std::to_string(min.count()) + ':' +std::to_string(sec.count());
+        }
+    }
+    /**
+       * Given a vector of strings, finds the number of blank spaces on the right
+       * side of each string so that all the strings in the vector appear to have
+       * the same length.
+       * @param   v    vector of strings 
+       * @return  vector containing number of blank spaces
+       */
+    std::vector<int> aligner(std::vector<std::string> v)
+    {
+        std::size_t len = 0;
+        for (std::size_t i = 0; i < v.size(); ++i)
+        {
+            len = v[i].length() > len ? v[i].length() : len;
+        }
+        std::vector<int> blanks(v.size());
+        for (std::size_t i = 0; i < v.size(); ++i)
+        {
+            blanks[i] = len - v[i].length() + 8;
+        }
+        return blanks;
+    }
+
+  private:
+    std::vector<std::string> tasks;
+    std::vector<double> times;
+
+    typedef std::chrono::high_resolution_clock _clock;
+    typedef std::chrono::duration<double, std::ratio<1>> _second;
+    typedef std::chrono::duration<int, std::ratio_multiply<std::chrono::hours::period, std::ratio<24>>::type> days;
+
+    std::chrono::time_point<_clock> _begin;
+    std::chrono::time_point<_clock> _time;
+    int _index;
+};
+
 
 /**
  * @brief Calculates the total kinetic energy
@@ -209,29 +373,25 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
 }
 
 /**
- * @brief                 Volumetric number density
+ * @brief                 Volumetric number density in DG0
  * @param[in]   Q         FunctionSpace DG0
  * @param       pop       Population
  * @param      ne, ni     Function - the volumetric number densities
- * @param      dt         timestep
- * @param      tau        relaxation time 
- * @see distribute()
+ * @see density_cg1
  * 
  * Calculates the volumetric number density in \f$\mathrm{DG}_0\f$ function 
- * space. The number density in each cell \f$T_k\f$, is simply 
- * calculated by adding together the number of particles of each species inside 
- * the cell, and then dividing the total number inside the cell by the volume of 
- * the cell:
+ * space. The number density in each cell \f$T_k\f$, is simply calculated by 
+ * adding together the number of particles of each species, s, inside the cell, 
+ * and then dividing the total number inside the cell by the volume of the cell:
  * 
  * \f[
- *       \n_{e,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p} (q_p==-1),
+ *       \n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} 1,
  * \f]
  */
 template <typename PopulationType>
 void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
-                 df::Function &ne, df::Function &ni, double dt, double tau)
+                 df::Function &ne, df::Function &ni)
 {
-    double w = 1.0 - exp(-dt/tau);
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
 
@@ -252,12 +412,130 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
                 accum_e += 1;
             }
         }
-        ne0[dof_id[0]] = w * (accum_e / cell.volume()) + (1.0 - w) * ne0[dof_id[0]];
-        ni0[dof_id[0]] = w * (accum_i / cell.volume()) + (1.0 - w) * ni0[dof_id[0]];
+        ne0[dof_id[0]] = accum_e / cell.volume();
+        ni0[dof_id[0]] = accum_i / cell.volume();
     }
     ne.vector()->set_local(ne0);
     ni.vector()->set_local(ni0);
 }
+
+/**
+ * @brief                 Volumetric number density in CG1
+ * @param[in]   V         FunctionSpace CG1
+ * @param       pop       Population
+ * @param       ne, ni     Function - the volumetric number densities
+ * @param       dv_inv    Vector containing the volumes of each element (e.g. Voronoi cell)
+ * @see density_dg0()
+ * 
+ * Calculates the volumetric number density in \f$\mathrm{CG}_1\f$ function 
+ * space. The number density at each mesh vertex \f$\mathbf{x}_j\f$, is 
+ * calculated by interpolating the number of particles inside all the cells 
+ * sharing vertex \f$\mathbf{x}_j\f$, i.e. the patch \f$\mathcal{M}_j\f$. The
+ * interpolation is done by evaluating the \f$\mathrm{CG}_1\f$ basis 
+ * function \f$\psi_j\f$, at the particle position \f$\mathbf{x}_{p}\f$. The 
+ * interpolated number at each mesh vertex is divided by a proper volume 
+ * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to obtain the 
+ * volumetric number density for each species s: 
+ * 
+ * \f[
+ *       \n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}).
+ * \f]
+ */
+
+template <typename PopulationType>
+void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
+                 df::Function &ne, df::Function &ni, 
+                 const std::vector<double> &dv_inv)
+{
+    auto mesh = V.mesh();
+    auto ne_vec = ne.vector();
+    auto ni_vec = ni.vector();
+
+    std::vector<double> ne0(ne_vec->size());
+    std::vector<double> ni0(ni_vec->size());
+    ne_vec->get_local(ne0);
+    ni_vec->get_local(ni0);
+
+    auto element = V.element();
+    auto s_dim = element->space_dimension();
+    auto v_dim = element->value_dimension(0);
+    auto n_dim = s_dim / v_dim;
+
+    double cell_coords[n_dim];
+
+    for (auto &cell : pop.cells)
+    {
+        auto dof_id = V.dofmap()->cell_dofs(cell.id);
+        std::vector<double> accum_e(n_dim, 0.0);
+        std::vector<double> accum_i(n_dim, 0.0);
+        for (auto &particle : cell.particles)
+        {
+            matrix_vector_product(&cell_coords[0], cell.basis_matrix.data(),
+                                  particle.x, n_dim, n_dim);
+
+            if (particle.q < 0)
+            {
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {              
+                    accum_e[i] += cell_coords[i];
+                }
+            }else{
+                for (std::size_t i = 0; i < n_dim; ++i)
+                {
+                    accum_i[i] += cell_coords[i];
+                }
+            }
+        }
+
+        for (std::size_t i = 0; i < s_dim; ++i)
+        {
+            ne0[dof_id[i]] += accum_e[i];
+            ni0[dof_id[i]] += accum_i[i];
+        }
+    }
+    for (std::size_t i = 0; i < ne_vec->size(); ++i)
+    {
+        ne0[i] *= dv_inv[i];
+        ni0[i] *= dv_inv[i];
+    }
+    ne.vector()->set_local(ne0);
+    ni.vector()->set_local(ni0);
+}
+
+/**
+ * @brief                 Exponential moving average
+ * @param      f          dolfin Function - data (scalar)
+ * @param      g          dolfin Function - averaged data (scalar)
+ * @param      dt         timestep
+ * @param      tau        relaxation time 
+ * 
+ * Calculates the exponential moving average of dolfin Function \f$f(x_i,t_i)\f$, 
+ * at each element node \f$x_i\f$ at time \f$t_i\f$ by 
+ * 
+ * \f[
+ *       g(x_i, t_i) = \omega f(x_i,t_i) + (1-\omega) g(x_i, t_{i-1}),
+ * \f]
+ * 
+ * where \f$\omega = 1-\exp{(-dt/\tau)}\f$.
+ */
+template <typename PopulationType>
+void ema(df::Function &f, df::Function &g, double dt, double tau)
+{
+    double w = 1.0 - exp(-dt / tau);
+
+    auto len_g = g.vector()->size();
+    std::vector<double> g0(len_g);
+    std::vector<double> f0(len_g);
+    g.vector()->get_local(g0);
+    f.vector()->get_local(f0);
+
+    for (std::size_t i = 0; i < len_g; ++i)
+    {
+        g0[i] = w * f0[i]  + (1.0 - w) * g0[i];
+    }
+    g.vector()->set_local(g0);
+}
+
 
 } // namespace punc
 

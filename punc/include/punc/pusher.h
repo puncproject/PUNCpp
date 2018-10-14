@@ -212,8 +212,8 @@ double boris_cg1(PopulationType &pop, const df::Function &E,
     auto v_dim = element->value_dimension(0);
     auto n_dim = s_dim / v_dim; // Number of vertices
 
-    auto B_dim = B.size();
-    assert(B_dim == 3 && "The algorithm is only valid for 3D.");
+    // auto B_dim = B.size();
+    assert(B.size() == 3 && "The algorithm is only valid for 3D.");
 
     double KE = 0.0;
     double t_mag2;
