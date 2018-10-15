@@ -256,10 +256,8 @@ int run(
         // We are now at timestep n
         // Velocities and currents are at timestep n-0.5 (or 0 if n==0)
 
-        if(override_status_print) cout << "\r";
-        // cout << "Step " << n << " of " << steps; 
-        timer.progress(n, steps, n_previous);
-        if(!override_status_print) cout << "\n";
+        // Print status
+        timer.progress(n, steps, n_previous, override_status_print);
 
         // DISTRIBUTE
         timer.tic("distributor");

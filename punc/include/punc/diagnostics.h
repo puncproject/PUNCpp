@@ -59,19 +59,21 @@ class Timer
        * @param  steps - number of timesteps
        * @param  n_previous - number of timesteps from previous simulation  
        */
-    void progress(std::size_t n, std::size_t steps, std::size_t n_previous)
+    void progress(std::size_t n, std::size_t steps, std::size_t n_previous,
+                  bool override_status_print)
     {
         auto time_taken = std::chrono::duration_cast<_second>(_clock::now() - _begin).count();
         auto percent = (double)(n - n_previous) / (steps - n_previous);
         auto time_left = time_taken * (1.0 / percent - 1.0);
-
+        
+        if(override_status_print) std::cout << "\r";
         std::cout << "Step " << n << " of " << steps;        
         if(n - n_previous > 0)
         {
             std::cout << ". Time remaining: ";
             std::cout << formatter(time_left);
         }
-        std::cout << '\n';
+        if(!override_status_print) std::cout << '\n';
     }
 
     /**
@@ -146,7 +148,7 @@ class Timer
         if(duration.count()<1)
         {
             auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
-            return std::to_string(int_ms.count()) + " ms";
+            return std::to_string(int_ms.count()) + " ms     ";
         }else{
             days day = std::chrono::duration_cast<days>(duration);
             duration -= day;
