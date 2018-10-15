@@ -169,8 +169,8 @@ class Cell : public df::Cell
     std::size_t g_dim;
     std::vector<std::size_t> neighbors;
     std::vector<signed long int> facet_adjacents;
-    std::vector<double> facet_normals;
-    std::vector<double> facet_mids;
+    std::vector<double> facet_plane_coeffs;
+    std::vector<double> facet_dot_prods;
     std::vector<Particle<len>> particles;
     std::vector<double> vertex_coordinates;
     std::vector<double> basis_matrix;
@@ -419,16 +419,18 @@ void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
     for (auto &cell : cells)
     {
         std::vector<signed long int> facet_adjacents;
-        std::vector<double> facet_normals;
-        std::vector<double> facet_mids;
+        std::vector<double> facet_plane_coeffs;
+
         auto cell_id = cell.id;
         auto facets = cell.entities(t_dim - 1);
         auto num_facets = cell.num_entities(t_dim - 1);
+
         for (std::size_t i = 0; i < num_facets; ++i)
         {
             df::Facet facet(*mesh, cell.entities(t_dim - 1)[i]);
             auto facet_cells = facet.entities(t_dim);
             auto num_adj_cells = facet.num_entities(t_dim);
+
             for (std::size_t j = 0; j < num_adj_cells; ++j)
             {
                 if (cell_id != facet_cells[j])
@@ -441,16 +443,19 @@ void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
                 facet_adjacents.push_back(-1 * bnd.values()[facets[i]]);
             }
 
-            for (std::size_t j = 0; j < g_dim; ++j)
-            {
-                facet_mids.push_back(facet.midpoint()[j]);
-                facet_normals.push_back(cell.normal(i)[j]);
+            double dot_product = 0;
+            for(std::size_t j = 0; j < g_dim; j++){
+                dot_product += facet.midpoint()[j]*cell.normal(i)[j];
             }
+            facet_plane_coeffs.push_back(-dot_product);
+            for(std::size_t j = 0; j < g_dim; j++){
+                facet_plane_coeffs.push_back(cell.normal(i)[j]);
+            }
+
         }
 
         cells[cell_id].facet_adjacents = facet_adjacents;
-        cells[cell_id].facet_normals = facet_normals;
-        cells[cell_id].facet_mids = facet_mids;
+        cells[cell_id].facet_plane_coeffs = facet_plane_coeffs;
     }
 }
 
@@ -503,14 +508,13 @@ signed long int Population<len>::relocate(const double *p, signed long int cell_
     // One element for each facet.
     // For 1D and 2D all aren't used, but slightly faster than vector.
     double proj[4];
+    double *coeffs = cells[cell_id].facet_plane_coeffs.data();
 
     for (std::size_t i = 0; i < g_dim + 1; ++i)
     {
-        proj[i] = 0.0;
-        for (std::size_t j = 0; j < g_dim; ++j)
-        {
-            proj[i] += (p[j] - cells[cell_id].facet_mids[i * g_dim + j]) *
-                       cells[cell_id].facet_normals[i * g_dim + j];
+        proj[i] = *coeffs++;
+        for (std::size_t j=0; j < g_dim; j++){
+            proj[i] += *coeffs++ * p[j];
         }
     }
 
