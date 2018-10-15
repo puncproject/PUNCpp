@@ -2,4 +2,5 @@
 
 cd build
 make doc
-ln -sf build/html/index.html doc.html
+cd ..
+ln -sf html/index.html doc.html
