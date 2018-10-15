@@ -52,7 +52,8 @@ int run(
         vector<double> mass,
         vector<double> kappa,
         vector<double> alpha,
-        vector<string> distribution
+        vector<string> distribution,
+        bool binary
 ){
 
     PhysicalConstants constants;
@@ -200,7 +201,7 @@ int run(
         int_bc[0].charge            = strtod(s, &s);
         int_bc[0].collected_current = strtod(s, &s);
 
-        pop.load_file(fname_pop);
+        pop.load_file(fname_pop, binary);
         file_hist.open(fname_hist, ofstream::out | ofstream::app);
 
     } else {
@@ -366,7 +367,7 @@ int run(
             df::File ofile2("ni.pvd");
             ofile2 << ni;
 
-            pop.save_file(fname_pop);
+            pop.save_file(fname_pop, binary);
 
             ofstream state_file;
             state_file.open(fname_state, ofstream::out);
@@ -409,6 +410,7 @@ int main(int argc, char **argv){
     double dt = 0;
     double dtwp;
     double Bx = 0;
+    bool binary = false;
 
     // Object input
     bool impose_current = true; 
@@ -435,6 +437,7 @@ int main(int argc, char **argv){
         ("steps", po::value(&steps), "number of timesteps")
         ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
         ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
+        ("binary", po::value(&binary), "Write binary population files (true|false)")
         
         ("Bx", po::value(&Bx), "magnetic field [T]")
 
@@ -537,9 +540,9 @@ int main(int argc, char **argv){
     size_t dim = mesh->geometry().dim();
 
     if(dim==2){
-        return run<2>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution);
+        return run<2>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
     } else if(dim==3){
-        return run<3>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution);
+        return run<3>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;
