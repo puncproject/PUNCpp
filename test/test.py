@@ -17,7 +17,7 @@ print("True current:      {:g} A".format(I_true))
 print("Simulated current: {:g} A".format(I_mean))
 print("Relative error:    {:.2f}%".format(rel_err*100))
 
-if np.abs(rel_err)<0.02:
-    print("TEST PASSED (relative error < 2%)")
+if np.abs(rel_err)<0.03:
+    print("TEST PASSED (relative error < 3%)")
 else:
-    print("TEST FAILED (relative error > 2%)")
+    print("TEST FAILED (relative error > 3%)")
