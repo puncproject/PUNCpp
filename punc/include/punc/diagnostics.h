@@ -519,7 +519,7 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
  * where \f$\omega = 1-\exp{(-dt/\tau)}\f$.
  */
 template <typename PopulationType>
-void ema(df::Function &f, df::Function &g, double dt, double tau)
+void ema(const df::Function &f, df::Function &g, double dt, double tau)
 {
     double w = 1.0 - exp(-dt / tau);
 
