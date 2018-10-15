@@ -109,6 +109,7 @@ struct Particle
     double q;       ///< Charge
     double m;       ///< Mass
     Particle(const double *x, const double *v, double q, double m);
+    Particle(){};
 };
 
 template <std::size_t len>
@@ -334,17 +335,46 @@ class Population
     Population(std::shared_ptr<const df::Mesh> &mesh,
                const df::MeshFunction<std::size_t> &bnd);
     void init_localizer(const df::MeshFunction<std::size_t> &bnd);
-    void add_particles(std::vector<double> &xs, std::vector<double> &vs,
+    void add_particles(const std::vector<double> &xs,
+                       const std::vector<double> &vs,
                        double q, double m);
+    void add_particles(const std::vector<Particle<len>> &ps);
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
     void update(std::vector<ObjectBC>& objects);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
-    void save_file(const std::string &fname);
-    void load_file(const std::string &fname);
-    void save_vel(const std::string &fname);
+
+    /**
+     * @brief Save particles to file
+     * @param   fname   File name
+     * @param   binary  Use binary file format
+     * @see load_file
+     * 
+     * Saves particles to file using either binary or ASCII format.
+     *
+     * Binary files are typically 40% the size of ASCII files, and do not
+     * suffer from the loss of precision associated with displaying numbers in
+     * base 10. ASCII files display numbers in base 10, but this precision
+     * lost should rarely be significant. Binary files merely stores the
+     * Particle structs byte-by-bate, and this makes it depend on the platform.
+     * Different platform may have different size for the datatypes in Particle,
+     * different padding of structs, and different endianness. Reading a binary
+     * file on a system where this differs from where the binary file was made
+     * will fail. As such, ASCII files are more portable.
+     */
+    void save_file(const std::string &fname, bool binary=false);
+
+    /**
+     * @brief Load particles from file
+     * @param   fname   File name
+     * @param   binary  Use binary file format
+     * @see save_file
+     * 
+     * Loads particles from binary or ASCII file.
+     */
+    void load_file(const std::string &fname, bool binary=false);
 };
 
 template <std::size_t len>
@@ -425,7 +455,8 @@ void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 }
 
 template <std::size_t len>
-void Population<len>::add_particles(std::vector<double> &xs, std::vector<double> &vs,
+void Population<len>::add_particles(const std::vector<double> &xs,
+                                    const std::vector<double> &vs,
                                     double q, double m)
 {
     std::size_t num_particles = xs.size() / g_dim;
@@ -445,6 +476,17 @@ void Population<len>::add_particles(std::vector<double> &xs, std::vector<double>
         {
             Particle<len> _particles(xs_tmp, vs_tmp, q, m);
             cells[cell_id].particles.push_back(_particles);
+        }
+    }
+}
+
+template <std::size_t len>
+void Population<len>::add_particles(const std::vector<Particle<len>> &ps)
+{
+    for (auto &p : ps){
+        std::size_t cell_id = locate(p.x);
+        if(cell_id >=0){
+            cells[cell_id].particles.push_back(p);
         }
     }
 }
@@ -591,84 +633,79 @@ std::size_t Population<len>::num_of_negatives()
 }
 
 template <std::size_t len>
-void Population<len>::save_vel(const std::string &fname)
+void Population<len>::save_file(const std::string &fname, bool binary)
 {
-    FILE *fout = fopen(fname.c_str(), "w");
-    for (auto &cell : cells)
-    {
-        for (auto &particle : cell.particles)
-        {
-            for (std::size_t i = 0; i < g_dim; ++i)
-            {
-                fprintf(fout, "%.17g\t", particle.v[i]);
+    if(binary){
+
+        FILE *fout = fopen(fname.c_str(), "wb");
+
+        for (auto &cell : cells)
+            for (auto &particle : cell.particles)
+                fwrite(&particle, sizeof(particle), 1, fout);
+
+        fclose(fout);
+
+    } else {
+
+        FILE *fout = fopen(fname.c_str(), "w");
+
+        for (auto &cell : cells) {
+            for (auto &particle : cell.particles) {
+
+                for (std::size_t i = 0; i < g_dim; ++i)
+                    fprintf(fout, "%.17g\t", particle.x[i]);
+    
+                for (std::size_t i = 0; i < g_dim; ++i)
+                    fprintf(fout, "%.17g\t", particle.v[i]);
+   
+                fprintf(fout, "%.17g\t %.17g\t", particle.q, particle.m);
+                fprintf(fout, "\n");
             }
-            fprintf(fout, "\n");
         }
+        fclose(fout);
     }
-    fclose(fout);
 }
 
 template <std::size_t len>
-void Population<len>::save_file(const std::string &fname)
+void Population<len>::load_file(const std::string &fname, bool binary)
 {
-    FILE *fout = fopen(fname.c_str(), "w");
-    for (auto &cell : cells)
-    {
-        for (auto &particle : cell.particles)
-        {
-            for (std::size_t i = 0; i < g_dim; ++i)
-            {
-                fprintf(fout, "%.17g\t", particle.x[i]);
-            }
-            for (std::size_t i = 0; i < g_dim; ++i)
-            {
-                fprintf(fout, "%.17g\t", particle.v[i]);
-            }
-            fprintf(fout, "%.17g\t %.17g\t", particle.q, particle.m);
-            fprintf(fout, "\n");
-        }
-    }
-    fclose(fout);
-}
+    if(binary){
 
-template <std::size_t len>
-void Population<len>::load_file(const std::string &fname)
-{
-    std::fstream in(fname);
-    std::string line;
-    /* double x[g_dim]; */
-    /* double v[g_dim]; */
-    std::vector<double> x(g_dim);
-    std::vector<double> v(g_dim);
-    double q = 0;
-    double m = 0;
-    std::size_t i;
-    while (std::getline(in, line))
-    {
-        double value;
-        std::stringstream ss(line);
-        i = 0;
-        while (ss >> value)
+        FILE *fin = fopen(fname.c_str(), "rb");
+
+        std::vector<Particle<len>> ps;
+        Particle<len> p;
+
+        while(fread(&p, sizeof(p), 1, fin))
+            ps.push_back(p); 
+
+        fclose(fin);
+        add_particles(ps);
+
+    } else {
+
+        std::fstream in(fname);
+        std::string line;
+        std::vector<double> x(g_dim);
+        std::vector<double> v(g_dim);
+        double q = 0;
+        double m = 0;
+        std::size_t i;
+        while (std::getline(in, line))
         {
-            if (i < g_dim)
+            double value;
+            std::stringstream ss(line);
+            i = 0;
+            while (ss >> value)
             {
-                x[i] = value;
+                if (i < g_dim) x[i] = value;
+                else if (i >= g_dim && i < 2 * g_dim) v[i % g_dim] = value;
+                else if (i == 2 * g_dim) q = value;
+                else if (i == 2 * g_dim + 1) m = value;
+                ++i;
             }
-            else if (i >= g_dim && i < 2 * g_dim)
-            {
-                v[i % g_dim] = value;
-            }
-            else if (i == 2 * g_dim)
-            {
-                q = value;
-            }
-            else if (i == 2 * g_dim + 1)
-            {
-                m = value;
-            }
-            ++i;
+            add_particles(x, v, q, m);
         }
-        add_particles(x, v, q, m);
     }
 }
 

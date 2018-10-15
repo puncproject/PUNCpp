@@ -50,7 +50,8 @@ int run(
         vector<double> mass,
         vector<double> kappa,
         vector<double> alpha,
-        vector<string> distribution
+        vector<string> distribution,
+        bool binary
 ){
 
     PhysicalConstants constants;
@@ -186,7 +187,7 @@ int run(
         int_bc[0].charge            = strtod(s, &s);
         int_bc[0].collected_current = strtod(s, &s);
 
-        pop.load_file(fname_pop);
+        pop.load_file(fname_pop, binary);
         file_hist.open(fname_hist, ofstream::out | ofstream::app);
 
     } else {
@@ -355,7 +356,7 @@ int run(
         
         // SAVE STATE AND BREAK LOOP
         if(exit_immediately || n==steps){
-            pop.save_file(fname_pop);
+            pop.save_file(fname_pop, binary);
 
             ofstream state_file;
             state_file.open(fname_state, ofstream::out);
@@ -426,6 +427,7 @@ int main(int argc, char **argv){
     size_t steps = 0;
     double dt = 0;
     double dtwp;
+    bool binary = false;
 
     // Object input
     bool impose_current = true; 
@@ -451,6 +453,7 @@ int main(int argc, char **argv){
         ("steps", po::value(&steps), "number of timesteps")
         ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
         ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
+        ("binary", po::value(&binary), "Write binary population files (true|false)")
         
         ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
         ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
@@ -548,9 +551,9 @@ int main(int argc, char **argv){
     size_t dim = mesh->geometry().dim();
 
     if(dim==2){
-        return run<2>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+        return run<2>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution, binary);
     } else if(dim==3){
-        return run<3>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution);
+        return run<3>(mesh, boundaries, steps, dt, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, charge, mass, kappa, alpha, distribution, binary);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;
