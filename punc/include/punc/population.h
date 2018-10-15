@@ -341,6 +341,7 @@ class Population
     void add_particles(const std::vector<Particle<len>> &ps);
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
+    signed long int relocate_fast(const double *p, signed long int cell_id);
     void update(std::vector<ObjectBC>& objects);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
@@ -543,6 +544,38 @@ signed long int Population<len>::relocate(const double *p, signed long int cell_
 }
 
 template <std::size_t len>
+signed long int Population<len>::relocate_fast(const double *p, signed long int cell_id)
+{
+    // One element for each facet.
+    // For 1D and 2D all aren't used, but slightly faster than vector.
+    double proj;
+    double *coeffs = cells[cell_id].facet_plane_coeffs.data();
+
+    for (std::size_t i = 0; i < g_dim + 1; ++i)
+    {
+        proj = *coeffs++;
+        for (std::size_t j=0; j < g_dim; j++){
+            proj += *coeffs++ * p[j];
+        }
+
+        if(proj > 0){
+            auto new_cell_id = cells[cell_id].facet_adjacents[i];
+
+            // negative new_cell_id indicate that the particle hit a boundary with
+            // id (-new_cell_id).
+            if(new_cell_id >= 0){
+                return relocate_fast(p, new_cell_id);
+            } else {
+                return new_cell_id;
+            }
+        }
+    }
+
+    return cell_id;
+
+}
+
+template <std::size_t len>
 void Population<len>::update(std::vector<ObjectBC> &objects)
 {
     // FIXME: Consider a different mechanism for boundaries than using negative
@@ -557,7 +590,7 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
         for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
         {
             auto particle = cells[cell_id].particles[p_id];
-            new_cell_id = relocate(particle.x, cell_id);
+            new_cell_id = relocate_fast(particle.x, cell_id);
             if (new_cell_id != cell_id)
             {
                 to_delete.push_back(p_id);
