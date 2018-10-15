@@ -8,6 +8,8 @@ punc/latex
 **.pvd
 **.vtu
 **.dat
+**.xml
+**.msh
 .vscode
 
 # This part should perhaps be cleaned up
