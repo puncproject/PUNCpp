@@ -7,6 +7,7 @@ using namespace punc;
 namespace po = boost::program_options;
 
 using std::cout;
+using std::cerr;
 using std::endl;
 using std::size_t;
 using std::vector;
@@ -480,6 +481,9 @@ int main(int argc, char **argv){
         po::store(po::parse_config_file(ifile, desc), options);
         po::notify(options);
         ifile.close();
+    } else {
+        cerr << "Input file missing." << endl;
+        return 1;
     }
 
     // Print help
@@ -502,7 +506,7 @@ int main(int argc, char **argv){
         mass[s] *= constants.m_e;
     }
 
-    if(dt==0){ // Float-comparison acceptable because it is initialized exactly
+    if(fabs(dt)<tol){
         double wp0 = sqrt(pow(charge[0],2)*density[0]/(eps0*mass[0]));
         dt = dtwp/wp0;
     }
