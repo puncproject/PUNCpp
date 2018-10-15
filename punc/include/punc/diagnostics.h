@@ -71,7 +71,7 @@ class Timer
         if(n - n_previous > 0)
         {
             std::cout << ". Time remaining: ";
-            std::cout << formatter(time_left);
+            std::cout << std::setw(13) << formatter(time_left);
         }
         if(!override_status_print) std::cout << '\n';
     }
@@ -127,7 +127,7 @@ class Timer
         {
             std::cout << tasks[i] << std::setw(blanks_tasks[i]) << " ";
             std::cout << times_formatted[i] << std::setw(blanks_times[i]) << " ";
-            std::cout << 100 * times[i] / total_time << '\n';
+            std::cout << std::setprecision(4) << 100 * times[i] / total_time << '\n';
         }
 
         std::cout << "-----------------------------------------------------------" << '\n';
@@ -159,7 +159,7 @@ class Timer
             std::chrono::seconds sec = std::chrono::duration_cast<std::chrono::seconds>(duration);
             duration -= sec;
 
-            return std::to_string(day.count()) + " d " + std::to_string(hour.count()) + ':' + std::to_string(min.count()) + ':' +std::to_string(sec.count());
+            return std::to_string(day.count()) + " d " + std::to_string(hour.count()) + ':' + std::to_string(min.count()) + ':' + std::to_string(sec.count());
         }
     }
     /**
