@@ -19,6 +19,7 @@ const char* fname_hist  = "history.dat";
 const char* fname_state = "state.dat";
 const char* fname_pop   = "population.dat";
 const bool override_status_print = true;
+const double tol = 1e-10;
 
 bool exit_immediately = true;
 void signal_handler(int signum){
@@ -310,14 +311,14 @@ int run(
         old_charge = int_bc[0].charge;
 
         timer.tic("accelerator");
-        if (B_norm==0.0)
+        if (fabs(B_norm)<tol)
         {
             KE = accel_cg1(pop, E, (1.0 - 0.5 * (n == 0)) * dt);
         }else{
             KE = boris_cg1(pop, E, B, (1.0 - 0.5 * (n == 0)) * dt);
         }
-        timer.toc();
         if(n==0) KE = kinetic_energy(pop);
+        timer.toc();
 
         // WRITE HISTORY
         // Everything at n, except currents which are at n-0.5.
