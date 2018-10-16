@@ -44,14 +44,12 @@ class Timer
        * Timer constructor - starts timing of tasks
        * @param  tasks - a vector of tasks
        */
-    Timer(std::vector<std::string> tasks) : tasks(tasks),
-                                            times(std::vector<double>(tasks.size(), 0.0)),
-                                            _begin(_clock::now()) {}
+    Timer(std::vector<std::string> tasks);
     
     /**
        * Resets the timer to current time
        */
-    void reset() { _begin = _clock::now(); }
+    void reset();
 
     /**
        * Shows the progress of the program and prints the remaining time.
@@ -60,108 +58,37 @@ class Timer
        * @param  n_previous - number of timesteps from previous simulation  
        */
     void progress(std::size_t n, std::size_t steps, std::size_t n_previous,
-                  bool override_status_print)
-    {
-        auto time_taken = std::chrono::duration_cast<_second>(_clock::now() - _begin).count();
-        auto percent = (double)(n - n_previous) / (steps - n_previous);
-        auto time_left = time_taken * (1.0 / percent - 1.0);
-        
-        if(override_status_print) std::cout << "\r";
-        std::cout << "Step " << n << " of " << steps;        
-        if(n - n_previous > 0)
-        {
-            std::cout << ". Time remaining: ";
-            std::cout << std::setw(13) << formatter(time_left);
-        }
-        if(!override_status_print) std::cout << '\n';
-    }
+                  bool override_status_print);
 
     /**
        * Starts measuring time for a given task
        * @param   tag - (std::string) name of the task
        */
-    void tic(std::string tag)
-    {
-        _index = std::distance(tasks.begin(), std::find(tasks.begin(), tasks.end(), tag));
-        _time = _clock::now();
-    }
+    void tic(std::string tag);
 
     /**
        * Stops measuring time for the task started by tic()
        */
-    void toc()
-    {
-        times[_index] += std::chrono::duration_cast<_second>(_clock::now() - _time).count();
-    }
+    void toc();
 
     /**
        * Calculates the elapsed time
        * @return The time elapsed
        */
-    double elapsed() const
-    {
-        return std::chrono::duration_cast<_second>(_clock::now() - _begin).count();
-    }
+    double elapsed() const;
 
     /**
        * Prints the total time elapsed by each task, and print to the screen.
        */
-    void summary()
-    {
-        auto total_time = elapsed();
-
-        auto blanks_tasks = aligner(tasks);
-        std::vector<std::string> times_formatted(tasks.size());
-        for(std::size_t i = 0; i<tasks.size(); ++i)
-        {
-            times_formatted[i] = formatter(times[i]);
-        }
-        auto blanks_times = aligner(times_formatted);
-
-        std::cout << "-----------------------------------------------------------" << '\n';
-        std::cout << "                      Summary of tasks                     " << '\n';
-        std::cout << "-----------------------------------------------------------" << '\n';
-        std::cout << " Task                        Time           Percentage     " << '\n';
-        std::cout << "-----------------------------------------------------------" << '\n';
-        for (std::size_t i = 0; i < times.size(); ++i)
-        {
-            std::cout << tasks[i] << std::setw(blanks_tasks[i]) << " ";
-            std::cout << times_formatted[i] << std::setw(blanks_times[i]) << " ";
-            std::cout << std::setprecision(4) << 100 * times[i] / total_time << '\n';
-        }
-
-        std::cout << "-----------------------------------------------------------" << '\n';
-        std::cout << "            Total run time:    ";
-        std::cout << formatter(total_time);
-        std::cout << '\n';
-        std::cout << "-----------------------------------------------------------" << '\n';
-    }
+    void summary();
 
     /**
        * Given a time (in seconds), returns the time in the format day hour:min:sec
        * @param   time_range - time in seconds
        * @return time in the format day hour:min:sec
        */
-    std::string formatter(double time_range)
-    {
-        auto duration = std::chrono::duration<double>(time_range);
-        if(duration.count()<1)
-        {
-            auto int_ms = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
-            return std::to_string(int_ms.count()) + " ms     ";
-        }else{
-            days day = std::chrono::duration_cast<days>(duration);
-            duration -= day;
-            std::chrono::hours hour = std::chrono::duration_cast<std::chrono::hours>(duration);
-            duration -= hour;
-            std::chrono::minutes min = std::chrono::duration_cast<std::chrono::minutes>(duration);
-            duration -= min;
-            std::chrono::seconds sec = std::chrono::duration_cast<std::chrono::seconds>(duration);
-            duration -= sec;
+    std::string formatter(double time_range);
 
-            return std::to_string(day.count()) + " d " + std::to_string(hour.count()) + ':' + std::to_string(min.count()) + ':' + std::to_string(sec.count());
-        }
-    }
     /**
        * Given a vector of strings, finds the number of blank spaces on the right
        * side of each string so that all the strings in the vector appear to have
@@ -169,20 +96,7 @@ class Timer
        * @param   v    vector of strings 
        * @return  vector containing number of blank spaces
        */
-    std::vector<int> aligner(std::vector<std::string> v)
-    {
-        std::size_t len = 0;
-        for (std::size_t i = 0; i < v.size(); ++i)
-        {
-            len = v[i].length() > len ? v[i].length() : len;
-        }
-        std::vector<int> blanks(v.size());
-        for (std::size_t i = 0; i < v.size(); ++i)
-        {
-            blanks[i] = len - v[i].length() + 8;
-        }
-        return blanks;
-    }
+    std::vector<int> aligner(std::vector<std::string> v);
 
   private:
     std::vector<std::string> tasks;
