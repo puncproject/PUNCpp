@@ -554,10 +554,10 @@ void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets)
         auto dim = species[i].vdf.dim();
         auto domain = species[i].vdf.domain();
         df::Point p0, p1;
-        for (int i = 0; i < dim; ++i)
+        for (int k = 0; k < dim; ++k)
         {
-            p0[i] = domain[i];
-            p1[i] = domain[i + dim];
+            p0[k] = domain[k];
+            p1[k] = domain[k + dim];
         }
 
         std::shared_ptr<const df::Mesh> mesh;
