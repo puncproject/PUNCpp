@@ -92,7 +92,7 @@ private:
     virtual bool has_cdf() { return _has_cdf; }
     virtual bool has_flux_max() { return _has_flux_max; }
     virtual bool has_flux_number(){return _has_flux_number;}
-    virtual std::vector<double> cdf(const std::size_t N) { return {}; }
+    virtual std::vector<double> cdf(const std::vector<double> &r) { return {}; }
     virtual void set_flux_normal(std::vector<double> &n) {}
     virtual double flux_num_particles(const std::vector<double> &n, double S) { return 0.0; }
     virtual double flux_max(std::vector<double> &n){return 0.0;};
