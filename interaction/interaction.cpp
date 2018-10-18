@@ -37,8 +37,7 @@ void signal_handler(int signum){
 // Horrible, horrible list of arguments. Hopefully only temporary.
 template <size_t dim>
 int run(
-        std::shared_ptr<const df::Mesh> mesh,
-        df::MeshFunction<std::size_t> boundaries,
+        Mesh &mesh,
         size_t steps,
         double dt,
         double Bx,
@@ -61,12 +60,12 @@ int run(
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    auto tags = get_mesh_ids(boundaries);
+    auto tags = get_mesh_ids(mesh.bnd);
     size_t ext_bnd_id = tags[1];
 
-    auto facet_vec = exterior_boundaries(boundaries, ext_bnd_id);
+    auto facet_vec = exterior_boundaries(mesh.bnd, ext_bnd_id);
 
-    vector<double> Ld = get_mesh_size(mesh);
+    vector<double> Ld = get_mesh_size(mesh.mesh);
 
     vector<double> B(dim, 0); // Magnetic field aligned with x-axis
     B[0] = Bx;
@@ -85,11 +84,11 @@ int run(
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
 
-    CreateSpecies create_species(mesh);
+    CreateSpecies create_species(mesh.mesh);
     for(size_t s=0; s<charge.size(); s++){
 
         vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
-        pdfs.push_back(std::make_shared<UniformPosition>(mesh));
+        pdfs.push_back(std::make_shared<UniformPosition>(mesh.mesh));
 
         if(distribution[s]=="maxwellian"){
             vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd[s]));
@@ -136,8 +135,8 @@ int run(
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
     //
-    auto V = function_space(mesh);
-    auto Q = DG0_space(mesh);
+    auto V = function_space(mesh.mesh);
+    auto Q = DG0_space(mesh.mesh);
     auto dv_inv = element_volume(V);
 
     // Electron and ion number densities
@@ -146,10 +145,10 @@ int run(
 
     auto u0 = std::make_shared<df::Constant>(0.0);
     df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-        std::make_shared<df::MeshFunction<size_t>>(boundaries), ext_bnd_id);
+        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, boundaries, tags[2], eps0);
+    ObjectBC object(V, mesh.bnd, tags[2], eps0);
     vector<ObjectBC> int_bc = {object};
 
     vector<size_t> bnd_id{tags[2]};
@@ -172,7 +171,7 @@ int run(
     //
     cout << "Loading particles" << endl;
 
-    Population<dim> pop(mesh, boundaries);
+    Population<dim> pop(mesh.mesh, mesh.bnd);
 
     size_t n = 0;
     double t = 0;
@@ -283,7 +282,7 @@ int run(
         auto E = esolver.solve(phi);
         timer.toc();
 
-        // compute_object_potentials(int_bc, E, inv_capacity, mesh);
+        // compute_object_potentials(int_bc, E, inv_capacity, mesh.mesh);
         //
         // potential[n] = int_bc[0].potential;
         // auto phi1 = poisson.solve(rho, int_bc);
@@ -538,15 +537,13 @@ int main(int argc, char **argv){
     //
     // CREATE MESH
     //
-    Mesh mesh2(fname_mesh);
-    auto mesh = load_mesh(fname_mesh);
-    auto boundaries = load_boundaries(mesh, fname_mesh);
-    size_t dim = mesh->geometry().dim();
+    Mesh mesh(fname_mesh);
+    size_t dim = mesh.mesh->geometry().dim();
 
     if(dim==2){
-        return run<2>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
+        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
     } else if(dim==3){
-        return run<3>(mesh, boundaries, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
+        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;

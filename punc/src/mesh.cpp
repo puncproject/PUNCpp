@@ -18,7 +18,6 @@
 #include "../include/punc/mesh.h"
 #include <boost/filesystem.hpp>
 #include <string>
-#include <iostream>
 
 namespace punc
 {
