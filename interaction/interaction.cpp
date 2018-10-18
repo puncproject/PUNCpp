@@ -538,6 +538,7 @@ int main(int argc, char **argv){
     //
     // CREATE MESH
     //
+    Mesh mesh2(fname_mesh);
     auto mesh = load_mesh(fname_mesh);
     auto boundaries = load_boundaries(mesh, fname_mesh);
     size_t dim = mesh->geometry().dim();

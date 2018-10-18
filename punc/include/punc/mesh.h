@@ -1,3 +1,4 @@
+
 // Copyright (C) 2018, Diako Darian and Sigvald Marholm
 //
 // This file is part of PUNC++.
@@ -15,18 +16,25 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef __PUNC_H
-#define __PUNC_H
+#ifndef MESH_H
+#define MESH_H
 
-/* PUNC interface */
-#include "punc/population.h"
-#include "punc/poisson.h"
-#include "punc/injector.h"
-#include "punc/object.h"
-#include "punc/diagnostics.h"
-#include "punc/distributor.h"
-#include "punc/pusher.h"
-#include "punc/distributions.h"
-#include "punc/mesh.h"
+#include <dolfin.h>
+#include <string>
 
-#endif
+namespace punc
+{
+
+namespace df = dolfin;
+
+class Mesh
+{
+public:
+    Mesh(std::string fname);
+    std::shared_ptr<const df::Mesh> mesh;
+    df::MeshFunction<std::size_t> bnd;
+};
+
+} // namespace punc
+
+#endif // MESH_H
