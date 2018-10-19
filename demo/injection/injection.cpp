@@ -7,7 +7,8 @@ int main()
 {
     df::set_log_level(df::WARNING);
 
-    Timer timer;
+    std::vector<std::string> tasks{"move", "update", "injector"};
+    Timer timer(tasks);
 
     const int dim = 2;
 
@@ -32,8 +33,8 @@ int main()
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
-    double mi = constants.m_i;
-    double kB = constants.k_B;
+    // double mi = constants.m_i;
+    // double kB = constants.k_B;
     double eps0 = constants.eps0;
 
     int npc = 16;
@@ -45,10 +46,10 @@ int main()
     std::vector<double> vd(dim, 0.0);
 
     UniformPosition pdf(mesh); // Position distribution
-    Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
+    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
     //Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
-    // Cairns vdf(vthe, vd, 2.0); // Cairns velocity distribution
-    // KappaCairns vdf(vthe, vd, 3.0, 1.0); // Kappa-Cairns velocity distribution
+    Cairns vdf(vthe, vd, 0.2); // Cairns velocity distribution
+    // KappaCairns vdf(vthe, vd, 4.0, 0.2); // Kappa-Cairns velocity distribution
 
     std::size_t steps = 100;
     double dt = 0.05;
@@ -77,7 +78,10 @@ int main()
     load_particles(pop, species);
 
     std::string file_name1{"vels_pre.txt"};
-    pop.save_vel(file_name1);
+    pop.save_file(file_name1, false);
+
+    std::vector<ObjectBC> objects{};
+    History hist("history.dat", objects, false);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
@@ -96,27 +100,25 @@ int main()
     num_i[0] = pop.num_of_positives();
     num_tot[0] = pop.num_of_particles();
 
-    std::vector<double> t_move(steps), t_update(steps), t_inject(steps);
-
-    for(int i = 1; i < steps; ++i)
+    for(std::size_t i = 1; i < steps; ++i)
     {
         auto tot_num0 = pop.num_of_particles();
 
-        timer.reset();
+        timer.tic("move");
         move(pop, dt);
-        t_move[i] = timer.elapsed();
-        
-        timer.reset();
-        pop.update();
-        t_update[i] = timer.elapsed();
+        timer.toc();
+
+        timer.tic("update");
+        pop.update(objects);
+        timer.toc();
 
         auto tot_num1 = pop.num_of_particles();
         num_particles_outside[i-1] = tot_num0-tot_num1;
         
-        timer.reset();
-        inject_particles2(pop, species, ext_bnd, dt);
-        t_inject[i] = timer.elapsed();
-        
+        timer.tic("injector");
+        inject_particles(pop, species, ext_bnd, dt);
+        timer.toc();
+
         auto tot_num2 = pop.num_of_particles();
         num_injected_particles[i-1] = tot_num2 - tot_num1;
         num_e[i] = pop.num_of_negatives();
@@ -126,17 +128,10 @@ int main()
         std::cout<<"step: "<< i<< ", total number of particles: "<<num_tot[i]<<'\n';
     }
 
-    auto time_move = std::accumulate(t_move.begin(), t_move.end(), 0.0);
-    auto time_update = std::accumulate(t_update.begin(), t_update.end(), 0.0);
-    auto time_inject = std::accumulate(t_inject.begin(), t_inject.end(), 0.0);
-    
-    std::cout << "-----Measured time for each task----------" << '\n';
-    std::cout << "Move:      " << time_move << '\n';
-    std::cout << "Update:    " << time_update << '\n';
-    std::cout << "Inject:    " << time_inject << '\n';
-    
+    timer.summary();
+
     std::string file_name{"vels_post.txt"};
-    pop.save_vel(file_name);
+    pop.save_file(file_name, false);
 
     std::ofstream out;
     out.open("num_e.txt");

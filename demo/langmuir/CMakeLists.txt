@@ -11,7 +11,7 @@ add_compile_options(-Wall)
 
 file(GLOB RUN "langmuir.cpp")
 
-list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../punc/install")
+list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../punc/install")
 list(APPEND CMAKE_FIND_ROOT_PATH "~/.conda/envs/")
 
 find_library(PUNC punc)

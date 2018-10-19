@@ -1,0 +1,16 @@
+injection
+cairns.py 
+surface.py
+*.dat
+num_e.txt
+num_i.txt
+num_tot.txt
+injected.txt
+outside.txt
+vels_post.txt
+vels_pre.txt
+monte.cpp
+test.cpp
+*.png
+
+

@@ -22,14 +22,19 @@ print(vth)
 
 vd = array([0.0,0.0])
 k = 3.0
-alpha = 1.0
-D = 1
-pdf_type = "maxwellian"# "kappa", "cairns", "maxwellian"
+alpha = 0.2
+D = 2
+pdf_type = "cairns"#"maxwellian"# "kappa", "cairns", "maxwellian"
 dim = 2
 
 xs = linspace(vd[0] - 5 * vth, vd[0] + 5 * vth, 1000)
 
 def pdf_cairns(v):
+	return 1.0/((1+D*(D+2)*alpha)*(2*np.pi*vth**2)**(D/2.0))*\
+		(1. + (alpha/vth**4)* v**4) *\
+		np.exp(-0.5 *v**2 / (vth**2))
+
+def pdf_cairns_old(v):
 	return 1.0/((1+15*alpha)*(2*np.pi*vth**2)**(D/2.0))*\
 		(1. + (D**2-8*D+15)*alpha + 2*alpha*(3.-D)*v**2/vth**2 +\
 		(alpha/vth**4)* v**4) *\
@@ -62,7 +67,7 @@ for j, fname in enumerate(fnames):
 	v = []
 	for i,line in enumerate(f):
 		tmp = [float(tmp1) for tmp1 in line.split('\n')[0].split()]
-		v.append(tmp[0:dim])
+		v.append(tmp[dim:2*dim])
 
 	v = array(v)
 	print(v.shape)
