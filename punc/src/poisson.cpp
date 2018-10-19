@@ -40,9 +40,36 @@
 #include "../ufl/ErrorNormVec1D.h"
 #include "../ufl/ErrorNormVec2D.h"
 #include "../ufl/ErrorNormVec3D.h"
+#include "../ufl/Surface.h"
 
 namespace punc
 {
+
+// This function should probably belong to object.cpp.
+// I don't think it's currently in use, but one could change the signature to:
+// double surface_area(const Mesh &mesh, std::size_t bnd_id)
+// The bnd's id is then temporarily (or in a copy) changed to the id in the UFL
+double surface_area(std::shared_ptr<const df::Mesh> &mesh,
+                    df::MeshFunction<std::size_t> &bnd)
+{
+    auto dim = mesh->geometry().dim();
+    auto one = std::make_shared<df::Constant>(1.0);
+    std::shared_ptr<df::Form> area;
+    if (dim == 1)
+    {
+        area = std::make_shared<Surface::Form_0>(mesh, one);
+    }
+    if (dim == 2)
+    {
+        area = std::make_shared<Surface::Form_1>(mesh, one);
+    }
+    else if (dim == 3)
+    {
+        area = std::make_shared<Surface::Form_2>(mesh, one);
+    }
+    area->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
+    return df::assemble(*area);
+}
 
 df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
                                  boost::optional<std::shared_ptr<PeriodicBoundary>> constr)

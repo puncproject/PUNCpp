@@ -18,6 +18,7 @@
 #ifndef POPULATION_H
 #define POPULATION_H
 
+#include "mesh.h"
 #include "poisson.h"
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
@@ -152,7 +153,7 @@ class CreateSpecies
     double M = std::numeric_limits<double>::quiet_NaN();
     double epsilon_0 = boost::units::si::constants::codata::epsilon_0*boost::units::si::meter/boost::units::si::farad;
 
-    CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X = 1.0);
+    CreateSpecies(const Mesh &mesh, double X = 1.0);
 
     void create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, int npc = 4,
                     int num = 0);
@@ -332,8 +333,7 @@ class Population
     std::size_t num_cells;                  ///< Number of cells in the domain
     std::vector<Cell<len>> cells;           ///< All df::Cells in the domain
 
-    Population(std::shared_ptr<const df::Mesh> &mesh,
-               const df::MeshFunction<std::size_t> &bnd);
+    Population(const Mesh &mesh);
     void init_localizer(const df::MeshFunction<std::size_t> &bnd);
     void add_particles(const std::vector<double> &xs,
                        const std::vector<double> &vs,
@@ -379,12 +379,11 @@ class Population
 };
 
 template <std::size_t len>
-Population<len>::Population(std::shared_ptr<const df::Mesh> &mesh,
-                            const df::MeshFunction<std::size_t> &bnd)
-    : mesh(mesh), g_dim(mesh->geometry().dim()), t_dim(mesh->topology().dim()),
-      num_cells(mesh->num_cells())
+Population<len>::Population(const Mesh &mesh_)
+    : mesh(mesh_.mesh), g_dim(mesh_.mesh->geometry().dim()),
+      t_dim(mesh_.mesh->topology().dim()), num_cells(mesh_.mesh->num_cells())
 {
-    mesh->init(0, t_dim);
+
     for (df::MeshEntityIterator e(*(mesh), t_dim); !e.end(); ++e)
     {
         std::vector<std::size_t> neighbors;
@@ -410,7 +409,7 @@ Population<len>::Population(std::shared_ptr<const df::Mesh> &mesh,
         cells.emplace_back(cell);
     }
 
-    init_localizer(bnd);
+    init_localizer(mesh_.bnd);
 }
 
 template <std::size_t len>

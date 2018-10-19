@@ -28,9 +28,6 @@ namespace punc
 
 namespace df = dolfin;
 
-std::vector<std::size_t> get_mesh_ids(df::MeshFunction<std::size_t> &boundaries);
-std::vector<double> get_mesh_size(std::shared_ptr<const df::Mesh> &mesh);
-double volume(std::shared_ptr<const df::Mesh> &mesh);
 double surface_area(std::shared_ptr<const df::Mesh> &mesh,
                     df::MeshFunction<std::size_t> &bnd);
 

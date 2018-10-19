@@ -38,11 +38,11 @@ public:
     Mesh(const string &fname);
     std::vector<double> domain_size() const;
     double volume() const;
-    double surface_area() const;
+
+    std::vector<size_t> get_bnd_ids() const;
 
 private:
     void load_file(string fname);
-    std::vector<size_t> get_mesh_ids() const;
 };
 
 } // namespace punc

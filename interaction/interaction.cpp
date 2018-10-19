@@ -60,7 +60,7 @@ int run(
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    auto tags = get_mesh_ids(mesh.bnd);
+    auto tags = mesh.get_bnd_ids();
     size_t ext_bnd_id = tags[1];
 
     auto facet_vec = exterior_boundaries(mesh.bnd, ext_bnd_id);
@@ -83,7 +83,7 @@ int run(
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
 
-    CreateSpecies create_species(mesh.mesh);
+    CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
         vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
@@ -169,7 +169,7 @@ int run(
     //
     cout << "Loading particles" << endl;
 
-    Population<dim> pop(mesh.mesh, mesh.bnd);
+    Population<dim> pop(mesh);
 
     size_t n = 0;
     double t = 0;
