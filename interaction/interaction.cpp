@@ -60,10 +60,8 @@ int run(
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    auto tags = mesh.get_bnd_ids();
-    size_t ext_bnd_id = tags[1];
-
-    auto facet_vec = exterior_boundaries(mesh.bnd, ext_bnd_id);
+    // To be moved into Mesh
+    auto facet_vec = exterior_boundaries(mesh.bnd, mesh.ext_bnd_id);
 
     vector<double> B(dim, 0); // Magnetic field aligned with x-axis
     B[0] = Bx;
@@ -143,11 +141,14 @@ int run(
     df::Function ni(std::make_shared<const df::FunctionSpace>(V));
 
     auto u0 = std::make_shared<df::Constant>(0.0);
+
+    // mesh.ext_bnd_id will always be 1, but better not rely on it.
+    // Perhaps we can use a function which returns this DirichletBC.
     df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), ext_bnd_id);
+        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, mesh.bnd, tags[2], eps0);
+    ObjectBC object(V, mesh.bnd, 2, eps0);
     vector<ObjectBC> int_bc = {object};
 
     Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);

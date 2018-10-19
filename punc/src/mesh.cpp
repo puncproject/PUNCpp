@@ -15,22 +15,41 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		mesh.cpp
+ * @brief		Mesh handling
+ */
 #include "../include/punc/mesh.h"
 
-#include <boost/filesystem.hpp>
+#include <dolfin/io/HDF5File.h>
+#include <dolfin/function/Constant.h>
+#include <dolfin/fem/assemble.h>
+
 #include <string>
+#include <boost/filesystem.hpp>
 
 #include "../ufl/Volume.h"
 
 namespace punc
 {
 
+
 Mesh::Mesh(const string &fname){
     
     load_file(fname);
     dim = mesh->geometry().dim();
     mesh->init(0, dim);
-    /* relabel_mesh_function(bnd); */
+    mesh->init(dim-1, dim);
+
+    auto tags = get_bnd_ids();
+
+    // Subtract one for exterior boundary and one for interior facets
+    num_objects = tags.size()-2;
+    ext_bnd_id = 1;
+    
+    for(size_t i=0; i<tags.size(); i++){
+        relabel_mesh_function(bnd, tags[i], i);
+    }
 }
 
 void Mesh::load_file(string fname){
@@ -64,10 +83,6 @@ void Mesh::load_file(string fname){
         df::error("Only .xml or .h5 meshes supported");
     }
 }
-
-/* void Mesh::relabel_bnd(){ */
-/*     bnd */
-/* } */
 
 std::vector<size_t> Mesh::get_bnd_ids() const
 {

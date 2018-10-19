@@ -415,7 +415,6 @@ Population<len>::Population(const Mesh &mesh_)
 template <std::size_t len>
 void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 {
-    mesh->init(t_dim - 1, t_dim);
     for (auto &cell : cells)
     {
         std::vector<signed long int> facet_adjacents;

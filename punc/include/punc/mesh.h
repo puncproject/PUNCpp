@@ -16,34 +16,88 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		mesh.h
+ * @brief		Mesh handling
+ */
+
 #ifndef MESH_H
 #define MESH_H
 
-#include <dolfin.h>
+#include <dolfin/mesh/MeshFunction.h>
+#include <dolfin/mesh/Mesh.h>
 #include <string>
 
 namespace punc {
 
 namespace df = dolfin;
 
+/**
+ * @brief The PUNC simulation mesh
+ */
 class Mesh {
 public:
     using string = std::string;
     using size_t = std::size_t;
 
-    std::shared_ptr<const df::Mesh> mesh;
-    df::MeshFunction<size_t> bnd;
-    size_t dim;
+    std::shared_ptr<const df::Mesh> mesh; ///< Dolfin mesh
+    size_t dim;                           ///< Number of geometric dimensions
+    size_t ext_bnd_id;                    ///< Id of the exterior boundary
+    size_t num_objects;                   ///< Number of objects in the domain
 
+    /**
+     * @brief Boundary markers
+     *
+     * Facets are marked as follows:
+     * - 0 - all interior facets which are not part of a boundary
+     * - 1 - the exterior boundary
+     * - 2 - the first object
+     * - 3 - the second object
+     *
+     * and so forth.
+     */
+    df::MeshFunction<size_t> bnd;
+
+    /**
+     * @brief Reads mesh from filename and initialize Mesh
+     * @param   fname   filename
+     *
+     * Reads .xml or .h5 files depending on the extension of fname. If no
+     * extension is present .xml will be assumed.
+     */
     Mesh(const string &fname);
+
+    //! Returns the size of the smallest box enclosing the domain.
     std::vector<double> domain_size() const;
+
+    //! The volume of the domain.
     double volume() const;
 
-    std::vector<size_t> get_bnd_ids() const;
-
 private:
+    //! Load file into Mesh. Used by Mesh().
     void load_file(string fname);
+
+    //! Return ids in bnd. Used by Mesh().
+    std::vector<size_t> get_bnd_ids() const;
 };
+
+/**
+ * @brief Relabel mesh functions (in-place)
+ * @param[in,out]   f       Mesh function
+ * @param           from    id to replace
+ * @param           to      replacement id
+ */
+inline void relabel_mesh_function(df::MeshFunction<size_t> &f,
+                                  std::size_t from, std::size_t to){
+
+    auto values = f.values();
+    for (std::size_t i = 0; i < f.size(); i++) {
+    	if(values[i] == from) {
+    		f.set_value(i, to);
+    	}
+    }
+}
+
 
 } // namespace punc
 
