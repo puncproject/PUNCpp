@@ -48,7 +48,6 @@ std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries
     std::vector<double> vertex(g_dim);
     double norm;
     int j;
-    mesh->init(t_dim - 1, t_dim);
     df::SubsetIterator facet_iter(boundaries, ext_bnd_id);
     for (; !facet_iter.end(); ++facet_iter)
     {
