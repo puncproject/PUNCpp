@@ -366,7 +366,7 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
  * and then dividing the total number inside the cell by the volume of the cell:
  * 
  * \f[
- *       \n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} 1,
+ *       n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} 1,
  * \f]
  */
 template <typename PopulationType>
@@ -419,7 +419,7 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
  * volumetric number density for each species s: 
  * 
  * \f[
- *       \n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}).
+ *       n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}).
  * \f]
  */
 

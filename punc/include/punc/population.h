@@ -19,6 +19,7 @@
 #define POPULATION_H
 
 #include "poisson.h"
+#include "distributions.h"
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>
@@ -30,6 +31,14 @@ namespace punc
 
 namespace df = dolfin;
 
+/**
+ * @brief Generic matrix-vector product
+ * @param y[in]   the vector
+ * @param A[in]   the matrix
+ * @param x[in]   the vector resulting from the matrix-vector product
+ * @param n       number of rows of matrix A
+ * @param m       number of columns of matrix A 
+ */
 static inline void matrix_vector_product(double *y, const double *A,
                                          const double *x, std::size_t n,
                                          std::size_t m)
@@ -47,55 +56,18 @@ static inline void matrix_vector_product(double *y, const double *A,
     }
 }
 
+/**
+ * @brief Contains the most important physical constants needed in PIC simulations
+ */
 struct PhysicalConstants
 {
-    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
-    double m_e = boost::units::si::constants::codata::m_e / boost::units::si::kilograms;
-    double ratio = boost::units::si::constants::codata::m_e_over_m_p / boost::units::si::dimensionless();
-    double m_i = m_e / ratio;
+    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;                                    ///< Elementary charge
+    double m_e = boost::units::si::constants::codata::m_e / boost::units::si::kilograms;                              ///< Electron mass
+    double ratio = boost::units::si::constants::codata::m_e_over_m_p / boost::units::si::dimensionless();             ///< Electron to proton mass ratio
+    double m_i = m_e / ratio;                                                                                         ///< Proton mass
 
-    double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;
-    double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad;
-};
-
-signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x);
-
-class Pdf : public df::Expression
-{
-private:
-    double _vth;
-    std::vector<double> _vd;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-
-  public:
-    std::vector<double> pdf_max, num_particles;
-    
-    virtual double operator()(const std::vector<double> &x) = 0;
-    virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
-    {
-      double vn = 0.0;
-      for (int i = 0; i < dim(); ++i)
-      {
-          vn += x[i] * n[i];
-      }
-      return (vn > 0.0) * vn * this->operator()(x); 
-    }
-    virtual int dim() = 0;
-    virtual double max() = 0;
-    virtual std::vector<double> domain() = 0;
-    virtual double vth(){return _vth;}
-    virtual std::vector<double> vd(){return _vd;}
-    virtual void set_vth(double v) {_vth= v;}
-    virtual void set_vd(std::vector<double> &v) { _vd = v; }
-    virtual bool has_cdf() { return _has_cdf; }
-    virtual bool has_flux_max() { return _has_flux_max; }
-    virtual bool has_flux_number(){return _has_flux_number;}
-    virtual std::vector<double> cdf(const std::vector<double> &r) { return {}; }
-    virtual void set_flux_normal(std::vector<double> &n) {}
-    virtual double flux_num_particles(const std::vector<double> &n, double S) { return 0.0; }
-    virtual double flux_max(std::vector<double> &n){return 0.0;};
+    double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;      ///< Boltzmann constant
+    double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad; ///< Electric constant
 };
 
 /**
@@ -140,42 +112,78 @@ public:
             q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
 };
 
+/**
+ * @brief Creates plasma species.
+ */
 class CreateSpecies
 {
   public:
-    double X;
-    int g_dim;
-    double volume, num_cells;
-    std::vector<Species> species;
-    double T = std::numeric_limits<double>::quiet_NaN();
-    double Q = boost::units::si::constants::codata::e / boost::units::si::coulomb;
-    double M = std::numeric_limits<double>::quiet_NaN();
-    double epsilon_0 = boost::units::si::constants::codata::epsilon_0*boost::units::si::meter/boost::units::si::farad;
+    double X; ///< Characteristic length - used for normalization
+    int g_dim; ///< The geometrical dimension of the physical space
+    double volume, num_cells; ///< The volume of the simulation domain and number of cells in the domain
+    std::vector<Species> species; ///< A vector containing species
+    double T = std::numeric_limits<double>::quiet_NaN(); ///< Characteristic time
+    double Q = boost::units::si::constants::codata::e / boost::units::si::coulomb; ///< Characteristic charge - here set to elementary charge
+    double M = std::numeric_limits<double>::quiet_NaN();                           ///< Characteristic mass
+    double epsilon_0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad; ///< Electric constant
 
+    /**
+     * @brief Constructor
+     * @param[in]  df::Mesh  
+     * @param   X - characteristic length 
+     */
     CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X = 1.0);
 
+    /**
+     * @brief Creates species without normalization
+     * @param[in]   q - species charge  
+     * @param[in]   m - species mass 
+     * @param[in]   n - species volumetric number density
+     * @param[in]   pdf - position distribution function for the species
+     * @param[in]   vdf - velocity distribution function for the species
+     * @param[in]   npc - number of particles per cell for the species
+     * @param[in]   num - total number of particles in the simulation domain for the species
+     */
     void create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, int npc = 4,
                     int num = 0);
 
+    /**
+     * @brief Creates species and normalizes the physical quantities
+     * @param[in]   q - species charge  
+     * @param[in]   m - species mass 
+     * @param[in]   n - species volumetric number density
+     * @param[in]   pdf - position distribution function for the species
+     * @param[in]   vdf - velocity distribution function for the species
+     * @param[in]   npc - number of particles per cell for the species
+     * @param[in]   num - total number of particles in the simulation domain for the species
+     */
     void create(double q, double m, double n, Pdf &pdf, Pdf &vdf, int npc = 4,
                 int num = 0);
 };
 
+/**
+ * @brief Generic class representing a cell in the simulation domain
+ */
 template <std::size_t len>
 class Cell : public df::Cell
 {
   public:
-    std::size_t id;
-    std::size_t g_dim;
-    std::vector<std::size_t> neighbors;
-    std::vector<signed long int> facet_adjacents;
-    std::vector<double> facet_plane_coeffs;
-    std::vector<double> facet_dot_prods;
-    std::vector<Particle<len>> particles;
-    std::vector<double> vertex_coordinates;
-    std::vector<double> basis_matrix;
-    ufc::cell ufc_cell;
+    std::size_t id; ///< Cell index or id
+    std::size_t g_dim; ///< geometric dimension of the domain
+    std::vector<std::size_t> neighbors; ///< Neighbors of the Cell - all the cells that share a vertex, facet or edge with the cell
+    std::vector<signed long int> facet_adjacents; ///< Adjacent facets to the Cell
+    std::vector<double> facet_plane_coeffs;       ///< Coefficients of the plane-equation for the facets of the Cell
+    std::vector<Particle<len>> particles;         ///< Particles contained in the Cell
+    std::vector<double> vertex_coordinates;       ///< Vertices of the Cell
+    std::vector<double> basis_matrix;             ///< Basis matrix used for transformation between physical and barycentric coordinates
+    ufc::cell ufc_cell;                           ///< The underlying UFC cell
 
+    /**
+     * @brief Constructor
+     * @param[in]   df::Mesh  
+     * @param[in]   Cell index/id
+     * @param[in]   neighbors - a vector containing the indices of all the cells in the domain  
+     */
     Cell(std::shared_ptr<const df::Mesh> &mesh,
          std::size_t id, std::vector<std::size_t> neighbors)
         : df::Cell(*mesh, id), id(id), 
@@ -207,6 +215,11 @@ class Cell : public df::Cell
         }
     }
 
+    /**
+     * @brief Generates the basis matrix (in 1D) used to transform physical 
+     * coordinates of a given particle position to the corresponding barycentric 
+     * coordinates of the cell 
+     */
     void basis_matrix_1d()
     {
         double x1 = vertex_coordinates[0];
@@ -220,6 +233,11 @@ class Cell : public df::Cell
         basis_matrix[3] = 1.0 / det;
     }
 
+    /**
+     * @brief Generates the basis matrix (in 2D) used to transform physical 
+     * coordinates of a given particle position to the corresponding barycentric 
+     * coordinates of the cell 
+     */
     void basis_matrix_2d()
     {
         double x1 = vertex_coordinates[0];
@@ -242,6 +260,11 @@ class Cell : public df::Cell
         basis_matrix[8] = (x2 - x1) / det;
     }
 
+    /**
+     * @brief Generates the basis matrix (in 3D) used to transform physical 
+     * coordinates of a given particle position to the corresponding barycentric 
+     * coordinates of the cell 
+     */
     void basis_matrix_3d()
     {
         double x1 = vertex_coordinates[0];
