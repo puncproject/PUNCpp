@@ -41,114 +41,14 @@
 #include "../ufl/ErrorNormVec2D.h"
 #include "../ufl/ErrorNormVec3D.h"
 #include "../ufl/Surface.h"
-#include "../ufl/Volume.h"
 
 namespace punc
 {
 
-std::shared_ptr<const df::Mesh> load_mesh(std::string fname)
-{
-    auto mesh = std::make_shared<const df::Mesh>(fname + ".xml");
-    return mesh;
-}
-
-df::MeshFunction<std::size_t> load_boundaries(std::shared_ptr<const df::Mesh> mesh, std::string fname)
-{
-    df::MeshFunction<std::size_t> boundaries(mesh, fname + "_facet_region.xml");
-
-    return boundaries;
-}
-
-std::shared_ptr<const df::Mesh> load_h5_mesh(std::string fname)
-{
-    df::Mesh mesh(MPI_COMM_WORLD);
-    df::HDF5File hdf(MPI_COMM_WORLD, fname + ".h5", "r");
-    hdf.read(mesh, "/mesh", false);
-    return std::make_shared<const df::Mesh>(mesh);
-}
-
-df::MeshFunction<std::size_t> load_h5_boundaries(std::shared_ptr<const df::Mesh> &mesh, std::string fname)
-{
-    auto comm = mesh->mpi_comm();
-    df::HDF5File hdf(comm, fname + ".h5", "r");
-    df::MeshFunction<std::size_t> boundaries(mesh);
-    hdf.read(boundaries, "/boundaries");
-    return boundaries;
-}
-
-std::vector<std::size_t> get_mesh_ids(df::MeshFunction<std::size_t> &boundaries)
-{
-    auto comm = boundaries.mesh()->mpi_comm();
-    auto values = boundaries.values();
-    auto length = boundaries.size();
-    std::vector<std::size_t> tags(length);
-
-    for (std::size_t i = 0; i < length; ++i)
-    {
-        tags[i] = values[i];
-    }
-    std::sort(tags.begin(), tags.end());
-    tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
-    if(df::MPI::size(comm)==1)
-    {
-        return tags;
-    }else{
-        std::vector<std::vector<std::size_t>> all_ids;
-        df::MPI::all_gather(comm, tags, all_ids);
-        std::vector<std::size_t> ids;
-        for (const auto &id : all_ids)
-        {
-            ids.insert(ids.end(), id.begin(), id.end());
-        }
-        std::sort(ids.begin(), ids.end());
-        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
-        return ids;
-    }
-}
-
-std::vector<double> get_mesh_size(std::shared_ptr<const df::Mesh> &mesh)
-{
-    auto dim = mesh->geometry().dim();
-    auto count = mesh->num_vertices();
-
-    std::vector<double> Ld(dim);
-    double X, max;
-    for (std::size_t i = 0; i < dim; ++i)
-    {
-        max = 0.0;
-        for (std::size_t j = 0; j < count; ++j)
-        {
-            X = mesh->geometry().point(j)[i];
-            if (X >= max)
-            {
-                max = X;
-            }
-        }
-        Ld[i] = max;
-    }
-    return Ld;
-}
-
-double volume(std::shared_ptr<const df::Mesh> &mesh)
-{
-    auto dim = mesh->geometry().dim();
-    auto one = std::make_shared<df::Constant>(1.0);
-    std::shared_ptr<df::Form> volume_form;
-    if (dim == 1)
-    {
-        volume_form = std::make_shared<Volume::Form_0>(mesh, one);
-    }
-    else if (dim == 2)
-    {
-        volume_form = std::make_shared<Volume::Form_1>(mesh, one);
-    }
-    else if (dim == 3)
-    {
-        volume_form = std::make_shared<Volume::Form_2>(mesh, one);
-    }
-    return df::assemble(*volume_form);
-}
-
+// This function should probably belong to object.cpp.
+// I don't think it's currently in use, but one could change the signature to:
+// double surface_area(const Mesh &mesh, std::size_t bnd_id)
+// The bnd's id is then temporarily (or in a copy) changed to the id in the UFL
 double surface_area(std::shared_ptr<const df::Mesh> &mesh,
                     df::MeshFunction<std::size_t> &bnd)
 {

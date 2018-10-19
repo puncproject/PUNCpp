@@ -18,6 +18,7 @@
 #ifndef POPULATION_H
 #define POPULATION_H
 
+#include "mesh.h"
 #include "poisson.h"
 #include "distributions.h"
 #include <fstream>
@@ -129,10 +130,10 @@ class CreateSpecies
 
     /**
      * @brief Constructor
-     * @param[in]  df::Mesh  
-     * @param   X - characteristic length 
+     * @param       mesh    Mesh  
+     * @param       X       Characteristic length 
      */
-    CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X = 1.0);
+    CreateSpecies(const Mesh &mesh, double X = 1.0);
 
     /**
      * @brief Creates species without normalization
@@ -355,8 +356,7 @@ class Population
     std::size_t num_cells;                  ///< Number of cells in the domain
     std::vector<Cell<len>> cells;           ///< All df::Cells in the domain
 
-    Population(std::shared_ptr<const df::Mesh> &mesh,
-               const df::MeshFunction<std::size_t> &bnd);
+    Population(const Mesh &mesh);
     void init_localizer(const df::MeshFunction<std::size_t> &bnd);
     void add_particles(const std::vector<double> &xs,
                        const std::vector<double> &vs,
@@ -402,12 +402,11 @@ class Population
 };
 
 template <std::size_t len>
-Population<len>::Population(std::shared_ptr<const df::Mesh> &mesh,
-                            const df::MeshFunction<std::size_t> &bnd)
-    : mesh(mesh), g_dim(mesh->geometry().dim()), t_dim(mesh->topology().dim()),
-      num_cells(mesh->num_cells())
+Population<len>::Population(const Mesh &mesh_)
+    : mesh(mesh_.mesh), g_dim(mesh_.mesh->geometry().dim()),
+      t_dim(mesh_.mesh->topology().dim()), num_cells(mesh_.mesh->num_cells())
 {
-    mesh->init(0, t_dim);
+
     for (df::MeshEntityIterator e(*(mesh), t_dim); !e.end(); ++e)
     {
         std::vector<std::size_t> neighbors;
@@ -433,13 +432,12 @@ Population<len>::Population(std::shared_ptr<const df::Mesh> &mesh,
         cells.emplace_back(cell);
     }
 
-    init_localizer(bnd);
+    init_localizer(mesh_.bnd);
 }
 
 template <std::size_t len>
 void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
 {
-    mesh->init(t_dim - 1, t_dim);
     for (auto &cell : cells)
     {
         std::vector<signed long int> facet_adjacents;

@@ -27,5 +27,6 @@
 #include "punc/distributor.h"
 #include "punc/pusher.h"
 #include "punc/distributions.h"
+#include "punc/mesh.h"
 
 #endif
