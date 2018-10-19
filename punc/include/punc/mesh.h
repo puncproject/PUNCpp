@@ -31,13 +31,18 @@ public:
     using string = std::string;
     using size_t = std::size_t;
 
-    Mesh(const string &fname);
     std::shared_ptr<const df::Mesh> mesh;
     df::MeshFunction<size_t> bnd;
     size_t dim;
 
+    Mesh(const string &fname);
+    std::vector<double> domain_size() const;
+    double volume() const;
+    double surface_area() const;
+
 private:
     void load_file(string fname);
+    std::vector<size_t> get_mesh_ids() const;
 };
 
 } // namespace punc
