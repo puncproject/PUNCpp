@@ -189,39 +189,20 @@ int run(
     ifile_hist.close();
     ifile_pop.close();
 
-    ofstream file_hist;
+    //
+    // HISTORY AND SATE FILES
+    //
+    History hist(fname_hist, int_bc, continue_simulation);
+    State state(fname_state);
 
     if(continue_simulation){
         cout << "Continuing previous simulation" << endl;
-
-        string line;
-        std::getline(ifile_state, line);
-
-        char *s = (char *)line.c_str();
-        n                           = strtol(s, &s, 10);
-        t                           = strtod(s, &s);
-        int_bc[0].charge            = strtod(s, &s);
-        int_bc[0].collected_current = strtod(s, &s);
-
+        state.load(n, t, int_bc);
         pop.load_file(fname_pop, binary);
-        file_hist.open(fname_hist, ofstream::out | ofstream::app);
-
     } else {
         cout << "Starting new simulation" << endl;
-
         load_particles(pop, species);
-        file_hist.open(fname_hist, ofstream::out);
-
-        // Preamble for metaplot
-        file_hist << "#:xaxis\tt\n";
-        file_hist << "#:name\tn\tt\tne\tni\tKE\tPE\tV\tI\tQ\n";
-        file_hist << "#:long\ttimestep\ttime\t\"electron density\"\t";
-        file_hist << "\"ion density\"\t\"kinetic energy\"\t";
-        file_hist << "\"potential energy\"\tvoltage\tcurrent\tcharge\n";
-        file_hist << "#:units\t1\ts\tm**(-3)\tm**(-3)\tJ\tJ\tV\tA\tC\n";
     }
-
-    ifile_state.close();
 
     //
     // CREATE HISTORY VARIABLES
@@ -231,9 +212,6 @@ int run(
     double num_e            = pop.num_of_negatives();
     double num_i            = pop.num_of_positives();
     double num_tot          = pop.num_of_particles();
-    double potential        = 0;
-    double current_measured = 0;
-    double old_charge       = 0;
 
     cout << "imposed_current: " << imposed_current <<'\n';
     cout << "imposed_voltage: " << imposed_voltage << '\n';
@@ -273,10 +251,12 @@ int run(
         auto phi = poisson.solve(rho, int_bc, circuit, V);
         timer.toc();
 
-
-        for(auto& o: int_bc) o.update_charge(phi);
-
-        potential = int_bc[0].update_potential(phi);
+        // UPDATE OBJECT CHARGE AND POTENTIAL
+        for(auto& o: int_bc)
+        {
+            o.update_charge(phi);
+            o.update_potential(phi);
+        } 
         
         // ELECTRIC FIELD
         timer.tic("efield");
@@ -301,14 +281,9 @@ int run(
         num_i     = pop.num_of_positives();
         num_tot   = pop.num_of_particles();
         timer.toc();
-        /* cout << "ions: "<<num_i; */
-        /* cout << "  electrons: " << num_e; */
-        /* cout << "  total: " << num_tot << '\n'; */
 
         // PUSH PARTICLES AND CALCULATE THE KINETIC ENERGY
         // Advancing velocities to n+0.5
-        old_charge = int_bc[0].charge;
-
         timer.tic("accelerator");
         if (fabs(B_norm)<tol)
         {
@@ -322,15 +297,7 @@ int run(
         // WRITE HISTORY
         // Everything at n, except currents which are at n-0.5.
         timer.tic("io");
-        file_hist << n << "\t";
-        file_hist << t << "\t";
-        file_hist << num_e << "\t";
-        file_hist << num_i << "\t";
-        file_hist << KE << "\t";
-        file_hist << PE << "\t";
-        file_hist << potential << "\t";
-        file_hist << current_measured << "\t";
-        file_hist << old_charge*constants.e << endl;
+        hist.save(n, t, num_e, num_i, KE, PE, int_bc);
         timer.toc();
 
         // MOVE PARTICLES
@@ -346,8 +313,11 @@ int run(
         pop.update(int_bc);
         timer.toc();
 
-        current_measured = ((int_bc[0].charge - old_charge) / dt);
-        int_bc[0].collected_current = current_measured;
+        // CALCULATE COLLECTED CURRENT BY EACH OBJECT
+        for (auto &o : int_bc)
+        {
+            o.update_current(dt);
+        }
 
         // INJECT PARTICLES
         timer.tic("injector");
@@ -358,7 +328,7 @@ int run(
         if(exit_immediately || n==steps){
             
             df::File ofile("phi.pvd");
-            ofile<<phi;
+            ofile << phi;
 
             density_cg1(V, pop, ne, ni, dv_inv);
             df::File ofile1("ne.pvd");
@@ -367,14 +337,10 @@ int run(
             df::File ofile2("ni.pvd");
             ofile2 << ni;
 
+            // SAVE POPULATION
             pop.save_file(fname_pop, binary);
-
-            ofstream state_file;
-            state_file.open(fname_state, ofstream::out);
-            state_file << n+1 << "\t" << t << "\t";
-            state_file << int_bc[0].charge << "\t";
-            state_file << int_bc[0].collected_current << endl;
-            state_file.close();
+            // SAVE STATE
+            state.save(n, t, int_bc);
 
             break;
         }
@@ -386,9 +352,7 @@ int run(
     }
     if(override_status_print) cout << endl;
 
-    file_hist.close();
-
-    // Prints a summary of tasks
+    // Print a summary of tasks
     timer.summary();
     cout << "PUNC++ finished successfully!" << endl;
     return 0;

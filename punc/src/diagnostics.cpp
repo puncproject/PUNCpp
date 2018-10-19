@@ -94,8 +94,8 @@ void Timer::summary()
     std::cout << "-----------------------------------------------------------" << '\n';
     for (std::size_t i = 0; i < times.size(); ++i)
     {
-        std::cout << tasks[i] << std::setw(blanks_tasks[i]);
-        std::cout << times_formatted[i] << std::setw(blanks_times[i]);
+        std::cout << tasks[i] << std::setw(blanks_tasks[i]) <<" ";
+        std::cout << times_formatted[i] << std::setw(blanks_times[i]) <<" ";
         std::cout << std::setprecision(4) << 100 * times[i] / total_time << '\n';
     }
 

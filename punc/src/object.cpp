@@ -510,17 +510,21 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
 }
 
-double ObjectBC::update_charge(df::Function &phi)
+void ObjectBC::update_charge(df::Function &phi)
 {
     charge_form->set_coefficient("w1", std::make_shared<df::Function>(phi));
     charge = df::assemble(*charge_form);
-    return charge;
+    old_charge = charge;
 }
 
-double ObjectBC::update_potential(df::Function &phi)
+void ObjectBC::update_potential(df::Function &phi)
 {
     potential = get_boundary_value(phi);
-    return potential;
+}
+
+void ObjectBC::update_current(double dt)
+{
+    current = (charge - old_charge) / dt;
 }
 
 Circuit::Circuit(const df::FunctionSpace &V,
