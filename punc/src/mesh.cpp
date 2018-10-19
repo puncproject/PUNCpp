@@ -22,23 +22,26 @@
 namespace punc
 {
 
-Mesh::Mesh(std::string fname){
+Mesh::Mesh(const string &fname){
     
-    // Splits fname in name plus extension. I don't like adding big libraries
-    // for small tasks, but Boost is to my knowledge the only robust way to
-    // deal with file paths in C++.
+    load_file(fname);
+    dim = mesh->geometry().dim();
+}
+
+void Mesh::load_file(string fname){
+
+    // Splits fname in (fname + fext)
     boost::filesystem::path path(fname);
     boost::filesystem::path stem(path.parent_path());
     stem /= path.stem();
     fname = stem.string();
-
-    std::string fext = path.extension().string();
+    string fext = path.extension().string();
     if(fext=="") fext = ".xml";
 
     if(fext==".xml"){
 
         mesh = std::make_shared<const df::Mesh>(fname+fext);
-        bnd  = df::MeshFunction<std::size_t>(mesh, fname+"_facet_region"+fext);
+        bnd  = df::MeshFunction<size_t>(mesh, fname+"_facet_region"+fext);
 
     } else if(fext==".h5"){
 
@@ -49,7 +52,7 @@ Mesh::Mesh(std::string fname){
         hdf.read(temp, "/mesh", false);
         mesh = std::make_shared<const df::Mesh>(temp);
 
-        bnd = df::MeshFunction<std::size_t>(mesh);
+        bnd = df::MeshFunction<size_t>(mesh);
         hdf.read(bnd, "/boundaries");
 
     } else {
@@ -57,4 +60,4 @@ Mesh::Mesh(std::string fname){
     }
 }
 
-}
+} // namespace punc

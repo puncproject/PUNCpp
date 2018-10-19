@@ -22,17 +22,22 @@
 #include <dolfin.h>
 #include <string>
 
-namespace punc
-{
+namespace punc {
 
 namespace df = dolfin;
 
-class Mesh
-{
+class Mesh {
 public:
-    Mesh(std::string fname);
+    using string = std::string;
+    using size_t = std::size_t;
+
+    Mesh(const string &fname);
     std::shared_ptr<const df::Mesh> mesh;
-    df::MeshFunction<std::size_t> bnd;
+    df::MeshFunction<size_t> bnd;
+    size_t dim;
+
+private:
+    void load_file(string fname);
 };
 
 } // namespace punc

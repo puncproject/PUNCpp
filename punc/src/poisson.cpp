@@ -46,37 +46,6 @@
 namespace punc
 {
 
-
-std::shared_ptr<const df::Mesh> load_mesh(std::string fname)
-{
-    auto mesh = std::make_shared<const df::Mesh>(fname + ".xml");
-    return mesh;
-}
-
-df::MeshFunction<std::size_t> load_boundaries(std::shared_ptr<const df::Mesh> mesh, std::string fname)
-{
-    df::MeshFunction<std::size_t> boundaries(mesh, fname + "_facet_region.xml");
-
-    return boundaries;
-}
-
-std::shared_ptr<const df::Mesh> load_h5_mesh(std::string fname)
-{
-    df::Mesh mesh(MPI_COMM_WORLD);
-    df::HDF5File hdf(MPI_COMM_WORLD, fname + ".h5", "r");
-    hdf.read(mesh, "/mesh", false);
-    return std::make_shared<const df::Mesh>(mesh);
-}
-
-df::MeshFunction<std::size_t> load_h5_boundaries(std::shared_ptr<const df::Mesh> &mesh, std::string fname)
-{
-    auto comm = mesh->mpi_comm();
-    df::HDF5File hdf(comm, fname + ".h5", "r");
-    df::MeshFunction<std::size_t> boundaries(mesh);
-    hdf.read(boundaries, "/boundaries");
-    return boundaries;
-}
-
 std::vector<std::size_t> get_mesh_ids(df::MeshFunction<std::size_t> &boundaries)
 {
     auto comm = boundaries.mesh()->mpi_comm();

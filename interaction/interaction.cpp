@@ -65,8 +65,6 @@ int run(
 
     auto facet_vec = exterior_boundaries(mesh.bnd, ext_bnd_id);
 
-    vector<double> Ld = get_mesh_size(mesh.mesh);
-
     vector<double> B(dim, 0); // Magnetic field aligned with x-axis
     B[0] = Bx;
 
@@ -74,6 +72,7 @@ int run(
 
     // Relaxation time:
     // double tau = 100*dt;
+
     //
     // CREATE SPECIES
     //
@@ -151,7 +150,6 @@ int run(
     ObjectBC object(V, mesh.bnd, tags[2], eps0);
     vector<ObjectBC> int_bc = {object};
 
-    vector<size_t> bnd_id{tags[2]};
     Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
 
     //
@@ -538,11 +536,11 @@ int main(int argc, char **argv){
     // CREATE MESH
     //
     Mesh mesh(fname_mesh);
-    size_t dim = mesh.mesh->geometry().dim();
 
-    if(dim==2){
+    // TBD: dim==1?
+    if(mesh.dim==2){
         return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
-    } else if(dim==3){
+    } else if(mesh.dim==3){
         return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
     } else {
         cout << "Only 2D and 3D supported" << endl;
