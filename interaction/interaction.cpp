@@ -37,39 +37,42 @@ void signal_handler(int signum){
 // Horrible, horrible list of arguments. Hopefully only temporary.
 template <size_t dim>
 int run(
-        Mesh &mesh,
-        size_t steps,
-        double dt,
-        double Bx,
-        bool impose_current,
-        double imposed_current,
-        double imposed_voltage,
-        vector<int> npc,
-        vector<int> num,
-        vector<double> density,
-        vector<double> thermal,
-        vector<double> vx,
-        vector<double> charge,
-        vector<double> mass,
-        vector<double> kappa,
-        vector<double> alpha,
-        vector<string> distribution,
-        bool binary
-){
+    Mesh &mesh,
+    size_t steps,
+    double dt,
+    double Bx,
+    bool impose_current,
+    double imposed_current,
+    double imposed_voltage,
+    vector<int> npc,
+    vector<int> num,
+    vector<double> density,
+    vector<double> thermal,
+    vector<double> vx,
+    vector<double> charge,
+    vector<double> mass,
+    vector<double> kappa,
+    vector<double> alpha,
+    vector<string> distribution,
+    bool binary,
+    size_t n_fields,
+    size_t n_state,
+    bool densities_ema,
+    double densities_tau,
+    bool fields_end,
+    bool state_end,
+    bool PE_save)
+{
 
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
     // To be moved into Mesh
-    auto facet_vec = exterior_boundaries(mesh.bnd, mesh.ext_bnd_id);
+    // auto facet_vec = exterior_boundaries(mesh.bnd, mesh.ext_bnd_id);
 
     vector<double> B(dim, 0); // Magnetic field aligned with x-axis
     B[0] = Bx;
-
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
-
-    // Relaxation time:
-    // double tau = 100*dt;
 
     //
     // CREATE SPECIES
@@ -139,6 +142,9 @@ int run(
     // Electron and ion number densities
     df::Function ne(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni(std::make_shared<const df::FunctionSpace>(V));
+    // Exponential moving average of number densities
+    df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
+    df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
 
     auto u0 = std::make_shared<df::Constant>(0.0);
 
@@ -163,7 +169,7 @@ int run(
     // CREATE FLUX
     //
     cout << "Create flux" << endl;
-    create_flux(species, facet_vec);
+    create_flux(species, mesh.exterior_facets);
 
     //
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
@@ -192,6 +198,7 @@ int run(
     //
     History hist(fname_hist, int_bc, continue_simulation);
     State state(fname_state);
+    FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
     if(continue_simulation){
         cout << "Continuing previous simulation" << endl;
@@ -270,7 +277,10 @@ int run(
 
         // POTENTIAL ENERGY
         timer.tic("PE");
-        PE = particle_potential_energy_cg1(pop, phi);
+        if (PE_save)
+        {
+            PE = particle_potential_energy_cg1(pop, phi);
+        }
         timer.toc();
 
         // COUNT PARTICLES
@@ -319,29 +329,53 @@ int run(
 
         // INJECT PARTICLES
         timer.tic("injector");
-        inject_particles(pop, species, facet_vec, dt);
+        inject_particles(pop, species, mesh.exterior_facets, dt);
         timer.toc();
 
-        // SAVE STATE AND BREAK LOOP
-        if(exit_immediately || n==steps){
-            
-            df::File ofile("phi.pvd");
-            ofile << phi;
-
+        // AVERAGING
+        timer.tic("io");
+        if (densities_ema)
+        {
             density_cg1(V, pop, ne, ni, dv_inv);
-            df::File ofile1("ne.pvd");
-            ofile1 << ne;
-            
-            df::File ofile2("ni.pvd");
-            ofile2 << ni;
-
-            // SAVE POPULATION
-            pop.save_file(fname_pop, binary);
-            // SAVE STATE
-            state.save(n, t, int_bc);
-
+            ema(ne, ne_ema, dt, densities_tau);
+            ema(ni, ni_ema, dt, densities_tau);
+        }
+        // SAVE FIELDS
+        if(n_fields !=0 && n%n_fields == 0)
+        {
+            if (densities_ema)
+            {
+                fields.save(phi, E, rho, ne_ema, ni_ema, t);
+            }else{
+                density_cg1(V, pop, ne, ni, dv_inv);
+                fields.save(phi, E, rho, ne, ni, t);
+            }
+        } 
+        // SAVE STATE AND BREAK LOOP
+        if(exit_immediately || n==steps)
+        {
+            // SAVE FIELDS
+            if (fields_end)
+            {
+                if (densities_ema)
+                {
+                    fields.save(phi, E, rho, ne_ema, ni_ema, t);
+                }
+                else
+                {
+                    density_cg1(V, pop, ne, ni, dv_inv);
+                    fields.save(phi, E, rho, ne, ni, t);
+                }
+            }
+            // SAVE POPULATION AND STATE
+            if (state_end)
+            {
+                pop.save_file(fname_pop, binary);
+                state.save(n, t, int_bc);
+            }
             break;
         }
+        timer.toc();
 
         if (exit_immediately)
         {
@@ -373,6 +407,15 @@ int main(int argc, char **argv){
     double dtwp;
     double Bx = 0;
     bool binary = false;
+
+    // diagnostics input
+    size_t n_fields = 0;
+    size_t n_state = 0;
+    bool densities_ema = false;
+    double densities_tau = 0.0;
+    bool fields_end = false;
+    bool state_end = true;
+    bool PE_save = false;
 
     // Object input
     bool impose_current = true; 
@@ -417,6 +460,14 @@ int main(int argc, char **argv){
         ("species.npc", po::value(&npc), "number of particles per cell")
         ("species.num", po::value(&num), "number of particles in total (overrides npc)")
         ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
+
+        ("diagnostics.n_fields", po::value(&n_fields), "write fields to file every nth time-step")
+        ("diagnostics.n_state", po::value(&n_state), "write state to file every nth time-step")
+        ("diagnostics.densities_ema", po::value(&densities_ema), "apply exponential moving average on densities")
+        ("diagnostics.densities_tau", po::value(&densities_tau), "relaxation time")
+        ("diagnostics.fields_end", po::value(&fields_end), "write to file every nth time-step")
+        ("diagnostics.state_end", po::value(&state_end), "write to file every nth time-step")
+        ("diagnostics.PE_save", po::value(&PE_save), "calculate and save potential energy")
     ;
 
     // Setting config file as positional argument
@@ -504,9 +555,9 @@ int main(int argc, char **argv){
 
     // TBD: dim==1?
     if(mesh.dim==2){
-        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
+        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save);
     } else if(mesh.dim==3){
-        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary);
+        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;

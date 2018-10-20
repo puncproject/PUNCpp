@@ -19,7 +19,8 @@
  * @file		diagnostics.h
  * @brief		Kinetic and potential energy calculations
  *
- * Functions for calculating the kinetic and potential energies.
+ * Functions for calculating the kinetic and potential energies, timing and writing
+ * plasma fields and state to file. 
  */
 
 #ifndef DIAGNOSTICS_H
@@ -33,6 +34,23 @@ namespace punc
 {
 
 namespace df = dolfin;
+
+class FieldWriter
+{
+public:
+    df::File ofile_phi;
+    df::File ofile_E;
+    df::File ofile_rho;
+    df::File ofile_ne;
+    df::File ofile_ni;
+
+    FieldWriter(const std::string phi_fname, const std::string E_fname,
+                const std::string rho_fname, const std::string ne_fname,
+                const std::string ni_fname);
+    void save(df::Function &phi, df::Function &E, df::Function &rho,
+              df::Function &ne, df::Function &ni, double t);
+
+};
 
 /**
  * @brief Saves and loads the state of simulation and objects
@@ -153,15 +171,6 @@ class Timer
        * @return time in the format day hour:min:sec
        */
     std::string formatter(double time_range);
-
-    /**
-       * Given a vector of strings, finds the number of blank spaces on the right
-       * side of each string so that all the strings in the vector appear to have
-       * the same length.
-       * @param   v    vector of strings 
-       * @return  vector containing number of blank spaces
-       */
-    std::vector<int> aligner(std::vector<std::string> v);
 
   private:
     std::vector<std::string> tasks;
@@ -499,7 +508,6 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
  * 
  * where \f$\omega = 1-\exp{(-dt/\tau)}\f$.
  */
-template <typename PopulationType>
 void ema(const df::Function &f, df::Function &g, double dt, double tau)
 {
     double w = 1.0 - exp(-dt / tau);

@@ -32,6 +32,12 @@ namespace punc
 
 namespace df = dolfin;
 
+/**
+ * @brief Generic function for calculating the cross product between two vectors
+ * @param[in]   v1     A vector
+ * @param[in]   v2     A vector
+ * @return             The cross product
+ */
 static inline std::vector<double> cross(const std::vector<double> &v1,
                                         const std::vector<double> &v2);
 
@@ -123,6 +129,28 @@ double accel(PopulationType &pop, const df::Function &E, double dt)
     return KE;
 }
 
+/**
+ * @brief Accelerates particles in absence of a magnetic field and in CG1 function space
+ * @param[in,out]   pop     Population
+ * @param           E       Electric field in CG1
+ * @param           dt      Time-step
+ * @return                  Kinetic energy at mid-step
+ * @see accel()
+ *
+ * Advances particle velocities according to
+ * \f[
+ *      \frac{\mathbf{v}^\mathrm{new}-\mathbf{v}^\mathrm{old}}{\Delta t}
+ *      \approx \dot{\mathbf{v}} = \frac{q}{m}\mathbf{E}
+ * \f]
+ *
+ * If the velocities are time-staggered about the electric field (i.e. particle
+ * positions), this is a centered difference. Otherwise, it is a forward
+ * difference.
+ * 
+ * To initialize from time-step \f$ n=0 \f$ a time-staggered grid where
+ * velocities are at half-integer time-steps, the particles can be accelerated
+ * only half a time-step the first time.
+ */
 template <typename PopulationType>
 double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
 {
@@ -183,7 +211,7 @@ double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
  * @param           B       Magnetic flux density (std::vector)
  * @param           dt      Time-step
  * @return                  Kinetic energy at mid-step
- * @see accel()
+ * @see accel_cg1() 
  *
  * Advances particle velocities according to the Boris scheme:
  * \f[
