@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		object.h
+ * @brief		Objects and circuitry
+ *
+ * Functions and classes to handle objects and circuitry. 
+ */
+
 #ifndef OBJECT_H
 #define OBJECT_H
 
@@ -181,6 +188,6 @@ public:
 };
 
 
-}
+} // namespace punc
 
-#endif
+#endif // OBJECT_H

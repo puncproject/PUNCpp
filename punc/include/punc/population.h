@@ -15,6 +15,14 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		population.h
+ * @brief		The plasma species and population
+ *
+ * 
+ * Contains the functionality to handle the plasma particles, species and population
+ */
+
 #ifndef POPULATION_H
 #define POPULATION_H
 

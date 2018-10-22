@@ -33,6 +33,17 @@ namespace punc {
 namespace df = dolfin;
 
 /**
+ * @brief Exterior facet
+ */
+struct ExteriorFacet
+{
+    double area;                  ///< Area of the facet
+    std::vector<double> vertices; ///< Vertices of the facet
+    std::vector<double> normal;   ///< Normal vector of the facet
+    std::vector<double> basis;    ///< Basis matrix for transforming from physical space to a space defined by the normal vector of the facet
+};
+
+/**
  * @brief The PUNC simulation mesh
  */
 class Mesh {
@@ -44,7 +55,8 @@ public:
     size_t dim;                           ///< Number of geometric dimensions
     size_t ext_bnd_id;                    ///< Id of the exterior boundary
     size_t num_objects;                   ///< Number of objects in the domain
-
+    std::vector<ExteriorFacet> exterior_facets; ///< Vector containing all the exterior facets
+    
     /**
      * @brief Boundary markers
      *
@@ -76,6 +88,9 @@ public:
 private:
     //! Load file into Mesh. Used by Mesh().
     void load_file(string fname);
+
+    //! Create a vector containing all the exterior boundary facets
+    void exterior_boundaries();
 
     //! Return ids in bnd. Used by Mesh().
     std::vector<size_t> get_bnd_ids() const;

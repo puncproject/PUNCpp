@@ -28,6 +28,26 @@
 namespace punc
 {
 
+FieldWriter::FieldWriter(const std::string &phi_fname, const std::string &E_fname,
+                         const std::string &rho_fname, const std::string &ne_fname,
+                         const std::string &ni_fname) : ofile_phi(phi_fname),
+                         ofile_E(E_fname), ofile_rho(rho_fname), 
+                         ofile_ne(ne_fname), ofile_ni(ni_fname)
+{
+    // Do nothing
+}
+
+void FieldWriter::save(const df::Function &phi, const df::Function &E, 
+                       const df::Function &rho, const df::Function &ne, 
+                       const df::Function &ni, double t)
+{
+    ofile_phi.write(phi, t);
+    ofile_E.write(E, t);
+    ofile_rho.write(rho, t);
+    ofile_ne.write(ne, t);
+    ofile_ni.write(ni, t);
+}
+
 State::State(std::string fname) : fname(fname)
 {
     // Do nothing
@@ -63,7 +83,8 @@ void State::save(std::size_t n, double t, std::vector<ObjectBC> &objects)
     ofile.close();
 }
 
-History::History(std::string fname, std::vector<ObjectBC> &objects, bool continue_simulation)
+History::History(const std::string &fname, std::vector<ObjectBC> &objects, 
+                 std::size_t dim, bool continue_simulation)
 {
     if (continue_simulation)
     {
@@ -77,9 +98,9 @@ History::History(std::string fname, std::vector<ObjectBC> &objects, bool continu
         ofile << "#:name\tn\tt\tne\tni\tKE\tPE";
         for (std::size_t i = 0; i < objects.size(); ++i)
         {
-            ofile << "\tV" << std::to_string(i);
-            ofile << "\tI" << std::to_string(i);
-            ofile << "\tQ" << std::to_string(i);
+            ofile << "\tV[" << i <<"]";
+            ofile << "\tI[" << i << "]";
+            ofile << "\tQ[" << i << "]";
         }
         ofile << "\n";
 
@@ -99,7 +120,16 @@ History::History(std::string fname, std::vector<ObjectBC> &objects, bool continu
         for (std::size_t i = 0; i < objects.size(); ++i)
         {
             ofile << "\tV";
-            ofile << "\tA";
+            if (dim == 1)
+            {
+                ofile << "\tA";
+            }else if (dim == 2)
+            {
+                ofile << "\tA/m";
+            }else if (dim == 3)
+            {
+                ofile << "\tA/m**2";
+            }
             ofile << "\tC";
         }
         ofile << "\n";
@@ -121,7 +151,7 @@ void History::save(std::size_t n, double t, double num_e, double num_i, double K
         ofile << o.current << "\t";
         ofile << o.charge;
     }
-    ofile << "\n";
+    ofile << std::endl;
 }
 
 Timer::Timer(std::vector<std::string> tasks) 
@@ -175,31 +205,40 @@ void Timer::summary()
 {
     auto total_time = elapsed();
 
-    auto blanks_tasks = aligner(tasks);
+    std::size_t len = 0;
+    for (std::size_t i = 0; i < tasks.size(); ++i)
+    {
+        len = tasks[i].length() > len ? tasks[i].length() : len;
+    }
+
     std::vector<std::string> times_formatted(tasks.size());
     for (std::size_t i = 0; i < tasks.size(); ++i)
     {
         times_formatted[i] = formatter(times[i]);
     }
-    auto blanks_times = aligner(times_formatted);
 
-    std::cout << "-----------------------------------------------------------" << '\n';
-    std::cout << "                      Summary of tasks                     " << '\n';
-    std::cout << "-----------------------------------------------------------" << '\n';
-    std::cout << " Task                        Time             Percentage   " << '\n';
-    std::cout << "-----------------------------------------------------------" << '\n';
+    std::cout << std::setw(len + 8 + 24 + 5 + 5) << std::setfill('-') << "-" << '\n';
+    std::cout << std::setfill(' ') << std::right << std::setw(len + 16) 
+              << "Summary of tasks" << '\n';
+    std::cout << std::setw(len + 8 + 24 + 5 + 5) << std::setfill('-') << "-" << '\n';
+    std::cout << std::setfill(' ') << std::left << std::setw(len + 13) << "Task"
+              << std::left << std::setw(16) << "Time"
+              << std::left << std::setw(13) << "Percentage" << '\n';
+    std::cout << std::setw(len + 8 + 24 + 5 + 5) << std::setfill('-') << "-" << '\n';
+
     for (std::size_t i = 0; i < times.size(); ++i)
     {
-        std::cout << tasks[i] << std::setw(blanks_tasks[i]) <<" ";
-        std::cout << times_formatted[i] << std::setw(blanks_times[i]) <<" ";
-        std::cout << std::setprecision(4) << 100 * times[i] / total_time << '\n';
+        std::cout <<  std::setfill(' ') 
+                  << std::left << std::setw(len + 8) << tasks[i];
+        std::cout << std::left << std::setw(24) << times_formatted[i];
+        std::cout << std::setw(5) << std::right << std::setfill(' ')
+                  << std::setprecision(2) << std::fixed
+                  << 100 * times[i] / total_time << '\n';
     }
-
-    std::cout << "-----------------------------------------------------------" << '\n';
-    std::cout << "            Total run time:    ";
-    std::cout << formatter(total_time);
-    std::cout << '\n';
-    std::cout << "-----------------------------------------------------------" << '\n';
+    std::cout << std::setw(len + 8 + 24 + 5 + 5) << std::setfill('-') << '\n';
+    std::cout << std::setfill(' ') << std::right << std::setw(len + 8) 
+              << "Total run time:" << formatter(total_time) << '\n';
+    std::cout << std::setw(len + 8 + 24 + 5 + 5) << std::setfill('-') << '\n';
 }
 
 std::string Timer::formatter(double time_range)
@@ -232,21 +271,6 @@ std::string Timer::formatter(double time_range)
         std::string output(oss.str());
         return output;
     }
-}
-
-std::vector<int> Timer::aligner(std::vector<std::string> v)
-{
-    std::size_t len = 0;
-    for (std::size_t i = 0; i < v.size(); ++i)
-    {
-        len = v[i].length() > len ? v[i].length() : len;
-    }
-    std::vector<int> blanks(v.size());
-    for (std::size_t i = 0; i < v.size(); ++i)
-    {
-        blanks[i] = len - v[i].length() + 8;
-    }
-    return blanks;
 }
 
 double mesh_potential_energy(df::Function &phi, df::Function &rho)

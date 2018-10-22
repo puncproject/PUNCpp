@@ -383,6 +383,15 @@ df::Function PoissonSolver::solve(const df::Function &rho,
     return phi;
 }
 
+double PoissonSolver::residual(const df::Function &phi)
+{
+    auto phi_vec = phi.vector();
+    df::Vector residual(*phi_vec);
+    A.mult(*phi_vec, residual);
+    residual.axpy(-1.0, b);
+    return residual.norm("l2");
+}
+
 double errornorm(const df::Function &phi, const df::Function &phi_e)
 {
     auto mesh = phi.function_space()->mesh();

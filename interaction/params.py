@@ -45,7 +45,7 @@ v = M*cs # Drift velocity
 
 # Probe, derived
 V0 = k*Te/np.abs(qe)
-I0 = qe*ne*R**2*np.sqrt(8*np.pi*k*Te/me)
+I0 = qe*ne*R**2*np.sqrt(8*np.pi*k*Te/me) 
 I = 2.945*I0
 V = 2*V0
 

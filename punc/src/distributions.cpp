@@ -364,13 +364,17 @@ double KappaCairns::operator()(const std::vector<double> &v, const std::vector<d
 double KappaCairns::max()
 {
     std::vector<double> v_max(_dim, 0.0);
+    double max;
     v_max = _vd;
-    v_max[0] += _vth * sqrt(((2.0 * k - _dim) / (k - 1.0)) +
-                            sqrt(alpha * alpha * (2 * k - _dim) * (2 * k - _dim) - 
-                                 alpha * (k - 1.0) * (k + 1.0)) /
-                                  (alpha * (k - 1.0)));
-    double max = this->operator()(v_max);
-    max = factor > max ? factor : max;
+    if (alpha >= (k - 1.) * (k + 1.) / ((2*k - _dim ) * (2*k - _dim )))
+    {
+        v_max[0] += _vth * sqrt(((2.0 * k - _dim) / (k - 1.0)) +
+                    sqrt(alpha * alpha * (2 * k - _dim) * (2 * k - _dim) -
+                    alpha * (k - 1.0) * (k + 1.0)) / (alpha * (k - 1.0)));
+        max = this->operator()(v_max);
+    }else{
+        max = factor;
+    }
     return max;
 }
 

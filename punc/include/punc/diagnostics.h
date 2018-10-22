@@ -19,7 +19,8 @@
  * @file		diagnostics.h
  * @brief		Kinetic and potential energy calculations
  *
- * Functions for calculating the kinetic and potential energies.
+ * Functions for calculating the kinetic and potential energies, timing and writing
+ * plasma fields and state to file. 
  */
 
 #ifndef DIAGNOSTICS_H
@@ -33,6 +34,42 @@ namespace punc
 {
 
 namespace df = dolfin;
+
+/**
+ * @brief Writes plasma fields to file
+ */
+class FieldWriter
+{
+public:
+    df::File ofile_phi;   ///< df::File for electric potential
+    df::File ofile_E;     ///< df::File for electric field
+    df::File ofile_rho;   ///< df::File for total charge density
+    df::File ofile_ne;    ///< df::File for volumetric number density
+    df::File ofile_ni;   ///< df::File for volumetric number density
+
+    /**
+       * @brief   Constructor 
+       * @param   phi_fname - file name for phi
+       * @param   E_fname   - file name for E
+       * @param   rho_fname - file name for rho
+       * @param   ne_fname  - file name for ne
+       * @param   ni_fname  - file name for ni
+       */
+    FieldWriter(const std::string &phi_fname, const std::string &E_fname,
+                const std::string &rho_fname, const std::string &ne_fname,
+                const std::string &ni_fname);
+    /**
+       * @brief   Writes to file 
+       * @param   phi - electric potential
+       * @param   E   - electric field
+       * @param   rho - total charge density
+       * @param   ne  - volumetric electron number density
+       * @param   ni  - volumetric ion number density
+       */
+    void save(const df::Function &phi, const df::Function &E,
+              const df::Function &rho, const df::Function &ne,
+              const df::Function &ni, double t);
+};
 
 /**
  * @brief Saves and loads the state of simulation and objects
@@ -75,9 +112,11 @@ public:
          * @brief   History constructor 
          * @param   fname - a string representing the name of the file
          * @param   objects - a vector of objects
-         * @continue_simulation  boolean - if false creates a preamble for history file
+         * @param   dim  - geometrical dimension
+         * @param   continue_simulation  boolean - if false creates a preamble for history file
          */
-    History(std::string fname, std::vector<ObjectBC> &objects, bool continue_simulation = false);
+    History(const std::string &fname, std::vector<ObjectBC> &objects, 
+            std::size_t dim, bool continue_simulation = false);
 
     /**
          * @brief   History destructor - closes the file 
@@ -153,15 +192,6 @@ class Timer
        * @return time in the format day hour:min:sec
        */
     std::string formatter(double time_range);
-
-    /**
-       * Given a vector of strings, finds the number of blank spaces on the right
-       * side of each string so that all the strings in the vector appear to have
-       * the same length.
-       * @param   v    vector of strings 
-       * @return  vector containing number of blank spaces
-       */
-    std::vector<int> aligner(std::vector<std::string> v);
 
   private:
     std::vector<std::string> tasks;
@@ -499,7 +529,6 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
  * 
  * where \f$\omega = 1-\exp{(-dt/\tau)}\f$.
  */
-template <typename PopulationType>
 void ema(const df::Function &f, df::Function &g, double dt, double tau)
 {
     double w = 1.0 - exp(-dt / tau);

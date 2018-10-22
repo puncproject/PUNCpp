@@ -24,6 +24,9 @@
 #include <dolfin/io/HDF5File.h>
 #include <dolfin/function/Constant.h>
 #include <dolfin/fem/assemble.h>
+#include <dolfin/mesh/SubsetIterator.h>
+#include <dolfin/mesh/Vertex.h>
+#include <dolfin/mesh/Cell.h>
 
 #include <string>
 #include <boost/filesystem.hpp>
@@ -50,6 +53,9 @@ Mesh::Mesh(const string &fname){
     for(size_t i=0; i<tags.size(); i++){
         relabel_mesh_function(bnd, tags[i], i);
     }
+
+    // Create exterior boundary facets 
+    exterior_boundaries();
 }
 
 void Mesh::load_file(string fname){
@@ -154,6 +160,78 @@ double Mesh::volume() const
         volume_form = std::make_shared<Volume::Form_2>(mesh, one);
     }
     return df::assemble(*volume_form);
+}
+
+void Mesh::exterior_boundaries()
+{
+    auto t_dim = mesh->topology().dim();
+    auto values = bnd.values();
+    auto length = bnd.size();
+    int num_facets = 0;
+    for (std::size_t i = 0; i < length; ++i)
+    {
+        if (ext_bnd_id == values[i])
+        {
+            num_facets += 1;
+        }
+    }
+
+    double area = 0.0;
+    std::vector<double> normal(dim);
+    std::vector<double> vertices(dim * dim);
+    std::vector<double> basis(dim * dim);
+    std::vector<double> vertex(dim);
+    double norm;
+    int j;
+    df::SubsetIterator facet_iter(bnd, ext_bnd_id);
+    for (; !facet_iter.end(); ++facet_iter)
+    {
+        df::Cell cell(*mesh, facet_iter->entities(t_dim)[0]);
+        auto cell_facet = cell.entities(t_dim - 1);
+        std::size_t num_facets = cell.num_entities(t_dim - 1);
+        for (std::size_t i = 0; i < num_facets; ++i)
+        {
+            if (cell_facet[i] == facet_iter->index())
+            {
+                area = cell.facet_area(i);
+                for (std::size_t j = 0; j < dim; ++j)
+                {
+                    normal[j] = -1 * cell.normal(i, j);
+                    basis[j * dim] = normal[j];
+                }
+            }
+        }
+        assert(area != 0.0 && "The facet area cannot be zero!");
+
+        j = 0;
+        for (df::VertexIterator v(*facet_iter); !v.end(); ++v)
+        {
+            for (std::size_t i = 0; i < dim; ++i)
+            {
+                vertices[j * dim + i] = v->x(i);
+            }
+            j += 1;
+        }
+        norm = 0.0;
+        for (std::size_t i = 0; i < dim; ++i)
+        {
+            vertex[i] = vertices[i] - vertices[dim + i];
+            norm += vertex[i] * vertex[i];
+        }
+        for (std::size_t i = 0; i < dim; ++i)
+        {
+            vertex[i] /= sqrt(norm);
+            basis[i * dim + 1] = vertex[i];
+        }
+
+        if (dim == 3)
+        {
+            basis[2] = normal[1] * vertex[2] - normal[2] * vertex[1];
+            basis[5] = normal[2] * vertex[0] - normal[0] * vertex[2];
+            basis[8] = normal[0] * vertex[1] - normal[1] * vertex[0];
+        }
+        exterior_facets.push_back(ExteriorFacet{area, vertices, normal, basis});
+    }
 }
 
 } // namespace punc
