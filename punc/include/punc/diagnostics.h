@@ -462,10 +462,8 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
 
-    std::vector<double> ne0(ne_vec->size());
-    std::vector<double> ni0(ni_vec->size());
-    ne_vec->get_local(ne0);
-    ni_vec->get_local(ni0);
+    std::vector<double> ne0(ne_vec->size(), 0.0);
+    std::vector<double> ni0(ni_vec->size(), 0.0);
 
     auto element = V.element();
     auto s_dim = element->space_dimension();
@@ -511,6 +509,8 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
     }
     ne.vector()->set_local(ne0);
     ni.vector()->set_local(ni0);
+    ne.vector()->apply("insert");
+    ni.vector()->apply("insert");
 }
 
 /**
