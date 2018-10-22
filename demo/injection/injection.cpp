@@ -3,6 +3,8 @@
 
 using namespace punc;
 
+const bool override_status_print = true;
+
 int main()
 {
     df::set_log_level(df::WARNING);
@@ -19,16 +21,9 @@ int main()
     }else if (dim==3){
         fname = "../../mesh/3D/nothing_in_cube";
     }
-
-    auto mesh = load_mesh(fname);
-
-    auto boundaries = load_boundaries(mesh, fname);
-    auto tags = get_mesh_ids(boundaries);
-    std::size_t ext_bnd_id = tags[1];
-
-    auto ext_bnd = exterior_boundaries(boundaries, ext_bnd_id);
-    std::cout<<"num_facets = "<<ext_bnd.size()<<'\n';
-    std::vector<double> Ld = get_mesh_size(mesh);
+    
+    Mesh mesh(fname);
+    std::vector<double> Ld = mesh.domain_size();
 
     PhysicalConstants constants;
     double e = constants.e;
@@ -45,11 +40,11 @@ int main()
     double vthe = debye * wpe;
     std::vector<double> vd(dim, 0.0);
 
-    UniformPosition pdf(mesh); // Position distribution
+    UniformPosition pdf(mesh.mesh); // Position distribution
     // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
     //Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
-    Cairns vdf(vthe, vd, 0.2); // Cairns velocity distribution
-    // KappaCairns vdf(vthe, vd, 4.0, 0.2); // Kappa-Cairns velocity distribution
+    // Cairns vdf(vthe, vd, 0.2); // Cairns velocity distribution
+    KappaCairns vdf(vthe, vd, 4.0, 0.2); // Kappa-Cairns velocity distribution
 
     std::size_t steps = 100;
     double dt = 0.05;
@@ -70,13 +65,15 @@ int main()
     }
 
     auto species = create_species.species;
+    std::cout << "Create flux"<<'\n';
+    create_flux(species, mesh.exterior_facets);
+    std::cout << "flux is created" << '\n';
 
-    create_flux(species, ext_bnd);
+    Population<dim> pop(mesh);
 
-    Population<dim> pop(mesh, boundaries);
-
+    std::cout << "load particles" << '\n';
     load_particles(pop, species);
-
+    std::cout << "particles are loaded" << '\n';
     std::string file_name1{"vels_pre.txt"};
     pop.save_file(file_name1, false);
 
@@ -116,7 +113,7 @@ int main()
         num_particles_outside[i-1] = tot_num0-tot_num1;
         
         timer.tic("injector");
-        inject_particles(pop, species, ext_bnd, dt);
+        inject_particles(pop, species, mesh.exterior_facets, dt);
         timer.toc();
 
         auto tot_num2 = pop.num_of_particles();
@@ -125,9 +122,10 @@ int main()
         num_i[i] = pop.num_of_positives();
         num_tot[i] = pop.num_of_particles();
 
-        std::cout<<"step: "<< i<< ", total number of particles: "<<num_tot[i]<<'\n';
+        timer.progress(i, steps, 0, override_status_print);
+        std::cout << ", total number of particles: "<<num_tot[i];
     }
-
+    std::cout << '\n';
     timer.summary();
 
     std::string file_name{"vels_post.txt"};

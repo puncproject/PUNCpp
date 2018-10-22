@@ -35,21 +35,40 @@ namespace punc
 
 namespace df = dolfin;
 
+/**
+ * @brief Writes plasma fields to file
+ */
 class FieldWriter
 {
 public:
-    df::File ofile_phi;
-    df::File ofile_E;
-    df::File ofile_rho;
-    df::File ofile_ne;
-    df::File ofile_ni;
+    df::File ofile_phi;   ///< df::File for electric potential
+    df::File ofile_E;     ///< df::File for electric field
+    df::File ofile_rho;   ///< df::File for total charge density
+    df::File ofile_ne;    ///< df::File for volumetric number density
+    df::File ofile_ni;   ///< df::File for volumetric number density
 
-    FieldWriter(const std::string phi_fname, const std::string E_fname,
-                const std::string rho_fname, const std::string ne_fname,
-                const std::string ni_fname);
-    void save(df::Function &phi, df::Function &E, df::Function &rho,
-              df::Function &ne, df::Function &ni, double t);
-
+    /**
+       * @brief   Constructor 
+       * @param   phi_fname - file name for phi
+       * @param   E_fname   - file name for E
+       * @param   rho_fname - file name for rho
+       * @param   ne_fname  - file name for ne
+       * @param   ni_fname  - file name for ni
+       */
+    FieldWriter(const std::string &phi_fname, const std::string &E_fname,
+                const std::string &rho_fname, const std::string &ne_fname,
+                const std::string &ni_fname);
+    /**
+       * @brief   Writes to file 
+       * @param   phi - electric potential
+       * @param   E   - electric field
+       * @param   rho - total charge density
+       * @param   ne  - volumetric electron number density
+       * @param   ni  - volumetric ion number density
+       */
+    void save(const df::Function &phi, const df::Function &E,
+              const df::Function &rho, const df::Function &ne,
+              const df::Function &ni, double t);
 };
 
 /**
@@ -93,9 +112,11 @@ public:
          * @brief   History constructor 
          * @param   fname - a string representing the name of the file
          * @param   objects - a vector of objects
-         * @continue_simulation  boolean - if false creates a preamble for history file
+         * @param   dim  - geometrical dimension
+         * @param   continue_simulation  boolean - if false creates a preamble for history file
          */
-    History(std::string fname, std::vector<ObjectBC> &objects, bool continue_simulation = false);
+    History(const std::string &fname, std::vector<ObjectBC> &objects, 
+            std::size_t dim, bool continue_simulation = false);
 
     /**
          * @brief   History destructor - closes the file 

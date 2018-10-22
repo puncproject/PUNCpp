@@ -339,6 +339,6 @@ class ClementInterpolant
 
 };
 
-}
+} // namespace punc
 
 #endif // POISSON_H

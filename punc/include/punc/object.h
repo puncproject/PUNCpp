@@ -188,6 +188,6 @@ public:
 };
 
 
-}
+} // namespace punc
 
-#endif
+#endif // OBJECT_H

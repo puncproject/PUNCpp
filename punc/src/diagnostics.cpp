@@ -28,17 +28,18 @@
 namespace punc
 {
 
-FieldWriter::FieldWriter(const std::string phi_fname, const std::string E_fname,
-                         const std::string rho_fname, const std::string ne_fname,
-                         const std::string ni_fname) : ofile_phi(phi_fname),
+FieldWriter::FieldWriter(const std::string &phi_fname, const std::string &E_fname,
+                         const std::string &rho_fname, const std::string &ne_fname,
+                         const std::string &ni_fname) : ofile_phi(phi_fname),
                          ofile_E(E_fname), ofile_rho(rho_fname), 
                          ofile_ne(ne_fname), ofile_ni(ni_fname)
 {
     // Do nothing
 }
 
-void FieldWriter::save(df::Function &phi, df::Function &E, df::Function &rho,
-                       df::Function &ne, df::Function &ni, double t)
+void FieldWriter::save(const df::Function &phi, const df::Function &E, 
+                       const df::Function &rho, const df::Function &ne, 
+                       const df::Function &ni, double t)
 {
     ofile_phi.write(phi, t);
     ofile_E.write(E, t);
@@ -82,7 +83,8 @@ void State::save(std::size_t n, double t, std::vector<ObjectBC> &objects)
     ofile.close();
 }
 
-History::History(std::string fname, std::vector<ObjectBC> &objects, bool continue_simulation)
+History::History(const std::string &fname, std::vector<ObjectBC> &objects, 
+                 std::size_t dim, bool continue_simulation)
 {
     if (continue_simulation)
     {
@@ -96,9 +98,9 @@ History::History(std::string fname, std::vector<ObjectBC> &objects, bool continu
         ofile << "#:name\tn\tt\tne\tni\tKE\tPE";
         for (std::size_t i = 0; i < objects.size(); ++i)
         {
-            ofile << "\tV" << std::to_string(i);
-            ofile << "\tI" << std::to_string(i);
-            ofile << "\tQ" << std::to_string(i);
+            ofile << "\tV[" << i <<"]";
+            ofile << "\tI[" << i << "]";
+            ofile << "\tQ[" << i << "]";
         }
         ofile << "\n";
 
@@ -118,7 +120,16 @@ History::History(std::string fname, std::vector<ObjectBC> &objects, bool continu
         for (std::size_t i = 0; i < objects.size(); ++i)
         {
             ofile << "\tV";
-            ofile << "\tA";
+            if (dim == 1)
+            {
+                ofile << "\tA";
+            }else if (dim == 2)
+            {
+                ofile << "\tA/m";
+            }else if (dim == 3)
+            {
+                ofile << "\tA/m**2";
+            }
             ofile << "\tC";
         }
         ofile << "\n";
