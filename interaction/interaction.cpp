@@ -196,7 +196,7 @@ int run(
     //
     // HISTORY AND SATE FILES
     //
-    History hist(fname_hist, int_bc, continue_simulation);
+    History hist(fname_hist, int_bc, dim, continue_simulation);
     State state(fname_state);
     FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
