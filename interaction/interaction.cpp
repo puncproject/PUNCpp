@@ -485,23 +485,19 @@ int main(int argc, char **argv){
               options(desc).positional(pos_options).run(), options);
     po::notify(options);
 
-    // Parse input from config file.
-    if(options.count("input")){
-        ifstream ifile;
-        ifile.open(fname_ifile);
-        po::store(po::parse_config_file(ifile, desc), options);
-        po::notify(options);
-        ifile.close();
-    } else {
-        cerr << "Input file missing." << endl;
-        return 1;
-    }
-
-    // Print help
     if(options.count("help")){
         cout << desc << endl;
         return 1;
+    } else if(!options.count("input")){
+        cerr << "Input file missing. See interaction --help." << endl;
+        return 1;
     }
+
+    ifstream ifile;
+    ifile.open(fname_ifile);
+    po::store(po::parse_config_file(ifile, desc), options);
+    po::notify(options);
+    ifile.close();
 
     cout << "PUNC++ started!" << endl;
 
