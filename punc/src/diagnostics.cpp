@@ -151,7 +151,7 @@ void History::save(std::size_t n, double t, double num_e, double num_i, double K
         ofile << o.current << "\t";
         ofile << o.charge;
     }
-    ofile << "\n";
+    ofile << std::endl;
 }
 
 Timer::Timer(std::vector<std::string> tasks) 
