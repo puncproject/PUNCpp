@@ -167,8 +167,8 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
                                                   rand, rng);
 
                 auto vs_new = rejection_sampler(n, vdf, pdf_max,
-                                                species[i].vdf.dim(),
-                                                species[i].vdf.domain(),
+                                                species[i].vdf.dim,
+                                                species[i].vdf.domain,
                                                 rand, rng);
 
                 for (auto k = 0; k < n; ++k)
@@ -215,13 +215,12 @@ void load_particles(PopulationType &pop, std::vector<Species> &species)
     for (std::size_t i = 0; i < num_species; ++i)
     {
         auto s = species[i];
-        auto dim = s.vdf.dim();
+        auto dim = s.vdf.dim;
         auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
         auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
 
-        xs = rejection_sampler(s.num, pdf, s.pdf.max(), dim, s.pdf.domain(),
-                               rand, rng);
-        if (s.vdf.has_cdf())
+        xs = rejection_sampler(s.num, pdf, s.pdf.max(), dim, s.pdf.domain, rand, rng);
+        if (s.vdf.has_icdf)
         {
             std::vector<double> rand_tmp(s.num * dim, 0.0);
             for (auto j = 0; j < dim; ++j)
@@ -231,13 +230,13 @@ void load_particles(PopulationType &pop, std::vector<Species> &species)
                     rand_tmp[k * dim + j] = rand(rng);
                 }
             }
-            vs = s.vdf.cdf(rand_tmp);
+            vs = s.vdf.icdf(rand_tmp);
         }
         else
         {
-            vs = rejection_sampler(s.num, vdf, s.vdf.max(), dim, s.vdf.domain(),
-                                   rand, rng);
+            vs = rejection_sampler(s.num, vdf, s.vdf.max(), dim, s.vdf.domain, rand, rng);
         }
+
         pop.add_particles(xs, vs, s.q, s.m);
     }
 }
