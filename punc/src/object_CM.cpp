@@ -28,6 +28,7 @@
 
 #include "../include/punc/object_CM.h"
 #include "../include/punc/poisson.h"
+#include "../include/punc/efield.h"
 #include "../ufl/Flux.h"
 
 namespace punc

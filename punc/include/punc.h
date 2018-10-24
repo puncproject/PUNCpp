@@ -21,6 +21,7 @@
 /* PUNC interface */
 #include "punc/population.h"
 #include "punc/poisson.h"
+#include "punc/efield.h"
 #include "punc/injector.h"
 #include "punc/object.h"
 #include "punc/object_BC.h"
