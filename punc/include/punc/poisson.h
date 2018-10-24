@@ -25,8 +25,13 @@
 #ifndef POISSON_H
 #define POISSON_H
 
-#include <dolfin.h>
+// These should eventually be removed.
+// Poisson should only use the interface.
+#include "object_BC.h"
+#include "object_CM.h"
+
 #include "object.h"
+#include <dolfin.h>
 #include <boost/optional.hpp>
 #include <petscvec.h>
 
