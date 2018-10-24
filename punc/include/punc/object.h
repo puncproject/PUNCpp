@@ -73,12 +73,7 @@ public:
     virtual bool check_solver_methods(std::string &method,
                                       std::string &preconditioner) const = 0;
     virtual void apply(df::GenericVector &b){};
-    virtual void apply(df::PETScMatrix &A){
-        std::cout << "Called wrong apply\n";    
-    };
-    virtual void apply_old(df::PETScMatrix &A, df::PETScMatrix &A_tmp){
-        std::cout << "Called wrong apply_old\n";    
-    };
+    virtual void apply(df::PETScMatrix &A){};
 };
 
 bool inv(const boost_matrix &input, boost_matrix &inverse);
