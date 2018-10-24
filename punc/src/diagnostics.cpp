@@ -122,13 +122,13 @@ History::History(const std::string &fname, std::vector<ObjectBC> &objects,
             ofile << "\tV";
             if (dim == 1)
             {
-                ofile << "\tA";
+                ofile << "\tA/m**2";
             }else if (dim == 2)
             {
                 ofile << "\tA/m";
             }else if (dim == 3)
             {
-                ofile << "\tA/m**2";
+                ofile << "\tA";
             }
             ofile << "\tC";
         }

@@ -47,8 +47,8 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x);
 class Pdf
 {
 public:
-	double _vth;			  ///< Thermal velocity
-	std::vector<double> _vd; ///< Drift velocity
+	double _vth;			  	///< Thermal velocity
+	std::vector<double> _vd; 	///< Drift velocity
 	int dim;                    ///< Dimension of configuration or velocity space
 	bool has_icdf;              ///< Whether or not analytical expression for the inverse of CDF exists
 	bool has_flux_number;       ///< Whether or not analytical expression for the number of paraticles through a surface exists
