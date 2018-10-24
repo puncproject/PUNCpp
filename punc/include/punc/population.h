@@ -634,7 +634,7 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
                     // Standard numbering scheme on objects and exterior
                     // boundary would eliminate this loop.
                     for(auto &object : objects){
-                        if ((std::size_t)(-new_cell_id) == object.id)
+                        if ((std::size_t)(-new_cell_id) == object.bnd_id)
                         {
                             object.charge += particle.q;
                         }

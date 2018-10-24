@@ -164,7 +164,7 @@ public:
      * @return   The electric potential
      */
     df::Function solve(const df::Function &rho,
-                       const std::vector<Object> &objects);
+                       const std::vector<ObjectCM> &objects);
 
     /**
      * @brief Solves Poisson's equation in the domain contaning objects

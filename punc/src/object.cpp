@@ -101,7 +101,7 @@ bool inv(const boost_matrix &input, boost_matrix &inverse)
     return true;
 }
 
-Object::Object(const df::FunctionSpace &V,
+ObjectCM::ObjectCM(const df::FunctionSpace &V,
                const df::MeshFunction<std::size_t> &boundaries,
                std::size_t bnd_id,
                double potential,
@@ -128,7 +128,7 @@ Object::Object(const df::FunctionSpace &V,
     get_dofs();
 }
 
-void Object::get_dofs()
+void ObjectCM::get_dofs()
 {
     std::unordered_map<std::size_t, double> dof_map;
     get_boundary_values(dof_map);
@@ -140,18 +140,18 @@ void Object::get_dofs()
     size_dofs = dofs.size();
 }
 
-void Object::add_charge(const double q)
+void ObjectCM::add_charge(const double q)
 {
     charge += q;
 }
 
-void Object::set_potential(const double voltage)
+void ObjectCM::set_potential(const double voltage)
 {
     potential = voltage;
     set_value(std::make_shared<df::Constant>(voltage));
 }
 
-void Object::compute_interpolated_charge(const df::Function &q_rho)
+void ObjectCM::compute_interpolated_charge(const df::Function &q_rho)
 {
     interpolated_charge = 0.0;
     for (std::size_t i = 0; i < size_dofs; ++i)
@@ -160,7 +160,7 @@ void Object::compute_interpolated_charge(const df::Function &q_rho)
     }
 }
 
-void reset_objects(std::vector<Object> &objects)
+void reset_objects(std::vector<ObjectCM> &objects)
 {
     for (auto& obj: objects)
     {
@@ -168,7 +168,7 @@ void reset_objects(std::vector<Object> &objects)
     }
 }
 
-void compute_object_potentials(std::vector<Object> &objects,
+void compute_object_potentials(std::vector<ObjectCM> &objects,
                                df::Function &E,
                                const boost_matrix &inv_capacity,
                                std::shared_ptr<const df::Mesh> &mesh)
@@ -210,7 +210,7 @@ void compute_object_potentials(std::vector<Object> &objects,
     }
 }
 
-CircuitCM::CircuitCM(std::vector<Object> &objects,
+CircuitCM::CircuitCM(std::vector<ObjectCM> &objects,
                  const boost_vector &precomputed_charge,
                  const boost_matrix &inv_bias,
                  double charge):
@@ -266,7 +266,7 @@ void redistribute_circuit_charge(std::vector<CircuitCM> &circuits)
 }
 
 std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
-                                        std::vector<Object> &objects,
+                                        std::vector<ObjectCM> &objects,
                                         df::MeshFunction<std::size_t> boundaries,
                                         std::size_t ext_bnd_id)
 {
@@ -303,7 +303,7 @@ std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
 }
 
 boost_matrix capacitance_matrix(const df::FunctionSpace &V,
-                                std::vector<Object> &objects,
+                                std::vector<ObjectCM> &objects,
                                 const df::MeshFunction<std::size_t> &boundaries,
                                 std::size_t ext_bnd_id)
 {
@@ -475,7 +475,7 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
                    std::size_t bnd_id,
                    double eps0,
                    std::string method)
-                   :ConstantBC(V, boundaries, bnd_id, method), id(bnd_id)
+                   :ConstantBC(V, boundaries, bnd_id, method), Object(bnd_id)
 {
     auto tags = boundaries.values();
     auto size = boundaries.size();
@@ -483,7 +483,7 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     bnd.set_all(0);
     for (std::size_t i = 0; i < size; ++i)
     {
-        if (tags[i] == id)
+        if (tags[i] == bnd_id)
         {
             bnd.set_value(i, 9999);
         }

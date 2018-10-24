@@ -35,6 +35,40 @@
 namespace punc
 {
 
+class Source {
+public:
+    using size_t = std::size_t;
+
+    size_t node_a;
+    size_t node_b;
+    double value;
+};
+class Vsource : public Source {};
+class Isource : public Source {};
+
+class Object {
+public:
+    using size_t = std::size_t;
+
+    double charge;
+    double current;
+    double potential;
+    size_t bnd_id;
+
+    Object(size_t bnd_id) : bnd_id(bnd_id) {};
+};
+
+// class Circuit
+// {
+// public:
+//     std::vector<std::shared_ptr<Object>> &objects;
+//     std::vector<Vsource> vsources;
+//     std::vector<Isource> isources;
+//     std::vector<std::vector<int>> groups;
+//     double dt;
+//     double eps0;
+// };
+
 namespace df = dolfin;
 
 typedef boost::numeric::ublas::matrix<double> boost_matrix;
@@ -42,7 +76,7 @@ typedef boost::numeric::ublas::vector<double> boost_vector;
 
 bool inv(const boost_matrix &input, boost_matrix &inverse);
 
-class Object : public df::DirichletBC
+class ObjectCM : public df::DirichletBC
 {
 public:
     double potential;
@@ -55,13 +89,13 @@ public:
     std::vector<std::size_t> dofs;
     std::size_t size_dofs;
 
-    Object(const df::FunctionSpace &V,
-           const df::MeshFunction<std::size_t> &boundaries,
-           std::size_t bnd_id,
-           double potential = 0.0,
-           double charge = 0.0,
-           bool floating = true,
-           std::string method = "topological");
+    ObjectCM(const df::FunctionSpace &V,
+             const df::MeshFunction<std::size_t> &boundaries,
+             std::size_t bnd_id,
+             double potential = 0.0,
+             double charge = 0.0,
+             bool floating = true,
+             std::string method = "topological");
 
     void get_dofs();
     void add_charge(const double q);
@@ -69,9 +103,9 @@ public:
     void compute_interpolated_charge(const df::Function &q_rho);
 };
 
-void reset_objects(std::vector<Object> &objcets);
+void reset_objects(std::vector<ObjectCM> &objcets);
 
-void compute_object_potentials(std::vector<Object> &objects,
+void compute_object_potentials(std::vector<ObjectCM> &objects,
                                df::Function &E,
                                const boost_matrix &inv_capacity,
                                std::shared_ptr<const df::Mesh> &mesh);
@@ -79,12 +113,12 @@ void compute_object_potentials(std::vector<Object> &objects,
 class CircuitCM
 {
 public:
-    std::vector<Object> &objects;
+    std::vector<ObjectCM> &objects;
     const boost_vector &precomputed_charge;
     const boost_matrix &inv_bias;
     double charge;
 
-    CircuitCM(std::vector<Object> &objects,
+    CircuitCM(std::vector<ObjectCM> &objects,
             const boost_vector &precomputed_charge,
             const boost_matrix &inv_bias,
             double charge = 0.0);
@@ -97,17 +131,17 @@ void redistribute_circuit_charge(std::vector<CircuitCM> &circuits);
 
 std::vector<std::shared_ptr<df::Function>> solve_laplace(
     std::shared_ptr<df::FunctionSpace> &V,
-    std::vector<Object> &objects,
+    std::vector<ObjectCM> &objects,
     std::shared_ptr<df::MeshFunction<std::size_t>> &boundaries,
     std::size_t ext_bnd_id);
 
 std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
-                                        std::vector<Object> &objects,
+                                        std::vector<ObjectCM> &objects,
                                         df::MeshFunction<std::size_t> boundaries,
                                         std::size_t ext_bnd_id);
 
 boost_matrix capacitance_matrix(const df::FunctionSpace &V,
-                                std::vector<Object> &objects,
+                                std::vector<ObjectCM> &objects,
                                 const df::MeshFunction<std::size_t> &boundaries,
                                 std::size_t ext_bnd_id);
 
@@ -129,13 +163,9 @@ public:
     double get_boundary_value(df::Function &phi);
 };
 
-class ObjectBC: public ConstantBC
+class ObjectBC: public ConstantBC, public Object
 {
 public:
-    double charge = 0.0;
-    double current = 0.0;
-    double potential = 0.0;
-    std::size_t id;
     df::MeshFunction<std::size_t> bnd;
     std::shared_ptr<df::Form> charge_form;
     ObjectBC(const df::FunctionSpace &V,
