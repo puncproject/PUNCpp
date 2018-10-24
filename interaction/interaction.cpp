@@ -157,7 +157,8 @@ int run(
     ObjectBC object(V, mesh.bnd, 2, eps0);
     vector<ObjectBC> int_bc = {object};
 
-    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
+    std::shared_ptr<Circuit> circuit;
+    circuit = std::make_shared<CircuitBC>(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
 
     //
     // CREATE SOLVERS

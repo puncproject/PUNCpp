@@ -144,7 +144,8 @@ public:
      */
     PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
-                  boost::optional<Circuit& > circuit=boost::none,
+                  // boost::optional<Circuit& > circuit=boost::none,
+                  std::shared_ptr<Circuit> circuit = nullptr,
                   double eps0 = 1,
                   bool remove_null_space = false,
                   std::string method = "",
@@ -187,7 +188,7 @@ public:
      */
     df::Function solve(const df::Function &rho,
                        std::vector<ObjectBC> &objects,
-                       Circuit &circuit,
+                       std::shared_ptr<Circuit> circuit,
                        const df::FunctionSpace &V);
 
     /**

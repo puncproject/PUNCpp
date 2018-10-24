@@ -527,16 +527,16 @@ void ObjectBC::update_current(double dt)
     current = (charge - old_charge) / dt;
 }
 
-Circuit::Circuit(const df::FunctionSpace &V,
-                std::vector<ObjectBC> &objects,
-                std::vector<std::vector<int>> isources,
-                std::vector<double> ivalues,
-                std::vector<std::vector<int>> vsources,
-                std::vector<double> vvalues,
-                double dt, double eps0, std::string method)
-                : V(V), objects(objects), isources(isources),
-                vsources(vsources), ivalues(ivalues),
-                vvalues(vvalues), dt(dt), eps0(eps0)
+CircuitBC::CircuitBC(const df::FunctionSpace &V,
+                     std::vector<ObjectBC> &objects,
+                     std::vector<std::vector<int>> isources,
+                     std::vector<double> ivalues,
+                     std::vector<std::vector<int>> vsources,
+                     std::vector<double> vvalues,
+                     double dt, double eps0, std::string method)
+                     : V(V), objects(objects), isources(isources),
+                     vsources(vsources), ivalues(ivalues),
+                     vvalues(vvalues), dt(dt), eps0(eps0)
 {
     auto num_objects = objects.size();
     groups = get_charge_sharing_sets(vsources, num_objects);
@@ -561,19 +561,126 @@ Circuit::Circuit(const df::FunctionSpace &V,
     }
 }
 
-bool Circuit::has_charge_constraints() const {
-    return groups.size()>0;
+bool CircuitBC::check_solver_methods(std::string &method,
+                                     std::string &preconditioner) const
+{
+    bool has_charge_constraints = groups.size()>0;
+
+    // Defaults
+    if(method=="" && preconditioner==""){
+        if(has_charge_constraints){
+            method = "bicgstab";
+            preconditioner = "ilu";
+        } else {
+            method = "gmres";
+            preconditioner = "hypre_amg";
+        }
+    }
+
+    if(has_charge_constraints){
+
+        return (method=="bicgstab" && preconditioner=="ilu");
+
+    } else {
+
+        return (method=="gmres" && preconditioner=="hypre_amg")
+            || (method=="bicgstab" && preconditioner=="ilu");
+    }
 }
 
-void Circuit::apply(df::GenericVector &b)
+void CircuitBC::apply(df::GenericVector &b)
 {
     apply_isources_to_object();
     apply_vsources_to_vector(b);
 }
 
-void Circuit::apply(df::PETScMatrix &A, df::PETScMatrix &Bc)
+void CircuitBC::apply(df::PETScMatrix &A)
 {
-    /* charge_constr->set_coefficient("eps0", ); */
+    auto eps0_ = std::make_shared<df::Constant>(eps0);
+    auto dim = V.mesh()->geometry().dim();
+    if (dim == 1)
+    {
+        auto V0 = std::make_shared<Constraint::Form_0_FunctionSpace_0>(V.mesh());
+        auto V1 = std::make_shared<Constraint::Form_0_FunctionSpace_1>(V.mesh());
+        charge_constr = std::make_shared<Constraint::Form_0>(V1, V0, eps0_);
+    }
+    else if (dim == 2)
+    {
+        auto V0 = std::make_shared<Constraint::Form_1_FunctionSpace_0>(V.mesh());
+        auto V1 = std::make_shared<Constraint::Form_1_FunctionSpace_1>(V.mesh());
+        charge_constr = std::make_shared<Constraint::Form_1>(V1, V0, eps0_);
+    }
+    else if (dim == 3)
+    {
+        auto V0 = std::make_shared<Constraint::Form_2_FunctionSpace_0>(V.mesh());
+        auto V1 = std::make_shared<Constraint::Form_2_FunctionSpace_1>(V.mesh());
+        charge_constr = std::make_shared<Constraint::Form_2>(V1,V0, eps0_);
+    }
+
+    df::PETScMatrix A_tmp;
+
+    // Charge constraints
+    for (std::size_t i = 0; i < groups.size(); ++i)
+    {
+        for (std::size_t j = 0; j < groups[i].size(); ++j)
+        {
+            charge_constr->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[groups[i][j]].bnd));
+        }
+        df::PETScMatrix A_constraint; // Only one row
+        df::assemble(A_constraint, *charge_constr);
+
+        std::vector<std::size_t> cols;
+        std::vector<double> vals;
+        A_constraint.getrow(0, cols, vals);
+
+        addrow(A, A_tmp, rows_charge[i], cols, vals, V);
+        auto Amat = A.mat();
+        PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
+        if (ierr != 0)
+        {
+            std::cout << "Error in PETSc MatDuplicate." << '\n';
+        }
+    }
+
+    // Potential constraints
+    for (std::size_t i = 0; i < vsources.size(); ++i)
+    {
+        auto obj_a_id = vsources[i][0];
+        auto obj_b_id = vsources[i][1];
+        std::vector<std::size_t> cols;
+        std::vector<double> vals;
+
+        if (obj_a_id != -1)
+        {
+            auto dof_a = objects[obj_a_id].get_free_row();
+            cols.emplace_back(dof_a);
+            vals.emplace_back(-1.0);
+        }
+
+        if (obj_b_id != -1)
+        {
+            auto dof_b = objects[obj_b_id].get_free_row();
+            cols.emplace_back(dof_b);
+            vals.emplace_back(1.0);
+        }
+        addrow(A, A_tmp, rows_potential[i], cols, vals, V);
+        auto Amat = A.mat();
+        PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
+        if (ierr != 0)
+        {
+            std::cout << "Error in PETSc MatDuplicate." << '\n';
+        }
+    }
+
+    PetscErrorCode ierr = MatCopy(A_tmp.mat(), A.mat(), DIFFERENT_NONZERO_PATTERN);
+    if (ierr != 0)
+    {
+        std::cout << "Error in PETSc MatCopy." << '\n';
+    }
+}
+
+void CircuitBC::apply_old(df::PETScMatrix &A, df::PETScMatrix &A_tmp)
+{
     auto eps0_ = std::make_shared<df::Constant>(eps0);
     auto dim = V.mesh()->geometry().dim();
     if (dim == 1)
@@ -602,16 +709,16 @@ void Circuit::apply(df::PETScMatrix &A, df::PETScMatrix &Bc)
         {
             charge_constr->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[groups[i][j]].bnd));
         }
-        df::PETScMatrix A0;
-        df::assemble(A0, *charge_constr);
+        df::PETScMatrix A_constraint; // Only one row
+        df::assemble(A_constraint, *charge_constr);
 
         std::vector<std::size_t> cols;
         std::vector<double> vals;
-        A0.getrow(0, cols, vals);
+        A_constraint.getrow(0, cols, vals);
 
-        addrow(A, Bc, rows_charge[i], cols, vals, V);
+        addrow(A, A_tmp, rows_charge[i], cols, vals, V);
         auto Amat = A.mat();
-        PetscErrorCode ierr = MatDuplicate(Bc.mat(), MAT_COPY_VALUES, &Amat);
+        PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
         if (ierr != 0)
         {
             std::cout << "Error in PETSc MatDuplicate." << '\n';
@@ -639,17 +746,16 @@ void Circuit::apply(df::PETScMatrix &A, df::PETScMatrix &Bc)
             cols.emplace_back(dof_b);
             vals.emplace_back(1.0);
         }
-        addrow(A, Bc, rows_potential[i], cols, vals, V);
+        addrow(A, A_tmp, rows_potential[i], cols, vals, V);
         auto Amat = A.mat();
-        PetscErrorCode ierr = MatDuplicate(Bc.mat(), MAT_COPY_VALUES, &Amat);
+        PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
         if (ierr != 0)
         {
             std::cout << "Error in PETSc MatDuplicate." << '\n';
         }
     }
 }
-
-void Circuit::apply_vsources_to_vector(df::GenericVector &b)
+void CircuitBC::apply_vsources_to_vector(df::GenericVector &b)
 {
     // Charge constaints
     double object_charge;
@@ -671,7 +777,7 @@ void Circuit::apply_vsources_to_vector(df::GenericVector &b)
     }
 }
 
-void Circuit::apply_isources_to_object()
+void CircuitBC::apply_isources_to_object()
 {
     for (std::size_t i = 0; i < isources.size(); ++i)
     {

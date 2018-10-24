@@ -32,8 +32,12 @@
 #include <boost/numeric/ublas/io.hpp>
 #include <dolfin/la/PETScMatrix.h>
 
-namespace punc
-{
+namespace punc {
+
+namespace df = dolfin;
+
+typedef boost::numeric::ublas::matrix<double> boost_matrix;
+typedef boost::numeric::ublas::vector<double> boost_vector;
 
 class Source {
 public:
@@ -58,21 +62,24 @@ public:
     Object(size_t bnd_id) : bnd_id(bnd_id) {};
 };
 
-// class Circuit
-// {
-// public:
-//     std::vector<std::shared_ptr<Object>> &objects;
-//     std::vector<Vsource> vsources;
-//     std::vector<Isource> isources;
-//     std::vector<std::vector<int>> groups;
-//     double dt;
-//     double eps0;
-// };
-
-namespace df = dolfin;
-
-typedef boost::numeric::ublas::matrix<double> boost_matrix;
-typedef boost::numeric::ublas::vector<double> boost_vector;
+class Circuit {
+public:
+    // std::vector<std::shared_ptr<Object>> &objects;
+    // std::vector<Vsource> vsources;
+    // std::vector<Isource> isources;
+    // std::vector<std::vector<int>> groups;
+    // double dt;
+    // double eps0;
+    virtual bool check_solver_methods(std::string &method,
+                                      std::string &preconditioner) const = 0;
+    virtual void apply(df::GenericVector &b){};
+    virtual void apply(df::PETScMatrix &A){
+        std::cout << "Called wrong apply\n";    
+    };
+    virtual void apply_old(df::PETScMatrix &A, df::PETScMatrix &A_tmp){
+        std::cout << "Called wrong apply_old\n";    
+    };
+};
 
 bool inv(const boost_matrix &input, boost_matrix &inverse);
 
@@ -181,7 +188,7 @@ private:
     double old_charge = 0.0;
 };
 
-class Circuit
+class CircuitBC : public Circuit
 {
 public:
     const df::FunctionSpace &V;
@@ -196,25 +203,23 @@ public:
     std::vector<std::size_t> rows_potential;
     std::shared_ptr<df::Form> charge_constr;
 
-    Circuit(const df::FunctionSpace &V,
-            std::vector<ObjectBC> &objects,
-            std::vector<std::vector<int>> isources,
-            std::vector<double> ivalues,
-            std::vector<std::vector<int>> vsources,
-            std::vector<double> vvalues,
-            double dt, double eps0 = 1.0,
-            std::string method = "topological");
+    CircuitBC(const df::FunctionSpace &V,
+              std::vector<ObjectBC> &objects,
+              std::vector<std::vector<int>> isources,
+              std::vector<double> ivalues,
+              std::vector<std::vector<int>> vsources,
+              std::vector<double> vvalues,
+              double dt, double eps0 = 1.0,
+              std::string method = "topological");
 
     void apply(df::GenericVector &b);
-    void apply(df::PETScMatrix &A, df::PETScMatrix &Bc);
+    void apply(df::PETScMatrix &A);
+    void apply_old(df::PETScMatrix &A, df::PETScMatrix &A_tmp);
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
 
-    /**
-     * @brief  Whether or not this Circuit has charge constraints.
-     * @return Whether or not this Circuit has charge constraints.
-     */
-    bool has_charge_constraints() const;
+    bool check_solver_methods(std::string &method,
+                              std::string &preconditioner) const;
 };
 
 

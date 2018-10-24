@@ -219,7 +219,8 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
-                             boost::optional<Circuit& > circuit,
+                             // boost::optional<Circuit& > circuit,
+                             std::shared_ptr<Circuit> circuit,
                              double eps0,
                              bool remove_null_space,
                              std::string method,
@@ -246,14 +247,28 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
 
-    bool has_charge_constraints = circuit && circuit.get().has_charge_constraints();
-    if(has_charge_constraints){
-        if(method=="" && preconditioner==""){
-            method = "bicgstab";
-            preconditioner = "ilu";
-        } else {
-            // FIXME: Write proper status/warning/error message system
-            std::cerr << "Some linear algebra solvers/preconditioners may not work for circuits with charge constraints.\n";
+    // bool has_charge_constraints = circuit && circuit.get().has_charge_constraints();
+    // if(has_charge_constraints){
+    //     if(method=="" && preconditioner==""){
+    //         method = "bicgstab";
+    //         preconditioner = "ilu";
+    //     } else {
+    //         // FIXME: Write proper status/warning/error message system
+    //         std::cerr << "Some linear algebra solvers/preconditioners may not work for circuits with charge constraints.\n";
+    //     }
+    // } else {
+    //     if(method=="" && preconditioner==""){
+    //         method = "gmres";
+    //         preconditioner = "hypre_amg";
+    //     }
+    // }
+
+    if(circuit){
+        // Assigns default solvers if method==preconditioner==""
+        bool ok = circuit->check_solver_methods(method, preconditioner);
+        if(!ok){
+            std::cout << "Warning: " << method << "/" << preconditioner;
+            std::cout << " solver may not converge for this circuit\n";
         }
     } else {
         if(method=="" && preconditioner==""){
@@ -262,6 +277,8 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         }
     }
 
+    std::cout << method << "/" << preconditioner << "\n";
+
     solver = std::make_shared<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
 
     if(ext_bc)
@@ -269,13 +286,19 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         num_bcs = ext_bc->size();
     }
     
-    if(circuit)
-    {
-        df::PETScMatrix A0;
-        df::assemble(A0, *a);
-        circuit.get().apply(A0, A);
-    }else{
-        df::assemble(A, *a);
+    // if(circuit)
+    // {
+    //     df::PETScMatrix A0;
+    //     df::assemble(A0, *a);
+    //     circuit->apply_old(A0, A);
+    // }else{
+    //     df::assemble(A, *a);
+    // }
+
+    df::assemble(A, *a);
+
+    if(circuit){
+        circuit->apply(A);
     }
 
     for (std::size_t i = 0; i < num_bcs; ++i)
@@ -361,7 +384,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 
 df::Function PoissonSolver::solve(const df::Function &rho,
                                   std::vector<ObjectBC> &objects,
-                                  Circuit &circuit,
+                                  std::shared_ptr<Circuit> circuit,
                                   const df::FunctionSpace &V)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
@@ -376,7 +399,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
         bc.apply(b);
     }
 
-    circuit.apply(b);
+    circuit->apply(b);
     auto V_shared = std::make_shared<df::FunctionSpace>(V);
     df::Function phi(V_shared);
     solver->solve(A, *phi.vector(), b);
