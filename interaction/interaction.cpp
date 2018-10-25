@@ -154,8 +154,6 @@ int run(
         std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    /* ObjectBC object(V, mesh.bnd, 2, eps0); */
-    /* vector<ObjectBC> int_bc = {object}; */
     vector<std::shared_ptr<Object>> int_bc;
     int_bc.push_back(std::make_shared<ObjectBC>(V, mesh.bnd, 2, eps0));
 
@@ -253,8 +251,6 @@ int run(
         // SOLVE POISSON
         // reset_objects(int_bc);
         // t_rsetobj[n]= timer.elapsed();
-        /* int_bc[0].charge = 0; */
-        /* int_bc[0].charge -= current_collected*dt; */
         timer.tic("poisson");
         auto phi = poisson.solve(rho, int_bc, circuit);
         timer.toc();
@@ -262,8 +258,6 @@ int run(
         // UPDATE OBJECT CHARGE AND POTENTIAL
         for(auto &o : int_bc)
         {
-            /* o->update_charge(phi); */
-            /* o->update_potential(phi); */
             o->update(phi);
         } 
         
@@ -273,10 +267,7 @@ int run(
         timer.toc();
 
         // compute_object_potentials(int_bc, E, inv_capacity, mesh.mesh);
-        //
-        // potential[n] = int_bc[0].potential;
         // auto phi1 = poisson.solve(rho, int_bc);
-        //
         // auto E1 = esolver.solve(phi1);
 
         // POTENTIAL ENERGY
