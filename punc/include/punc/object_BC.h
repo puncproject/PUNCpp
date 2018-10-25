@@ -74,8 +74,7 @@ public:
     std::shared_ptr<df::Form> charge_constr;
 
     CircuitBC(const df::FunctionSpace &V,
-              /* std::vector<ObjectBC> &objects, */
-              const std::vector<std::shared_ptr<Object>> &object_source,
+              const ObjectVector &object_source,
               std::vector<std::vector<int>> isources,
               std::vector<double> ivalues,
               std::vector<std::vector<int>> vsources,
@@ -91,7 +90,7 @@ public:
     bool check_solver_methods(std::string &method,
                               std::string &preconditioner) const;
 private:
-    void downcast_objects(const std::vector<std::shared_ptr<Object>> &source);
+    void downcast_objects(const ObjectVector &source);
 };
 
 } // namespace punc

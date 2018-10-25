@@ -305,7 +305,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 }
 
 df::Function PoissonSolver::solve(const df::Function &rho,
-                                  std::vector<std::shared_ptr<Object>> &objects,
+                                  ObjectVector &objects,
                                   std::shared_ptr<Circuit> circuit)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));

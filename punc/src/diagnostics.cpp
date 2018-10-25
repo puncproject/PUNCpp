@@ -53,7 +53,7 @@ State::State(std::string fname) : fname(fname)
     // Do nothing
 }
 
-void State::load(std::size_t &n, double &t, std::vector<std::shared_ptr<Object>> objects)
+void State::load(std::size_t &n, double &t, ObjectVector objects)
 {
     std::ifstream ifile(fname);
 
@@ -70,7 +70,7 @@ void State::load(std::size_t &n, double &t, std::vector<std::shared_ptr<Object>>
     }
     ifile.close();
 }
-void State::save(std::size_t n, double t, const std::vector<std::shared_ptr<Object>> objects)
+void State::save(std::size_t n, double t, const ObjectVector objects)
 {
     std::ofstream ofile;
     ofile.open(fname, std::ofstream::out);
@@ -84,7 +84,7 @@ void State::save(std::size_t n, double t, const std::vector<std::shared_ptr<Obje
 }
 
 History::History(const std::string &fname,
-                 std::vector<std::shared_ptr<Object>> objects, 
+                 ObjectVector objects, 
                  std::size_t dim, bool continue_simulation)
 {
     if (continue_simulation)
@@ -138,7 +138,7 @@ History::History(const std::string &fname,
 }
 
 void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
-                   double PE, std::vector<std::shared_ptr<Object>> objects)
+                   double PE, ObjectVector objects)
 {
     ofile << n << "\t";
     ofile << t << "\t";

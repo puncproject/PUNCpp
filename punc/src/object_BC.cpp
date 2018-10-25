@@ -233,7 +233,7 @@ void ObjectBC::update(const df::Function &phi)
 }
 
 CircuitBC::CircuitBC(const df::FunctionSpace &V,
-                     const std::vector<std::shared_ptr<Object>> &object_source,
+                     const ObjectVector &object_source,
                      std::vector<std::vector<int>> isources,
                      std::vector<double> ivalues,
                      std::vector<std::vector<int>> vsources,
@@ -268,7 +268,7 @@ CircuitBC::CircuitBC(const df::FunctionSpace &V,
     }
 }
 
-void CircuitBC::downcast_objects(const std::vector<std::shared_ptr<Object>> &source){
+void CircuitBC::downcast_objects(const ObjectVector &source){
     // I am not happy about this down-casting.
     for(auto &o : source){
         objects.push_back(std::dynamic_pointer_cast<ObjectBC>(o));

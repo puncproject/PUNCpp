@@ -171,7 +171,7 @@ public:
      * @return   The electric potential
      */
     df::Function solve(const df::Function &rho,
-                       std::vector<std::shared_ptr<Object>> &objects,
+                       ObjectVector &objects,
                        std::shared_ptr<Circuit> circuit = nullptr);
 
     /**

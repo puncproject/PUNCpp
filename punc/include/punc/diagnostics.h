@@ -90,7 +90,7 @@ public:
      * @param   objects - a vector of objects 
      */
     void load(std::size_t &n, double &t,
-              std::vector<std::shared_ptr<Object>> objects);
+              ObjectVector objects);
     /**
      * @brief   Saves the state of the simulation and objects 
      * @param   n - number of time-steps of current simulation
@@ -98,7 +98,7 @@ public:
      * @param   objects - a vector of objects 
      */
     void save(std::size_t n, double t,
-              const std::vector<std::shared_ptr<Object>> objects);
+              const ObjectVector objects);
 };
 
 /**
@@ -118,7 +118,7 @@ public:
      * @param   continue_simulation  boolean - if false creates a preamble for history file
      */
     History(const std::string &fname,
-            std::vector<std::shared_ptr<Object>> objects, 
+            ObjectVector objects, 
             std::size_t dim, bool continue_simulation = false);
 
     /**
@@ -137,7 +137,7 @@ public:
      * @param   objects - a vector of objects
      */
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
-              double PE, std::vector<std::shared_ptr<Object>> objects);
+              double PE, ObjectVector objects);
 
 };
 

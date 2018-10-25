@@ -373,7 +373,7 @@ class Population
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
     signed long int relocate_fast(const double *p, signed long int cell_id);
-    void update(std::vector<std::shared_ptr<Object>> objects, double dt);
+    void update(ObjectVector objects, double dt);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
@@ -605,7 +605,7 @@ signed long int Population<len>::relocate_fast(const double *p, signed long int 
 }
 
 template <std::size_t len>
-void Population<len>::update(std::vector<std::shared_ptr<Object>> objects, double dt)
+void Population<len>::update(ObjectVector objects, double dt)
 {
 
     for(auto object : objects){

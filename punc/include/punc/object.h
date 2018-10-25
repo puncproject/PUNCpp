@@ -61,7 +61,7 @@ using ObjectVector = std::vector<std::shared_ptr<Object>>;
 
 class Circuit {
 public:
-    // std::vector<std::shared_ptr<Object>> &objects;
+    // ObjectVector &objects;
     // std::vector<Vsource> vsources;
     // std::vector<Isource> isources;
     // std::vector<std::vector<int>> groups;
