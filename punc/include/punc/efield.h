@@ -38,7 +38,7 @@ class ESolver
 {
 private:
     df::PETScKrylovSolver solver;         /// < Linear algebra solver
-    std::shared_ptr<df::FunctionSpace> W; /// < Function space
+    // std::shared_ptr<df::FunctionSpace> W; /// < Function space
     std::shared_ptr<df::Form> a, L;       /// < Bilinear and linear forms
     df::PETScMatrix A;                    /// < Stiffness matrix
     df::PETScVector b;                    /// < Load vector
@@ -46,20 +46,20 @@ private:
 public:
      /**
      * @brief Constructor 
-     * @param V                 The function space of phi (electric potential)
+     * @param W                 The vector function space of the electric field
      * @param method            Method of linear algebra solver
      * @param preconditioner    Preconditioner for matrix equation
      */
-    ESolver(const df::FunctionSpace &V,
+    ESolver(const df::FunctionSpace &W,
             std::string method = "gmres",
             std::string preconditioner = "hypre_amg");
 
     /**
      * @brief Solver
-     * @param  phi[in]               The electric potential
-     * @return The electric field            
+     * @param  E[in, out]            The electric field
+     * @param  phi[in]               The electric potential            
      */
-    df::Function solve(df::Function &phi);
+    void solve(df::Function &E, const df::Function &phi);
 };
 
 /**

@@ -105,17 +105,26 @@ public:
  * @param constr[in] Constraint to be imposed for periodic problems
  * @return CG1 function space
  * 
- * @see DG0_space
+ * @see CG1_vector_space, DG0_space
  */
-df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
-                                 boost::optional<std::shared_ptr<PeriodicBoundary>> constr = boost::none);
+df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
+                            boost::optional<std::shared_ptr<PeriodicBoundary>> constr = boost::none);
+
+/**
+ * @brief Creates a vector function space in CG1
+ * @param mesh[in] - df::Mesh 
+ * @return CG1 vector function space
+ * 
+ * @see CG1_space, DG0_space
+ */
+df::FunctionSpace CG1_vector_space(std::shared_ptr<const df::Mesh> &mesh);
 
 /**
  * @brief Creates a function space in DG0
  * @param mesh[in] - df::Mesh 
  * @return CG1 function space
  * 
- * @see function_space
+ * @see CG1_space, CG1_vector_space
  */
 df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
 
@@ -156,23 +165,23 @@ public:
 
     /**
      * @brief Solves Poisson's equation in the domain contaning objects
-     * @param    rho               Total charge density
-     * @param    objects           A vector of objects
-     * @return   The electric potential
+     * @param    phi[in, out]          The electric potential
+     * @param    rho[in]               Total charge density
+     * @param    objects[in]           A vector of objects
      */
-    df::Function solve(const df::Function &rho,
-                       const std::vector<ObjectCM> &objects);
+    void solve(df::Function &phi, const df::Function &rho,
+               const std::vector<ObjectCM> &objects);
 
     /**
      * @brief Solves Poisson's equation in the domain contaning objects and circuits
-     * @param    rho               Total charge density
-     * @param    objects           A vector of objects
-     * @param    circuit           The circuitry
-     * @return   The electric potential
+     * @param    phi[in, out]          The electric potential
+     * @param    rho[in]               Total charge density
+     * @param    objects[in]           A vector of objects
+     * @param    circuit[in]           The circuitry
      */
-    df::Function solve(const df::Function &rho,
-                       ObjectVector &objects,
-                       std::shared_ptr<Circuit> circuit = nullptr);
+    void solve(df::Function &phi, const df::Function &rho,
+               ObjectVector &objects,
+               std::shared_ptr<Circuit> circuit = nullptr);
 
     /**
      * @brief Calculates the residual of the Poisson solution

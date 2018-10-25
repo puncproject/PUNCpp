@@ -98,18 +98,14 @@ public:
 
 void redistribute_circuit_charge(std::vector<CircuitCM> &circuits);
 
-std::vector<std::shared_ptr<df::Function>> solve_laplace(
-    std::shared_ptr<df::FunctionSpace> &V,
-    std::vector<ObjectCM> &objects,
-    std::shared_ptr<df::MeshFunction<std::size_t>> &boundaries,
-    std::size_t ext_bnd_id);
-
 std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
+                                        const df::FunctionSpace &W,
                                         std::vector<ObjectCM> &objects,
                                         df::MeshFunction<std::size_t> boundaries,
                                         std::size_t ext_bnd_id);
 
 boost_matrix capacitance_matrix(const df::FunctionSpace &V,
+                                const df::FunctionSpace &W,
                                 std::vector<ObjectCM> &objects,
                                 const df::MeshFunction<std::size_t> &boundaries,
                                 std::size_t ext_bnd_id);

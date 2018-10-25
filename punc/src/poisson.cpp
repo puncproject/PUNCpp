@@ -22,6 +22,9 @@
 #include "../ufl/PotentialDG1D.h"
 #include "../ufl/PotentialDG2D.h"
 #include "../ufl/PotentialDG3D.h"
+#include "../ufl/EField1D.h"
+#include "../ufl/EField2D.h"
+#include "../ufl/EField3D.h"
 #include "../ufl/ErrorNorm1D.h"
 #include "../ufl/ErrorNorm2D.h"
 #include "../ufl/ErrorNorm3D.h"
@@ -59,7 +62,7 @@ double surface_area(std::shared_ptr<const df::Mesh> &mesh,
     return df::assemble(*area);
 }
 
-df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
+df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
                                  boost::optional<std::shared_ptr<PeriodicBoundary>> constr)
 {
 
@@ -106,6 +109,31 @@ df::FunctionSpace function_space(std::shared_ptr<const df::Mesh> &mesh,
             Potential3D::FunctionSpace V(mesh);
             return V;
         }
+    }
+}
+
+df::FunctionSpace CG1_vector_space(std::shared_ptr<const df::Mesh> &mesh)
+{
+
+    std::size_t dim = mesh->geometry().dim();
+
+    if (dim < 1 || dim > 3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
+    {
+        EField1D::FunctionSpace W(mesh);
+        return W;
+    }
+    else if (dim == 2)
+    {
+        EField2D::FunctionSpace W(mesh);
+        return W;
+    }
+    else
+    {
+        EField3D::FunctionSpace W(mesh);
+        return W;
     }
 }
 
@@ -286,7 +314,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
 }
 
 // To be removed once ObjectCM inherits Object and works
-df::Function PoissonSolver::solve(const df::Function &rho,
+void PoissonSolver::solve(df::Function &phi, const df::Function &rho,
                           const std::vector<ObjectCM> &objects)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
@@ -299,14 +327,12 @@ df::Function PoissonSolver::solve(const df::Function &rho,
     {
         bc.apply(A, b);
     }
-    df::Function phi(rho.function_space());
     solver->solve(A, *phi.vector(), b);
-    return phi;
 }
 
-df::Function PoissonSolver::solve(const df::Function &rho,
-                                  ObjectVector &objects,
-                                  std::shared_ptr<Circuit> circuit)
+void PoissonSolver::solve(df::Function &phi, const df::Function &rho,
+                          ObjectVector &objects,
+                          std::shared_ptr<Circuit> circuit)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
@@ -323,9 +349,7 @@ df::Function PoissonSolver::solve(const df::Function &rho,
     if(circuit) circuit->apply(b);
     if(remove_null_space) null_space->orthogonalize(b);
 
-    df::Function phi(rho.function_space());
     solver->solve(A, *phi.vector(), b);
-    return phi;
 }
 
 double PoissonSolver::residual(const df::Function &phi)
