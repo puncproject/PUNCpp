@@ -1,6 +1,6 @@
 // Copyright (C) 2018, Diako Darian and Sigvald Marholm
 //
-// This file is part of PUNC++.
+// This file is part of PUNC++
 //
 // PUNC++ is free software: you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the Free Software
@@ -29,44 +29,33 @@
 #define OBJECT_BC_H
 
 #include "object.h"
+#include "mesh.h"
 #include <dolfin.h>
 
 namespace punc {
 
 namespace df = dolfin;
 
-class ConstantBC : public df::DirichletBC
+class ObjectBC: public Object, public df::DirichletBC
 {
 public:
-    std::vector<df::la_index> dofs;
-    std::size_t num_dofs;
-    ConstantBC(const df::FunctionSpace &V,
-            const df::MeshFunction<std::size_t> &bnd,
-            std::size_t bnd_id,
-            std::string method = "topological");
-    df::la_index get_free_row();
-    double get_boundary_value(const df::Function &phi);
-};
-
-class ObjectBC: public ConstantBC, public Object
-{
-public:
-    df::MeshFunction<std::size_t> bnd;
-    std::shared_ptr<df::Form> charge_form;
     ObjectBC(const df::FunctionSpace &V,
-             const df::MeshFunction<std::size_t> &boundaries,
-             std::size_t bnd_id,
-             double eps0=1,
-             std::string method = "topological");
-    void update_charge(const df::Function &phi);
-    void update_potential(const df::Function &phi);
-    void update_current(double dt);
+             const Mesh &mesh, std::size_t bnd_id, double eps0=1);
     void update(const df::Function &phi);
     void apply(df::GenericVector &b);
     void apply(df::GenericMatrix &A);
 
 private:
+    friend class CircuitBC;
+    df::MeshFunction<std::size_t> bnd;
+    std::shared_ptr<df::Form> charge_form;
+    void update_charge(const df::Function &phi);
+    void update_potential(const df::Function &phi);
     double old_charge = 0.0;
+    std::vector<df::la_index> dofs;
+    std::size_t num_dofs;
+    df::la_index get_free_row();
+    double get_boundary_value(const df::Function &phi);
 };
 
 class CircuitBC : public Circuit

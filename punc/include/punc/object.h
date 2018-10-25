@@ -57,6 +57,7 @@ public:
     virtual void apply(df::GenericMatrix &A){};
     virtual void update(const df::Function &phi) = 0;
 };
+using ObjectVector = std::vector<std::shared_ptr<Object>>;
 
 class Circuit {
 public:

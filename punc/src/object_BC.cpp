@@ -80,24 +80,6 @@ static void addrow(const df::GenericMatrix& A, df::GenericMatrix& Bc,
  * GLOBAL DEFINITIONS
  ******************************************************************************/
 
-ConstantBC::ConstantBC(const df::FunctionSpace &V,
-               const df::MeshFunction<std::size_t> &bnd,
-               std::size_t bnd_id, std::string method):
-               df::DirichletBC(std::make_shared<df::FunctionSpace>(V),
-               std::make_shared<df::Constant>(0.0),
-               std::make_shared<df::MeshFunction<std::size_t>>(bnd),
-               bnd_id, method)
-{
-    std::unordered_map<std::size_t, double> dof_map;
-    get_boundary_values(dof_map);
-
-    for (auto itr = dof_map.begin(); itr != dof_map.end(); ++itr)
-    {
-        dofs.emplace_back(itr->first);
-    }
-    num_dofs = dofs.size();
-}
-
 void ObjectBC::apply(df::GenericVector &b)
 {
     auto first_ind = dofs[0];
@@ -165,13 +147,13 @@ void ObjectBC::apply(df::GenericMatrix &A)
     A.apply("insert");
 }
 
-df::la_index ConstantBC::get_free_row()
+df::la_index ObjectBC::get_free_row()
 {
     auto first_bnd_row = dofs[0];
     return first_bnd_row;
 }
 
-double ConstantBC::get_boundary_value(const df::Function &phi)
+double ObjectBC::get_boundary_value(const df::Function &phi)
 {
     std::vector<double> phi_array(num_dofs, 0.0);
     auto phi_vec = phi.vector();
@@ -180,15 +162,28 @@ double ConstantBC::get_boundary_value(const df::Function &phi)
 }
 
 ObjectBC::ObjectBC(const df::FunctionSpace &V,
-                   const df::MeshFunction<std::size_t> &boundaries,
-                   std::size_t bnd_id,
-                   double eps0,
-                   std::string method)
-                   :ConstantBC(V, boundaries, bnd_id, method), Object(bnd_id)
+                   const Mesh &mesh, std::size_t bnd_id, double eps0)
+                   :Object(bnd_id),
+                   df::DirichletBC(std::make_shared<df::FunctionSpace>(V),
+                   std::make_shared<df::Constant>(0.0),
+                   std::make_shared<df::MeshFunction<std::size_t>>(mesh.bnd),
+                   bnd_id)
 {
+
+    const df::MeshFunction<std::size_t> &boundaries = mesh.bnd;
+
+    std::unordered_map<std::size_t, double> dof_map;
+    get_boundary_values(dof_map);
+
+    for (auto itr = dof_map.begin(); itr != dof_map.end(); ++itr)
+    {
+        dofs.emplace_back(itr->first);
+    }
+    num_dofs = dofs.size();
+
     auto tags = boundaries.values();
     auto size = boundaries.size();
-    bnd = boundaries;
+    bnd = boundaries; // Important: This is a copy.
     bnd.set_all(0);
     for (std::size_t i = 0; i < size; ++i)
     {
@@ -199,21 +194,21 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     }
 
     auto eps0_ = std::make_shared<df::Constant>(eps0);
-    auto mesh = V.mesh();
-    auto dim = mesh->geometry().dim();
-    if (dim == 1)
+    /* auto mesh = V.mesh(); */
+    /* auto dim = mesh->geometry().dim(); */
+    if (mesh.dim == 1)
     {
-        charge_form = std::make_shared<Charge::Form_0>(mesh);
+        charge_form = std::make_shared<Charge::Form_0>(mesh.mesh);
         charge_form->set_coefficient("w0", eps0_);
     }
-    else if (dim == 2)
+    else if (mesh.dim == 2)
     {
-        charge_form = std::make_shared<Charge::Form_1>(mesh);
+        charge_form = std::make_shared<Charge::Form_1>(mesh.mesh);
         charge_form->set_coefficient("w0", eps0_);
     }
-    else if (dim == 3)
+    else if (mesh.dim == 3)
     {
-        charge_form = std::make_shared<Charge::Form_2>(mesh);
+        charge_form = std::make_shared<Charge::Form_2>(mesh.mesh);
         charge_form->set_coefficient("eps0", eps0_);
     }
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
@@ -237,14 +232,7 @@ void ObjectBC::update(const df::Function &phi)
     update_potential(phi);
 }
 
-// Deprecated
-void ObjectBC::update_current(double dt)
-{
-    current = (charge - old_charge) / dt;
-}
-
 CircuitBC::CircuitBC(const df::FunctionSpace &V,
-                     // std::vector<ObjectBC> &objects,
                      const std::vector<std::shared_ptr<Object>> &object_source,
                      std::vector<std::vector<int>> isources,
                      std::vector<double> ivalues,

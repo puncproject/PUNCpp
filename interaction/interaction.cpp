@@ -154,11 +154,11 @@ int run(
         std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    vector<std::shared_ptr<Object>> int_bc;
-    int_bc.push_back(std::make_shared<ObjectBC>(V, mesh.bnd, 2, eps0));
+    vector<std::shared_ptr<Object>> objects;
+    objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
 
     std::shared_ptr<Circuit> circuit;
-    circuit = std::make_shared<CircuitBC>(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
+    circuit = std::make_shared<CircuitBC>(V, objects, isources, ivalues, vsources, vvalues, dt, eps0);
 
     //
     // CREATE SOLVERS
@@ -197,13 +197,13 @@ int run(
     //
     // HISTORY AND SATE FILES
     //
-    History hist(fname_hist, int_bc, dim, continue_simulation);
+    History hist(fname_hist, objects, dim, continue_simulation);
     State state(fname_state);
     FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
     if(continue_simulation){
         cout << "Continuing previous simulation" << endl;
-        state.load(n, t, int_bc);
+        state.load(n, t, objects);
         pop.load_file(fname_pop, binary);
     } else {
         cout << "Starting new simulation" << endl;
@@ -249,14 +249,14 @@ int run(
         timer.toc();
 
         // SOLVE POISSON
-        // reset_objects(int_bc);
+        // reset_objects(objects);
         // t_rsetobj[n]= timer.elapsed();
         timer.tic("poisson");
-        auto phi = poisson.solve(rho, int_bc, circuit);
+        auto phi = poisson.solve(rho, objects, circuit);
         timer.toc();
 
         // UPDATE OBJECT CHARGE AND POTENTIAL
-        for(auto &o : int_bc)
+        for(auto &o : objects)
         {
             o->update(phi);
         } 
@@ -266,8 +266,8 @@ int run(
         auto E = esolver.solve(phi);
         timer.toc();
 
-        // compute_object_potentials(int_bc, E, inv_capacity, mesh.mesh);
-        // auto phi1 = poisson.solve(rho, int_bc);
+        // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
+        // auto phi1 = poisson.solve(rho, objects);
         // auto E1 = esolver.solve(phi1);
 
         // POTENTIAL ENERGY
@@ -300,7 +300,7 @@ int run(
         // WRITE HISTORY
         // Everything at n, except currents which are at n-0.5.
         timer.tic("io");
-        hist.save(n, t, num_e, num_i, KE, PE, int_bc);
+        hist.save(n, t, num_e, num_i, KE, PE, objects);
         timer.toc();
 
         // MOVE PARTICLES
@@ -313,14 +313,8 @@ int run(
 
         // UPDATE PARTICLE POSITIONS
         timer.tic("update");
-        pop.update(int_bc, dt);
+        pop.update(objects, dt);
         timer.toc();
-
-        // CALCULATE COLLECTED CURRENT BY EACH OBJECT
-        /* for (auto o : int_bc) */
-        /* { */
-        /*     o->update_current(dt); */
-        /* } */
 
         // INJECT PARTICLES
         timer.tic("injector");
@@ -366,7 +360,7 @@ int run(
             if (state_end)
             {
                 pop.save_file(fname_pop, binary);
-                state.save(n, t, int_bc);
+                state.save(n, t, objects);
             }
             break;
         }
