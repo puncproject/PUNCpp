@@ -139,19 +139,18 @@ int run(
     auto W = CG1_vector_space(mesh.mesh);
     auto Q = DG0_space(mesh.mesh);
     auto dv_inv = element_volume(V);
-    std::cout<<"W is Ok"<<'\n';
+
     // The electric potential and electric field
     df::Function phi(std::make_shared<const df::FunctionSpace>(V));
-    std::cout << "phi is Ok" << '\n';
     df::Function E(std::make_shared<const df::FunctionSpace>(W));
-    std::cout << "E is Ok" << '\n';
+
     // Electron and ion number densities
     df::Function ne(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni(std::make_shared<const df::FunctionSpace>(V));
     // Exponential moving average of number densities
     df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
-    std::cout << "density is Ok" << '\n';
+
     auto u0 = std::make_shared<df::Constant>(0.0);
 
     // mesh.ext_bnd_id will always be 1, but better not rely on it.
