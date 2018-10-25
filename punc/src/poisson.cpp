@@ -235,22 +235,6 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         L = std::make_shared<Potential3D::LinearForm>(V_shared);
     }
 
-    // bool has_charge_constraints = circuit && circuit.get().has_charge_constraints();
-    // if(has_charge_constraints){
-    //     if(method=="" && preconditioner==""){
-    //         method = "bicgstab";
-    //         preconditioner = "ilu";
-    //     } else {
-    //         // FIXME: Write proper status/warning/error message system
-    //         std::cerr << "Some linear algebra solvers/preconditioners may not work for circuits with charge constraints.\n";
-    //     }
-    // } else {
-    //     if(method=="" && preconditioner==""){
-    //         method = "gmres";
-    //         preconditioner = "hypre_amg";
-    //     }
-    // }
-
     if(circuit){
         // Assigns default solvers if method==preconditioner==""
         bool ok = circuit->check_solver_methods(method, preconditioner);
@@ -269,20 +253,10 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
 
     solver = std::make_shared<df::PETScKrylovSolver>(V.mesh()->mpi_comm(), method, preconditioner);
 
-    if(ext_bc)
-    {
+    if(ext_bc){
         num_bcs = ext_bc->size();
     }
     
-    // if(circuit)
-    // {
-    //     df::PETScMatrix A0;
-    //     df::assemble(A0, *a);
-    //     circuit->apply_old(A0, A);
-    // }else{
-    //     df::assemble(A, *a);
-    // }
-
     df::assemble(A, *a);
 
     if(circuit){
@@ -311,25 +285,7 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     }
 }
 
-df::Function PoissonSolver::solve(const df::Function &rho)
-{
-    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
-    df::assemble(b, *L);
-
-    for(std::size_t i = 0; i<num_bcs; ++i)
-    {
-        ext_bc.get()[i].apply(b);
-    }
-
-    if (remove_null_space)
-    {
-        null_space->orthogonalize(b);
-    }
-    df::Function phi(rho.function_space());
-    solver->solve(A, *phi.vector(), b);
-    return phi;
- }
-
+// To be removed once ObjectCM inherits Object and works
 df::Function PoissonSolver::solve(const df::Function &rho,
                           const std::vector<ObjectCM> &objects)
 {
@@ -349,47 +305,25 @@ df::Function PoissonSolver::solve(const df::Function &rho,
 }
 
 df::Function PoissonSolver::solve(const df::Function &rho,
-                                  std::vector<ObjectBC> &objects,
-                                  const df::FunctionSpace &V)
+                                  std::vector<std::shared_ptr<Object>> &objects,
+                                  std::shared_ptr<Circuit> circuit)
 {
     L->set_coefficient("rho", std::make_shared<df::Function>(rho));
     df::assemble(b, *L);
-    for (std::size_t i = 0; i < num_bcs; ++i)
-    {
-        ext_bc.get()[i].apply(b);
-    }
-    for (auto &bc : objects)
-    {
-        bc.apply(A);
-        bc.apply(b);
-    }
 
-    auto V_shared = std::make_shared<df::FunctionSpace>(V);
-    df::Function phi(V_shared);
-    solver->solve(A, *phi.vector(), b);
-    return phi;
-}
-
-df::Function PoissonSolver::solve(const df::Function &rho,
-                                  std::vector<ObjectBC> &objects,
-                                  std::shared_ptr<Circuit> circuit,
-                                  const df::FunctionSpace &V)
-{
-    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
-    df::assemble(b, *L);
     for(std::size_t i = 0; i<num_bcs; ++i)
     {
         ext_bc.get()[i].apply(b);
     }
     for(auto& bc: objects)
     {
-        bc.apply(A);
-        bc.apply(b);
+        bc->apply(A);
+        bc->apply(b);
     }
+    if(circuit) circuit->apply(b);
+    if(remove_null_space) null_space->orthogonalize(b);
 
-    circuit->apply(b);
-    auto V_shared = std::make_shared<df::FunctionSpace>(V);
-    df::Function phi(V_shared);
+    df::Function phi(rho.function_space());
     solver->solve(A, *phi.vector(), b);
     return phi;
 }

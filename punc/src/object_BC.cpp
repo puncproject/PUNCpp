@@ -98,7 +98,7 @@ ConstantBC::ConstantBC(const df::FunctionSpace &V,
     num_dofs = dofs.size();
 }
 
-void ConstantBC::apply(df::GenericVector &b)
+void ObjectBC::apply(df::GenericVector &b)
 {
     auto first_ind = dofs[0];
     auto first_element = b[first_ind];
@@ -106,7 +106,7 @@ void ConstantBC::apply(df::GenericVector &b)
     b.setitem(first_ind, first_element);
 }
 
-void ConstantBC::apply(df::GenericMatrix &A)
+void ObjectBC::apply(df::GenericMatrix &A)
 {
     std::vector<std::size_t> neighbors;
     std::vector<double> values;
@@ -171,7 +171,7 @@ df::la_index ConstantBC::get_free_row()
     return first_bnd_row;
 }
 
-double ConstantBC::get_boundary_value(df::Function &phi)
+double ConstantBC::get_boundary_value(const df::Function &phi)
 {
     std::vector<double> phi_array(num_dofs, 0.0);
     auto phi_vec = phi.vector();
@@ -219,34 +219,44 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
 }
 
-void ObjectBC::update_charge(df::Function &phi)
+void ObjectBC::update_charge(const df::Function &phi)
 {
     charge_form->set_coefficient("w1", std::make_shared<df::Function>(phi));
     charge = df::assemble(*charge_form);
     old_charge = charge;
 }
 
-void ObjectBC::update_potential(df::Function &phi)
+void ObjectBC::update_potential(const df::Function &phi)
 {
     potential = get_boundary_value(phi);
 }
 
+void ObjectBC::update(const df::Function &phi)
+{
+    update_charge(phi);
+    update_potential(phi);
+}
+
+// Deprecated
 void ObjectBC::update_current(double dt)
 {
     current = (charge - old_charge) / dt;
 }
 
 CircuitBC::CircuitBC(const df::FunctionSpace &V,
-                     std::vector<ObjectBC> &objects,
+                     // std::vector<ObjectBC> &objects,
+                     const std::vector<std::shared_ptr<Object>> &object_source,
                      std::vector<std::vector<int>> isources,
                      std::vector<double> ivalues,
                      std::vector<std::vector<int>> vsources,
                      std::vector<double> vvalues,
                      double dt, double eps0, std::string method)
-                     : V(V), objects(objects), isources(isources),
+                     : V(V), isources(isources),
                      vsources(vsources), ivalues(ivalues),
                      vvalues(vvalues), dt(dt), eps0(eps0)
 {
+    downcast_objects(object_source);
+
     auto num_objects = objects.size();
     groups = get_charge_sharing_sets(vsources, num_objects);
 
@@ -255,7 +265,7 @@ CircuitBC::CircuitBC(const df::FunctionSpace &V,
     for(std::size_t i = 0; i<groups.size(); ++i)
     {
         rows_c.emplace_back(groups[i][0]);
-        rows_charge.emplace_back(objects[rows_c[i]].get_free_row());
+        rows_charge.emplace_back(objects[rows_c[i]]->get_free_row());
     }
 
     std::iota(std::begin(rows_p), std::end(rows_p), 0);
@@ -266,7 +276,14 @@ CircuitBC::CircuitBC(const df::FunctionSpace &V,
 
     for (std::size_t i = 0; i < rows_p.size(); ++i)
     {
-        rows_potential.emplace_back(objects[rows_p[i]].get_free_row());
+        rows_potential.emplace_back(objects[rows_p[i]]->get_free_row());
+    }
+}
+
+void CircuitBC::downcast_objects(const std::vector<std::shared_ptr<Object>> &source){
+    // I am not happy about this down-casting.
+    for(auto &o : source){
+        objects.push_back(std::dynamic_pointer_cast<ObjectBC>(o));
     }
 }
 
@@ -333,7 +350,7 @@ void CircuitBC::apply(df::PETScMatrix &A)
     {
         for (std::size_t j = 0; j < groups[i].size(); ++j)
         {
-            charge_constr->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[groups[i][j]].bnd));
+            charge_constr->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[groups[i][j]]->bnd));
         }
         df::PETScMatrix A_constraint; // Only one row
         df::assemble(A_constraint, *charge_constr);
@@ -361,14 +378,14 @@ void CircuitBC::apply(df::PETScMatrix &A)
 
         if (obj_a_id != -1)
         {
-            auto dof_a = objects[obj_a_id].get_free_row();
+            auto dof_a = objects[obj_a_id]->get_free_row();
             cols.emplace_back(dof_a);
             vals.emplace_back(-1.0);
         }
 
         if (obj_b_id != -1)
         {
-            auto dof_b = objects[obj_b_id].get_free_row();
+            auto dof_b = objects[obj_b_id]->get_free_row();
             cols.emplace_back(dof_b);
             vals.emplace_back(1.0);
         }
@@ -398,7 +415,7 @@ void CircuitBC::apply_vsources_to_vector(df::GenericVector &b)
         object_charge = 0.0;
         for (std::size_t j = 0; j < group.size(); ++j)
         {
-            object_charge += objects[group[j]].charge;
+            object_charge += objects[group[j]]->charge;
         }
         b.setitem(rows_charge[i], object_charge);
     }
@@ -420,11 +437,11 @@ void CircuitBC::apply_isources_to_object()
 
         if (obj_a_id != -1)
         {
-            objects[obj_a_id].charge -= dQ;
+            objects[obj_a_id]->charge -= dQ;
         }
         if (obj_b_id != -1)
         {
-            objects[obj_b_id].charge += dQ;
+            objects[obj_b_id]->charge += dQ;
         }
     }
 }

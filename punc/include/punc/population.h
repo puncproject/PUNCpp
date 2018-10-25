@@ -373,7 +373,7 @@ class Population
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
     signed long int relocate_fast(const double *p, signed long int cell_id);
-    void update(std::vector<ObjectBC>& objects);
+    void update(std::vector<std::shared_ptr<Object>> objects, double dt);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
@@ -605,8 +605,13 @@ signed long int Population<len>::relocate_fast(const double *p, signed long int 
 }
 
 template <std::size_t len>
-void Population<len>::update(std::vector<ObjectBC> &objects)
+void Population<len>::update(std::vector<std::shared_ptr<Object>> objects, double dt)
 {
+
+    for(auto object : objects){
+        object->current = 0;
+    }
+
     // FIXME: Consider a different mechanism for boundaries than using negative
     // numbers, or at least circumvent the problem of casting num_cells to
     // signed. Not good practice. size_t may overflow to negative numbers upon
@@ -631,12 +636,13 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
                 }
                 else
                 {
+                    // FIXME:
                     // Standard numbering scheme on objects and exterior
                     // boundary would eliminate this loop.
-                    for(auto &object : objects){
-                        if ((std::size_t)(-new_cell_id) == object.bnd_id)
+                    for(auto object : objects){
+                        if ((std::size_t)(-new_cell_id) == object->bnd_id)
                         {
-                            object.charge += particle.q;
+                            object->current += particle.q;
                         }
                     }
                 }
@@ -649,7 +655,11 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
             cells[cell_id].particles[p_id] = cells[cell_id].particles.back();
             cells[cell_id].particles.pop_back();
         }
+    }
 
+    for(auto object : objects){
+        object->charge += object->current;
+        object->current /= dt;
     }
 }
 

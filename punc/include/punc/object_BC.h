@@ -44,10 +44,8 @@ public:
             const df::MeshFunction<std::size_t> &bnd,
             std::size_t bnd_id,
             std::string method = "topological");
-    void apply(df::GenericVector &b);
-    void apply(df::GenericMatrix &A);
     df::la_index get_free_row();
-    double get_boundary_value(df::Function &phi);
+    double get_boundary_value(const df::Function &phi);
 };
 
 class ObjectBC: public ConstantBC, public Object
@@ -60,9 +58,12 @@ public:
              std::size_t bnd_id,
              double eps0=1,
              std::string method = "topological");
-    void update_charge(df::Function &phi);
-    void update_potential(df::Function &phi);
+    void update_charge(const df::Function &phi);
+    void update_potential(const df::Function &phi);
     void update_current(double dt);
+    void update(const df::Function &phi);
+    void apply(df::GenericVector &b);
+    void apply(df::GenericMatrix &A);
 
 private:
     double old_charge = 0.0;
@@ -72,7 +73,7 @@ class CircuitBC : public Circuit
 {
 public:
     const df::FunctionSpace &V;
-    std::vector<ObjectBC> &objects;
+    std::vector<std::shared_ptr<ObjectBC>> objects;
     std::vector<std::vector<int>> isources, vsources;
     std::vector<double> ivalues, vvalues;
     std::vector<std::size_t> bnd_id;
@@ -84,7 +85,8 @@ public:
     std::shared_ptr<df::Form> charge_constr;
 
     CircuitBC(const df::FunctionSpace &V,
-              std::vector<ObjectBC> &objects,
+              /* std::vector<ObjectBC> &objects, */
+              const std::vector<std::shared_ptr<Object>> &object_source,
               std::vector<std::vector<int>> isources,
               std::vector<double> ivalues,
               std::vector<std::vector<int>> vsources,
@@ -94,12 +96,13 @@ public:
 
     void apply(df::GenericVector &b);
     void apply(df::PETScMatrix &A);
-    void apply_old(df::PETScMatrix &A, df::PETScMatrix &A_tmp);
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
 
     bool check_solver_methods(std::string &method,
                               std::string &preconditioner) const;
+private:
+    void downcast_objects(const std::vector<std::shared_ptr<Object>> &source);
 };
 
 } // namespace punc

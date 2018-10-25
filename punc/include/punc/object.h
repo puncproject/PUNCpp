@@ -53,6 +53,9 @@ public:
     size_t bnd_id;
 
     Object(size_t bnd_id) : bnd_id(bnd_id) {};
+    virtual void apply(df::GenericVector &b){};
+    virtual void apply(df::GenericMatrix &A){};
+    virtual void update(const df::Function &phi) = 0;
 };
 
 class Circuit {
@@ -65,6 +68,7 @@ public:
     // double eps0;
     virtual bool check_solver_methods(std::string &method,
                                       std::string &preconditioner) const = 0;
+
     virtual void apply(df::GenericVector &b){};
     virtual void apply(df::PETScMatrix &A){};
 };

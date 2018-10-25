@@ -154,8 +154,10 @@ int run(
         std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, mesh.bnd, 2, eps0);
-    vector<ObjectBC> int_bc = {object};
+    /* ObjectBC object(V, mesh.bnd, 2, eps0); */
+    /* vector<ObjectBC> int_bc = {object}; */
+    vector<std::shared_ptr<Object>> int_bc;
+    int_bc.push_back(std::make_shared<ObjectBC>(V, mesh.bnd, 2, eps0));
 
     std::shared_ptr<Circuit> circuit;
     circuit = std::make_shared<CircuitBC>(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
@@ -254,14 +256,15 @@ int run(
         /* int_bc[0].charge = 0; */
         /* int_bc[0].charge -= current_collected*dt; */
         timer.tic("poisson");
-        auto phi = poisson.solve(rho, int_bc, circuit, V);
+        auto phi = poisson.solve(rho, int_bc, circuit);
         timer.toc();
 
         // UPDATE OBJECT CHARGE AND POTENTIAL
-        for(auto& o: int_bc)
+        for(auto &o : int_bc)
         {
-            o.update_charge(phi);
-            o.update_potential(phi);
+            /* o->update_charge(phi); */
+            /* o->update_potential(phi); */
+            o->update(phi);
         } 
         
         // ELECTRIC FIELD
@@ -319,14 +322,14 @@ int run(
 
         // UPDATE PARTICLE POSITIONS
         timer.tic("update");
-        pop.update(int_bc);
+        pop.update(int_bc, dt);
         timer.toc();
 
         // CALCULATE COLLECTED CURRENT BY EACH OBJECT
-        for (auto &o : int_bc)
-        {
-            o.update_current(dt);
-        }
+        /* for (auto o : int_bc) */
+        /* { */
+        /*     o->update_current(dt); */
+        /* } */
 
         // INJECT PARTICLES
         timer.tic("injector");

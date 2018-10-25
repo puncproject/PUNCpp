@@ -155,13 +155,6 @@ public:
                   std::string preconditioner = "");
 
     /**
-     * @brief Solves Poisson's equation without any internal objects
-     * @param    rho               Total charge density
-     * @return   The electric potential
-     */
-    df::Function solve(const df::Function &rho);
-
-    /**
      * @brief Solves Poisson's equation in the domain contaning objects
      * @param    rho               Total charge density
      * @param    objects           A vector of objects
@@ -171,28 +164,15 @@ public:
                        const std::vector<ObjectCM> &objects);
 
     /**
-     * @brief Solves Poisson's equation in the domain contaning objects
-     * @param    rho               Total charge density
-     * @param    objects           A vector of objects
-     * @param    V                 The function space
-     * @return   The electric potential
-     */
-    df::Function solve(const df::Function &rho,
-                       std::vector<ObjectBC> &objects,
-                       const df::FunctionSpace &V);
-
-    /**
      * @brief Solves Poisson's equation in the domain contaning objects and circuits
      * @param    rho               Total charge density
      * @param    objects           A vector of objects
      * @param    circuit           The circuitry
-     * @param    V                 The function space
      * @return   The electric potential
      */
     df::Function solve(const df::Function &rho,
-                       std::vector<ObjectBC> &objects,
-                       std::shared_ptr<Circuit> circuit,
-                       const df::FunctionSpace &V);
+                       std::vector<std::shared_ptr<Object>> &objects,
+                       std::shared_ptr<Circuit> circuit = nullptr);
 
     /**
      * @brief Calculates the residual of the Poisson solution
