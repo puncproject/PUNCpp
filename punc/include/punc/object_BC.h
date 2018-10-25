@@ -30,7 +30,11 @@
 
 #include "object.h"
 #include "mesh.h"
-#include <dolfin.h>
+#include <dolfin/function/FunctionSpace.h>
+#include <dolfin/mesh/MeshFunction.h>
+#include <dolfin/fem/Form.h>
+#include <dolfin/fem/DirichletBC.h>
+#include <dolfin/common/types.h>
 
 namespace punc {
 

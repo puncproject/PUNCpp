@@ -25,7 +25,9 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
-#include <dolfin.h>
+#include <dolfin/function/Function.h>
+#include <dolfin/la/GenericVector.h>
+#include <dolfin/la/GenericMatrix.h>
 #include <dolfin/la/PETScMatrix.h>
 
 namespace punc {

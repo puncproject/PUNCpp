@@ -28,6 +28,14 @@
 #include "../include/punc/object_BC.h"
 #include "../ufl/Charge.h"
 #include "../ufl/Constraint.h"
+#include <dolfin/function/Constant.h>
+#include <dolfin/fem/assemble.h>
+#include <dolfin/fem/GenericDofMap.h>
+#include <dolfin/la/TensorLayout.h>
+#include <dolfin/la/IndexMap.h>
+#include <dolfin/la/SparsityPattern.h>
+#include <dolfin/la/GenericLinearAlgebraFactory.h>
+#include <dolfin/common/MPI.h>
 
 namespace punc {
 
