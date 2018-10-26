@@ -32,28 +32,26 @@
 namespace punc
 {
 
-ESolver::ESolver(const df::FunctionSpace &V,
+ESolver::ESolver(const df::FunctionSpace &W,
                  std::string method, std::string preconditioner):
-                 solver(V.mesh()->mpi_comm(), method, preconditioner)
+                 solver(W.mesh()->mpi_comm(), method, preconditioner)
 {
-    auto dim = V.mesh()->geometry().dim();
+    auto dim = W.mesh()->geometry().dim();
+    auto W_shared = std::make_shared<df::FunctionSpace>(W);
     if (dim == 1)
     {
-        W = std::make_shared<EField1D::FunctionSpace>(V.mesh());
-        a = std::make_shared<EField1D::BilinearForm>(W, W);
-        L = std::make_shared<EField1D::LinearForm>(W);
+        a = std::make_shared<EField1D::BilinearForm>(W_shared, W_shared);
+        L = std::make_shared<EField1D::LinearForm>(W_shared);
     }
     else if (dim == 2)
     {
-        W = std::make_shared<EField2D::FunctionSpace>(V.mesh());
-        a = std::make_shared<EField2D::BilinearForm>(W, W);
-        L = std::make_shared<EField2D::LinearForm>(W);
+        a = std::make_shared<EField2D::BilinearForm>(W_shared, W_shared);
+        L = std::make_shared<EField2D::LinearForm>(W_shared);
     }
     else if (dim == 3)
     {
-        W = std::make_shared<EField3D::FunctionSpace>(V.mesh());
-        a = std::make_shared<EField3D::BilinearForm>(W, W);
-        L = std::make_shared<EField3D::LinearForm>(W);
+        a = std::make_shared<EField3D::BilinearForm>(W_shared, W_shared);
+        L = std::make_shared<EField3D::LinearForm>(W_shared);
     }
     solver.parameters["absolute_tolerance"] = 1e-14;
     solver.parameters["relative_tolerance"] = 1e-12;
@@ -63,13 +61,11 @@ ESolver::ESolver(const df::FunctionSpace &V,
     df::assemble(A, *a);
 }
 
-df::Function ESolver::solve(df::Function &phi)
+void ESolver::solve(df::Function &E, const df::Function &phi)
 {
     L->set_coefficient("phi", std::make_shared<df::Function>(phi));
     df::assemble(b, *L);
-    df::Function E(W);
     solver.solve(A, *E.vector(), b);
-    return E;
 }
 
 EFieldDG0::EFieldDG0(std::shared_ptr<const df::Mesh> mesh)

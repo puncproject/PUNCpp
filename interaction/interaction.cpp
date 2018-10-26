@@ -135,9 +135,14 @@ int run(
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
     //
-    auto V = function_space(mesh.mesh);
+    auto V = CG1_space(mesh.mesh);
+    auto W = CG1_vector_space(mesh.mesh);
     auto Q = DG0_space(mesh.mesh);
     auto dv_inv = element_volume(V);
+
+    // The electric potential and electric field
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
     // Electron and ion number densities
     df::Function ne(std::make_shared<const df::FunctionSpace>(V));
@@ -164,7 +169,7 @@ int run(
     // CREATE SOLVERS
     //
     PoissonSolver poisson(V, ext_bc, circuit, eps0);
-    ESolver esolver(V);
+    ESolver esolver(W);
 
     //
     // CREATE FLUX
@@ -252,7 +257,8 @@ int run(
         // reset_objects(objects);
         // t_rsetobj[n]= timer.elapsed();
         timer.tic("poisson");
-        auto phi = poisson.solve(rho, objects, circuit);
+        poisson.solve(phi, rho, objects, circuit);
+        // auto phi = poisson.solve(rho, objects, circuit);
         timer.toc();
 
         // UPDATE OBJECT CHARGE AND POTENTIAL
@@ -265,7 +271,8 @@ int run(
         
         // ELECTRIC FIELD
         timer.tic("efield");
-        auto E = esolver.solve(phi);
+        esolver.solve(E, phi);
+        // auto E = esolver.solve(phi);
         timer.toc();
 
         // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);

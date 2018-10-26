@@ -221,6 +221,7 @@ void redistribute_circuit_charge(std::vector<CircuitCM> &circuits)
 }
 
 std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
+                                        const df::FunctionSpace &W,
                                         std::vector<ObjectCM> &objects,
                                         df::MeshFunction<std::size_t> boundaries,
                                         std::size_t ext_bnd_id)
@@ -232,11 +233,12 @@ std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
                        ext_bnd_id);
     std::vector<df::DirichletBC> ext_bc = {bc};
     PoissonSolver poisson(V, ext_bc);
-    ESolver esolver(V);
+    ESolver esolver(W);
     auto num_objects = objects.size();
 
     std::vector<df::Function> object_e_field;
     auto shared_V = std::make_shared<df::FunctionSpace>(V);
+    auto shared_W = std::make_shared<df::FunctionSpace>(W);
     for (std::size_t i = 0; i < num_objects; ++i)
     {
         for (std::size_t j = 0; j < num_objects; ++j)
@@ -251,13 +253,17 @@ std::vector<df::Function> solve_laplace(const df::FunctionSpace &V,
             }
         }
         df::Function rho(shared_V);
-        auto phi = poisson.solve(rho, objects);
-        object_e_field.emplace_back(esolver.solve(phi));
+        df::Function phi(shared_V);
+        df::Function E(shared_W);
+        poisson.solve(phi, rho, objects);
+        esolver.solve(E, phi);
+        object_e_field.emplace_back(E);
     }
     return object_e_field;
 }
 
 boost_matrix capacitance_matrix(const df::FunctionSpace &V,
+                                const df::FunctionSpace &W,
                                 std::vector<ObjectCM> &objects,
                                 const df::MeshFunction<std::size_t> &boundaries,
                                 std::size_t ext_bnd_id)
@@ -280,7 +286,7 @@ boost_matrix capacitance_matrix(const df::FunctionSpace &V,
     }
     boost_matrix capacitance(num_objects, num_objects);
     boost_matrix inv_capacity(num_objects, num_objects);
-    auto object_e_field = solve_laplace(V, objects, boundaries, ext_bnd_id);
+    auto object_e_field = solve_laplace(V, W, objects, boundaries, ext_bnd_id);
     for (unsigned i = 0; i < num_objects; ++i)
     {
         flux->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(objects[i].bnd));
