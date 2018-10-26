@@ -229,7 +229,7 @@ int run(
     //
     // CREATE TIMER TASKS
     //
-    vector<string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "injector", "counting particles", "io", "density"};
+    vector<string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "injector", "counting particles", "io", "density", "object update"};
     Timer timer(tasks);
 
     exit_immediately = false;
@@ -256,10 +256,12 @@ int run(
         timer.toc();
 
         // UPDATE OBJECT CHARGE AND POTENTIAL
+        timer.tic("object update");
         for(auto &o : objects)
         {
             o->update(phi);
         } 
+        timer.toc();
         
         // ELECTRIC FIELD
         timer.tic("efield");

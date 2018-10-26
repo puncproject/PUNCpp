@@ -44,27 +44,6 @@ namespace punc {
  ******************************************************************************/
 
 /**
- * @brief Identifies the set of objects sharing the charge with a given object
- * @param       vsources    List of voltage sources
- * @param       node        Object to look for
- * @param[out]  group       List of objects sharing charge with node
- */
-static void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group);
-
-/**
- * @brief Identifies all sets of charge sharing objects
- * @param   vsources        List of voltage sources
- * @param   num_objects     Number of objects
- * @return                  List of charge sharing sets
- *
- * Objects connected through voltage sources share the charge, and unless they
- * are connected with a fixed voltage with respect to ground they have a common
- * charge constraint. This follows the voltage sources to identify which objects
- * must have a charge constraint.
- */
-static std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects);
-
-/**
  * @brief Replace a row in a matrix
  * @param       A       Input matrix
  * @param[out]  Bc      Output matrix
@@ -161,14 +140,6 @@ df::la_index ObjectBC::get_free_row()
     return first_bnd_row;
 }
 
-double ObjectBC::get_boundary_value(const df::Function &phi)
-{
-    std::vector<double> phi_array(num_dofs, 0.0);
-    auto phi_vec = phi.vector();
-    phi_vec->get_local(phi_array);
-    return phi_array[get_free_row()];
-}
-
 ObjectBC::ObjectBC(const df::FunctionSpace &V,
                    const Mesh &mesh, std::size_t bnd_id, double eps0)
                    :Object(bnd_id),
@@ -222,39 +193,28 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     charge_form->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
 }
 
-void ObjectBC::update_charge(const df::Function &phi)
-{
-    charge_form->set_coefficient("w1", std::make_shared<df::Function>(phi));
-    charge = df::assemble(*charge_form);
-    old_charge = charge;
-}
-
-void ObjectBC::update_potential(const df::Function &phi)
-{
-    potential = get_boundary_value(phi);
-}
-
 void ObjectBC::update(const df::Function &phi)
 {
-    update_charge(phi);
-    update_potential(phi);
+    // update charge
+    charge_form->set_coefficient("w1", std::make_shared<df::Function>(phi));
+    charge = df::assemble(*charge_form);
+
+    // update potential
+    std::vector<double> phi_array(num_dofs, 0.0);
+    auto phi_vec = phi.vector();
+    phi_vec->get_local(phi_array);
+    potential = phi_array[get_free_row()];
 }
 
 CircuitBC::CircuitBC(const df::FunctionSpace &V,
-                     const ObjectVector &object_source,
-                     std::vector<std::vector<int>> isources,
-                     std::vector<double> ivalues,
-                     std::vector<std::vector<int>> vsources,
-                     std::vector<double> vvalues,
-                     double dt, double eps0, std::string method)
-                     : V(V), isources(isources),
-                     vsources(vsources), ivalues(ivalues),
-                     vvalues(vvalues), dt(dt), eps0(eps0)
+                     const ObjectVector &object_vector,
+                     const SourceVector &vsources,
+                     const SourceVector &isources,
+                     double dt, double eps0)
+                     : Circuit(object_vector, vsources, isources),
+                       V(V), dt(dt), eps0(eps0)
 {
-    downcast_objects(object_source);
-
-    auto num_objects = objects.size();
-    groups = get_charge_sharing_sets(vsources, num_objects);
+    downcast_objects(object_vector);
 
     std::vector<std::size_t> rows_p(num_objects), rows_c;
 
@@ -367,8 +327,8 @@ void CircuitBC::apply(df::PETScMatrix &A)
     // Potential constraints
     for (std::size_t i = 0; i < vsources.size(); ++i)
     {
-        auto obj_a_id = vsources[i][0];
-        auto obj_b_id = vsources[i][1];
+        auto obj_a_id = vsources[i].node_a;
+        auto obj_b_id = vsources[i].node_b;
         std::vector<std::size_t> cols;
         std::vector<double> vals;
 
@@ -419,7 +379,7 @@ void CircuitBC::apply_vsources_to_vector(df::GenericVector &b)
     // Potential constaints
     for (std::size_t i = 0; i < vsources.size(); ++i)
     {
-        b.setitem(rows_potential[i], vvalues[i]);
+        b.setitem(rows_potential[i], vsources[i].value);
     }
 }
 
@@ -427,9 +387,9 @@ void CircuitBC::apply_isources_to_object()
 {
     for (std::size_t i = 0; i < isources.size(); ++i)
     {
-        auto obj_a_id = isources[i][0];
-        auto obj_b_id = isources[i][1];
-        auto dQ = ivalues[i]*dt;
+        auto obj_a_id = isources[i].node_a;
+        auto obj_b_id = isources[i].node_b;
+        auto dQ = isources[i].value*dt;
 
         if (obj_a_id != -1)
         {
@@ -445,64 +405,6 @@ void CircuitBC::apply_isources_to_object()
 /*******************************************************************************
  * LOCAL DEFINITIONS
  ******************************************************************************/
-
-static void get_charge_sharing_set(std::vector<std::vector<int>> &vsources, int node, std::vector<int> &group)
-{
-    group.emplace_back(node);
-
-    std::size_t i = 0;
-    while (i < vsources.size())
-    {
-        std::vector<int> vsource = vsources[i];
-        if (vsource[0] == node)
-        {
-            vsources.erase(vsources.begin() + i);
-            get_charge_sharing_set(vsources, vsource[1], group);
-        }
-        else if (vsource[1] == node)
-        {
-            vsources.erase(vsources.begin() + i);
-            get_charge_sharing_set(vsources, vsource[0], group);
-        }
-        else
-        {
-            i += 1;
-        }
-    }
-}
-
-static std::vector<std::vector<int>> get_charge_sharing_sets(std::vector<std::vector<int>> vsources, int num_objects)
-{
-    std::vector<int> nodes(num_objects);
-    std::iota(std::begin(nodes), std::end(nodes), 0);
-
-    std::vector<std::vector<int>> groups;
-
-    while (vsources.size() != 0)
-    {
-        std::vector<int> group;
-        get_charge_sharing_set(vsources, vsources[0][0], group);
-        groups.emplace_back(group);
-    }
- 
-    for (std::size_t i = 0; i != groups.size(); i++){
-        for (std::size_t j = 0; j != groups[i].size(); j++){
-            if (groups[i][j] != -1){
-                nodes.erase(std::remove(nodes.begin(), nodes.end(), groups[i][j]), nodes.end());
-            }
-        }
-    }
-
-    groups.erase(std::remove_if(groups.begin(), groups.end(), [](std::vector<int> a) { return std::find(a.begin(), a.end(), -1) != a.end(); }), groups.end());
-
-    for (std::size_t i = 0; i < nodes.size(); ++i)
-    {
-        std::vector<int> node{nodes[i]};
-        groups.emplace_back(node);
-    }
-    return groups;
-}
-
 
 static void addrow(const df::GenericMatrix& A, df::GenericMatrix& Bc,
                    std::size_t row,

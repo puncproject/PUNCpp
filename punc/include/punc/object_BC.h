@@ -53,13 +53,10 @@ private:
     friend class CircuitBC;
     df::MeshFunction<std::size_t> bnd;
     std::shared_ptr<df::Form> charge_form;
-    void update_charge(const df::Function &phi);
-    void update_potential(const df::Function &phi);
-    double old_charge = 0.0;
     std::vector<df::la_index> dofs;
     std::size_t num_dofs;
     df::la_index get_free_row();
-    double get_boundary_value(const df::Function &phi);
+
 };
 
 class CircuitBC : public Circuit
@@ -67,34 +64,31 @@ class CircuitBC : public Circuit
 public:
     const df::FunctionSpace &V;
     std::vector<std::shared_ptr<ObjectBC>> objects;
-    std::vector<std::vector<int>> isources, vsources;
-    std::vector<double> ivalues, vvalues;
     std::vector<std::size_t> bnd_id;
-    double dt;
-    double eps0;
-    std::vector<std::vector<int>> groups;
-    std::vector<std::size_t> rows_charge;
-    std::vector<std::size_t> rows_potential;
-    std::shared_ptr<df::Form> charge_constr;
 
     CircuitBC(const df::FunctionSpace &V,
-              const ObjectVector &object_source,
-              std::vector<std::vector<int>> isources,
-              std::vector<double> ivalues,
-              std::vector<std::vector<int>> vsources,
-              std::vector<double> vvalues,
-              double dt, double eps0 = 1.0,
-              std::string method = "topological");
+              const ObjectVector &object_vector,
+              const std::vector<Source> &vsources,
+              const std::vector<Source> &isources,
+              double dt, double eps0 = 1.0);
 
     void apply(df::GenericVector &b);
     void apply(df::PETScMatrix &A);
-    void apply_vsources_to_vector(df::GenericVector &b);
-    void apply_isources_to_object();
 
     bool check_solver_methods(std::string &method,
                               std::string &preconditioner) const;
 private:
     void downcast_objects(const ObjectVector &source);
+    std::vector<std::size_t> rows_charge;
+    std::vector<std::size_t> rows_potential;
+    std::shared_ptr<df::Form> charge_constr;
+    void apply_vsources_to_vector(df::GenericVector &b);
+    void apply_isources_to_object();
+    //! The time-step
+    double dt;
+
+    //! The vacuum permittivity
+    double eps0;
 };
 
 } // namespace punc

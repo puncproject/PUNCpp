@@ -34,17 +34,26 @@ namespace punc {
 
 namespace df = dolfin;
 
+/**
+ * @brief Voltage/current source
+ * 
+ * Technically a two-port: a component with a value connected between two nodes.
+ * This is used by Circuit as a description of voltage and current sources.
+ */
 class Source {
 public:
-    using size_t = std::size_t;
-
-    size_t node_a;
-    size_t node_b;
+    int node_a;
+    int node_b;
     double value;
 };
-class Vsource : public Source {};
-class Isource : public Source {};
 
+/**
+ * @brief Object interface
+ * 
+ * This represents the interface for any implementation of objects. The
+ * implemented methods must inherit this interface and implement its methods
+ * as appropriate.
+ */
 class Object {
 public:
     using size_t = std::size_t;
@@ -66,6 +75,7 @@ public:
 
     /**
      * @brief Constructor
+     * @param bnd_id    The id of the boundary
      */
     Object(size_t bnd_id) : bnd_id(bnd_id) {};
 
@@ -96,14 +106,28 @@ public:
 //! A polymorphic vector of Objects.
 using ObjectVector = std::vector<std::shared_ptr<Object>>;
 
+//! A vector of voltage or current sources
+using SourceVector = std::vector<Source>;
+
+/**
+ * @brief Circuit interface
+ * 
+ * This represents the interface for any implementation of circuits. The
+ * implemented methods must inherit this interface and implement its methods
+ * as appropriate.
+ */
 class Circuit {
 public:
-    // ObjectVector &objects;
-    // std::vector<Vsource> vsources;
-    // std::vector<Isource> isources;
-    // std::vector<std::vector<int>> groups;
-    // double dt;
-    // double eps0;
+
+    /**
+     * @brief Constructor
+     * @param   object_vector   objects
+     * @param   vsources        voltage sources
+     * @param   isources        current sources
+     */
+    Circuit(const ObjectVector &object_vector,
+            const SourceVector &vsources,
+            const SourceVector &isources);
 
     /**
      * @brief Check if selected solvers are valid or assign default solvers.
@@ -132,6 +156,32 @@ public:
      * @param[in, out]  A   Matrix
      */
     virtual void apply(df::PETScMatrix &A){};
+
+    //! Number of objects
+    std::size_t num_objects;
+
+    //! A reference to the objects connected by the circuitry
+    // ObjectVector &objects;
+    // Stored in children instead, as derived type
+
+    //! A reference to the voltage sources in the circuit
+    const SourceVector &vsources;
+
+    //! A reference to the current sources in the circuit
+    const SourceVector &isources;
+
+    /*
+     * Note: I am not quite sure how good an idea it is to have all these
+     * references inside this class. The idea is that e.g. an object can
+     * be stored, and changed outside the circuit, for instance when it is
+     * updated by Population::update(), and still be part of the circuit.
+     * If we notice any surprises we might have to rethink this.
+     */
+
+protected:
+    //! Groups of object indices of charge-sharing objects.
+    std::vector<std::vector<int>> groups;
+
 };
 
 } // namespace punc
