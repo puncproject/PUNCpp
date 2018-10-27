@@ -112,24 +112,15 @@ int run(
     //
     // IMPOSE CIRCUITRY
     //
-    vector<vector<int>> isources, vsources;
-    vector<double> ivalues, vvalues;
+    vector<Source> isources;
+    vector<Source> vsources;
 
-    if(impose_current){
-
-        isources = {{-1,0}};
-        ivalues = {-imposed_current};
-
-        vsources = {};
-        vvalues = {};
+    if(impose_current)
+    {
+        isources.push_back(Source{-1,0,-imposed_current});
 
     } else {
-
-        isources = {};
-        ivalues = {};
-
-        vsources = {{-1,0}};
-        vvalues = {imposed_voltage};
+        vsources.push_back(Source{-1, 0, imposed_voltage});
     }
 
     //
@@ -163,7 +154,7 @@ int run(
     objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
 
     std::shared_ptr<Circuit> circuit;
-    circuit = std::make_shared<CircuitBC>(V, objects, isources, ivalues, vsources, vvalues, dt, eps0);
+    circuit = std::make_shared<CircuitBC>(V, objects, vsources, isources, dt, eps0);
 
     //
     // CREATE SOLVERS
@@ -258,7 +249,6 @@ int run(
         // t_rsetobj[n]= timer.elapsed();
         timer.tic("poisson");
         poisson.solve(phi, rho, objects, circuit);
-        // auto phi = poisson.solve(rho, objects, circuit);
         timer.toc();
 
         // UPDATE OBJECT CHARGE AND POTENTIAL
@@ -272,7 +262,6 @@ int run(
         // ELECTRIC FIELD
         timer.tic("efield");
         esolver.solve(E, phi);
-        // auto E = esolver.solve(phi);
         timer.toc();
 
         // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
