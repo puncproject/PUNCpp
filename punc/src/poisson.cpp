@@ -31,42 +31,16 @@
 #include "../ufl/ErrorNormVec1D.h"
 #include "../ufl/ErrorNormVec2D.h"
 #include "../ufl/ErrorNormVec3D.h"
-#include "../ufl/Surface.h"
+
 
 namespace punc
 {
 
-// This function should probably belong to object.cpp.
-// I don't think it's currently in use, but one could change the signature to:
-// double surface_area(const Mesh &mesh, std::size_t bnd_id)
-// The bnd's id is then temporarily (or in a copy) changed to the id in the UFL
-double surface_area(std::shared_ptr<const df::Mesh> &mesh,
-                    df::MeshFunction<std::size_t> &bnd)
-{
-    auto dim = mesh->geometry().dim();
-    auto one = std::make_shared<df::Constant>(1.0);
-    std::shared_ptr<df::Form> area;
-    if (dim == 1)
-    {
-        area = std::make_shared<Surface::Form_0>(mesh, one);
-    }
-    if (dim == 2)
-    {
-        area = std::make_shared<Surface::Form_1>(mesh, one);
-    }
-    else if (dim == 3)
-    {
-        area = std::make_shared<Surface::Form_2>(mesh, one);
-    }
-    area->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(bnd));
-    return df::assemble(*area);
-}
-
-df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
-                                 boost::optional<std::shared_ptr<PeriodicBoundary>> constr)
+df::FunctionSpace CG1_space(const Mesh &mesh,
+                            boost::optional<std::shared_ptr<PeriodicBoundary>> constr)
 {
 
-    std::size_t dim = mesh->geometry().dim();
+    std::size_t dim = mesh.dim;
 
     if(dim<1 || dim>3)
         df::error("PUNC is programmed for dimensions up to 3D only.");
@@ -75,12 +49,12 @@ df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
     {
         if(constr)
         {
-            Potential1D::FunctionSpace V(mesh, constr.get());
+            Potential1D::FunctionSpace V(mesh.mesh, constr.get());
             return V;
         }
         else
         {
-            Potential1D::FunctionSpace V(mesh);
+            Potential1D::FunctionSpace V(mesh.mesh);
             return V;
         }
     }
@@ -88,12 +62,12 @@ df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
     {
         if (constr)
         {
-            Potential2D::FunctionSpace V(mesh, constr.get());
+            Potential2D::FunctionSpace V(mesh.mesh, constr.get());
             return V;
         }
         else
         {
-            Potential2D::FunctionSpace V(mesh);
+            Potential2D::FunctionSpace V(mesh.mesh);
             return V;
         }
     }
@@ -101,62 +75,62 @@ df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
     {
         if (constr)
         {
-            Potential3D::FunctionSpace V(mesh, constr.get());
+            Potential3D::FunctionSpace V(mesh.mesh, constr.get());
             return V;
         }
         else
         {
-            Potential3D::FunctionSpace V(mesh);
+            Potential3D::FunctionSpace V(mesh.mesh);
             return V;
         }
     }
 }
 
-df::FunctionSpace CG1_vector_space(std::shared_ptr<const df::Mesh> &mesh)
+df::FunctionSpace CG1_vector_space(const Mesh &mesh)
 {
 
-    std::size_t dim = mesh->geometry().dim();
+    std::size_t dim = mesh.dim;
 
     if (dim < 1 || dim > 3)
         df::error("PUNC is programmed for dimensions up to 3D only.");
 
     if (dim == 1)
     {
-        EField1D::FunctionSpace W(mesh);
+        EField1D::FunctionSpace W(mesh.mesh);
         return W;
     }
     else if (dim == 2)
     {
-        EField2D::FunctionSpace W(mesh);
+        EField2D::FunctionSpace W(mesh.mesh);
         return W;
     }
     else
     {
-        EField3D::FunctionSpace W(mesh);
+        EField3D::FunctionSpace W(mesh.mesh);
         return W;
     }
 }
 
-df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh)
+df::FunctionSpace DG0_space(const Mesh &mesh)
 {
-    std::size_t dim = mesh->geometry().dim();
+    std::size_t dim = mesh.dim;
 
     if(dim<1 || dim>3)
         df::error("PUNC is programmed for dimensions up to 3D only.");
 
     if (dim == 1)
     {
-        PotentialDG1D::CoefficientSpace_rho Q(mesh);
+        PotentialDG1D::CoefficientSpace_rho Q(mesh.mesh);
         return Q;
     }
     else if (dim == 2)
     {
-        PotentialDG2D::CoefficientSpace_rho Q(mesh);
+        PotentialDG2D::CoefficientSpace_rho Q(mesh.mesh);
         return Q;
     }
     else
     {
-        PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh);
+        PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh.mesh);
         return Q;
     }
 }
@@ -235,7 +209,6 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
-                             // boost::optional<Circuit& > circuit,
                              std::shared_ptr<Circuit> circuit,
                              double eps0,
                              bool remove_null_space,
@@ -311,23 +284,6 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
         null_space = std::make_shared<df::VectorSpaceBasis>(basis);
         A.set_nullspace(*null_space);
     }
-}
-
-// To be removed once ObjectCM inherits Object and works
-void PoissonSolver::solve(df::Function &phi, const df::Function &rho,
-                          const std::vector<ObjectCM> &objects)
-{
-    L->set_coefficient("rho", std::make_shared<df::Function>(rho));
-    df::assemble(b, *L);
-    for(std::size_t i = 0; i<num_bcs; ++i)
-    {
-        ext_bc.get()[i].apply(b);
-    }
-    for(auto& bc: objects)
-    {
-        bc.apply(A, b);
-    }
-    solver->solve(A, *phi.vector(), b);
 }
 
 void PoissonSolver::solve(df::Function &phi, const df::Function &rho,

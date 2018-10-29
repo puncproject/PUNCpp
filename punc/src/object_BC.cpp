@@ -173,8 +173,7 @@ ObjectBC::ObjectBC(const df::FunctionSpace &V,
     }
 
     auto eps0_ = std::make_shared<df::Constant>(eps0);
-    /* auto mesh = V.mesh(); */
-    /* auto dim = mesh->geometry().dim(); */
+
     if (mesh.dim == 1)
     {
         charge_form = std::make_shared<Charge::Form_0>(mesh.mesh);
@@ -296,7 +295,7 @@ void CircuitBC::apply(df::PETScMatrix &A)
     {
         auto V0 = std::make_shared<Constraint::Form_2_FunctionSpace_0>(V.mesh());
         auto V1 = std::make_shared<Constraint::Form_2_FunctionSpace_1>(V.mesh());
-        charge_constr = std::make_shared<Constraint::Form_2>(V1,V0, eps0_);
+        charge_constr = std::make_shared<Constraint::Form_2>(V1, V0, eps0_);
     }
 
     df::PETScMatrix A_tmp;

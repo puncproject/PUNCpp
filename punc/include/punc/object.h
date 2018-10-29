@@ -25,6 +25,7 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include "mesh.h"
 #include <dolfin/function/Function.h>
 #include <dolfin/la/GenericVector.h>
 #include <dolfin/la/GenericMatrix.h>
@@ -64,6 +65,8 @@ public:
      */
     double charge = 0;
 
+    double image_charge = 0;
+
     //! Current collected during last Population::update().
     double current = 0;
 
@@ -101,6 +104,8 @@ public:
      * corrected.
      */
     virtual void update(const df::Function &phi) = 0;
+
+    virtual void update(double voltage){};
 };
 
 //! A polymorphic vector of Objects.
@@ -156,6 +161,8 @@ public:
      * @param[in, out]  A   Matrix
      */
     virtual void apply(df::PETScMatrix &A){};
+
+    virtual void apply(df::Function &phi, Mesh &mesh){};
 
     //! Number of objects
     std::size_t num_objects;

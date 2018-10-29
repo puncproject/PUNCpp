@@ -12,7 +12,7 @@ int main()
     std::vector<std::string> tasks{"move", "update", "injector"};
     Timer timer(tasks);
 
-    const int dim = 2;
+    const std::size_t dim = 2;
 
     std::string fname;
     if (dim==2)
@@ -77,8 +77,10 @@ int main()
     std::string file_name1{"vels_pre.txt"};
     pop.save_file(file_name1, false);
 
-    std::vector<ObjectBC> objects{};
-    History hist("history.dat", objects, false);
+    std::vector<std::shared_ptr<Object>> objects = {};
+
+    std::string hist_file{"history.dat"};
+    History hist(hist_file, objects, dim, false);
 
     auto num1 = pop.num_of_positives();
     auto num2 = pop.num_of_negatives();
@@ -106,7 +108,7 @@ int main()
         timer.toc();
 
         timer.tic("update");
-        pop.update(objects);
+        pop.update(objects, dt);
         timer.toc();
 
         auto tot_num1 = pop.num_of_particles();

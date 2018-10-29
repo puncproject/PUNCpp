@@ -113,6 +113,13 @@ inline void relabel_mesh_function(df::MeshFunction<size_t> &f,
     }
 }
 
+/**
+ * @brief Calculates the surface area of an object inside the mesh
+ * @param mesh[in]   -  Mesh 
+ * @param bnd_id[in] - object id 
+ * @return the surface area
+ */
+double surface_area(Mesh &mesh, std::size_t bnd_id);
 
 } // namespace punc
 

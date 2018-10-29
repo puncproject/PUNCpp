@@ -32,6 +32,7 @@
 #include <boost/filesystem.hpp>
 
 #include "../ufl/Volume.h"
+#include "../ufl/Surface.h"
 
 namespace punc
 {
@@ -233,5 +234,32 @@ void Mesh::exterior_boundaries()
         exterior_facets.push_back(ExteriorFacet{area, vertices, normal, basis});
     }
 }
+
+double surface_area(Mesh &mesh, std::size_t bnd_id)
+{
+    auto dim = mesh.dim;
+    auto one = std::make_shared<df::Constant>(1.0);
+    std::shared_ptr<df::Form> area;
+    if (dim == 1)
+    {
+        area = std::make_shared<Surface::Form_0>(mesh.mesh, one);
+    }
+    if (dim == 2)
+    {
+        area = std::make_shared<Surface::Form_1>(mesh.mesh, one);
+    }
+    else if (dim == 3)
+    {
+        area = std::make_shared<Surface::Form_2>(mesh.mesh, one);
+    }
+
+    relabel_mesh_function(mesh.bnd, bnd_id, 9999);
+    area->set_exterior_facet_domains(std::make_shared<df::MeshFunction<std::size_t>>(mesh.bnd));
+    auto _area = df::assemble(*area);
+    relabel_mesh_function(mesh.bnd, 9999, bnd_id);
+    
+    return _area;
+}
+
 
 } // namespace punc

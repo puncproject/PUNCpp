@@ -29,7 +29,6 @@
 #define OBJECT_BC_H
 
 #include "object.h"
-#include "mesh.h"
 #include <dolfin/function/FunctionSpace.h>
 #include <dolfin/mesh/MeshFunction.h>
 #include <dolfin/fem/Form.h>

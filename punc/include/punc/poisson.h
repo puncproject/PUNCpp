@@ -23,11 +23,6 @@
 #ifndef POISSON_H
 #define POISSON_H
 
-// These should eventually be removed.
-// Poisson should only use the interface.
-#include "object_BC.h"
-#include "object_CM.h"
-
 #include "object.h"
 #include <dolfin.h>
 #include <boost/optional.hpp>
@@ -37,15 +32,6 @@ namespace punc
 
 namespace df = dolfin;
 
-// TBD: Move to Mesh? Or Object?
-/**
- * @brief Calculates the surface area of an object
- * @param mesh[in] - df::Mesh 
- * @param bnd[in] - df::MeshFunction 
- * @return the surface area
- */
-double surface_area(std::shared_ptr<const df::Mesh> &mesh,
-                    df::MeshFunction<std::size_t> &bnd);
 
 /**
  * @brief Boundary condition for the electric potential
@@ -101,32 +87,32 @@ public:
 
 /**
  * @brief Creates a function space in CG1
- * @param mesh[in] - df::Mesh 
+ * @param mesh[in] - The Mesh 
  * @param constr[in] Constraint to be imposed for periodic problems
  * @return CG1 function space
  * 
  * @see CG1_vector_space, DG0_space
  */
-df::FunctionSpace CG1_space(std::shared_ptr<const df::Mesh> &mesh,
+df::FunctionSpace CG1_space(const Mesh &mesh,
                             boost::optional<std::shared_ptr<PeriodicBoundary>> constr = boost::none);
 
 /**
  * @brief Creates a vector function space in CG1
- * @param mesh[in] - df::Mesh 
+ * @param mesh[in] - The Mesh 
  * @return CG1 vector function space
  * 
  * @see CG1_space, DG0_space
  */
-df::FunctionSpace CG1_vector_space(std::shared_ptr<const df::Mesh> &mesh);
+df::FunctionSpace CG1_vector_space(const Mesh &mesh);
 
 /**
  * @brief Creates a function space in DG0
- * @param mesh[in] - df::Mesh 
+ * @param mesh[in] - The Mesh 
  * @return CG1 function space
  * 
  * @see CG1_space, CG1_vector_space
  */
-df::FunctionSpace DG0_space(std::shared_ptr<const df::Mesh> &mesh);
+df::FunctionSpace DG0_space(const Mesh &mesh);
 
 /**
  * @brief Solver for Poisson's equation
@@ -156,21 +142,11 @@ public:
      */
     PoissonSolver(const df::FunctionSpace &V, 
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
-                  // boost::optional<Circuit& > circuit=boost::none,
                   std::shared_ptr<Circuit> circuit = nullptr,
                   double eps0 = 1,
                   bool remove_null_space = false,
                   std::string method = "",
                   std::string preconditioner = "");
-
-    /**
-     * @brief Solves Poisson's equation in the domain contaning objects
-     * @param    phi[in, out]          The electric potential
-     * @param    rho[in]               Total charge density
-     * @param    objects[in]           A vector of objects
-     */
-    void solve(df::Function &phi, const df::Function &rho,
-               const std::vector<ObjectCM> &objects);
 
     /**
      * @brief Solves Poisson's equation in the domain contaning objects and circuits

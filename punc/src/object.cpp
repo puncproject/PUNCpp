@@ -22,13 +22,6 @@
 
 #include "../include/punc/object.h"
 #include <vector>
-// These seems to not be used here
-// #include "../ufl/Potential1D.h"
-// #include "../ufl/Potential2D.h"
-// #include "../ufl/Potential3D.h"
-// #include "../ufl/EField1D.h"
-// #include "../ufl/EField2D.h"
-// #include "../ufl/EField3D.h"
 
 namespace punc
 {
