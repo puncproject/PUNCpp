@@ -238,10 +238,6 @@ int run(
     exit_immediately = false;
     auto n_previous = n; // n from previous simulation
 
-    if(object_method == "CM"){
-        reset_objects(objects);
-    }
-
     for(; n<=steps; ++n){
 
         // We are now at timestep n
@@ -270,10 +266,6 @@ int run(
             }
             timer.toc();
 
-            // ELECTRIC FIELD
-            timer.tic("efield");
-            esolver.solve(E, phi);
-            timer.toc();
         } else if (object_method == "CM"){
             
             // RESET OBJECT POTENTIAL TO 0
@@ -283,11 +275,6 @@ int run(
             timer.tic("poisson");
             poisson.solve(phi, rho, objects);
             timer.toc();
-     
-            // ELECTRIC FIELD
-            // timer.tic("efield");
-            // esolver.solve(E, phi);
-            // timer.toc();
    
             // APPLY CIRCUITRY
             timer.tic("CM");
@@ -298,13 +285,12 @@ int run(
             timer.tic("poisson");
             poisson.solve(phi, rho, objects, circuit);
             timer.toc();
-
-            // ELECTRIC FIELD
-            timer.tic("efield");
-            esolver.solve(E, phi);
-            timer.toc();
         }
 
+        // ELECTRIC FIELD
+        timer.tic("efield");
+        esolver.solve(E, phi);
+        timer.toc();
 
         // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
         // auto phi1 = poisson.solve(rho, objects);
