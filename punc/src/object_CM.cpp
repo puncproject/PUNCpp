@@ -207,33 +207,14 @@ void CircuitCM::downcast_objects(const ObjectVector &source)
 bool CircuitCM::check_solver_methods(std::string &method,
                                      std::string &preconditioner) const
 {
-    bool has_charge_constraints = groups.size() > 0;
-
     // Defaults
     if (method == "" && preconditioner == "")
     {
-        if (has_charge_constraints)
-        {
-            method = "bicgstab";
-            preconditioner = "ilu";
-        }
-        else
-        {
-            method = "gmres";
-            preconditioner = "hypre_amg";
-        }
+        method = "gmres";
+        preconditioner = "hypre_amg";
     }
 
-    if (has_charge_constraints)
-    {
-
-        return (method == "bicgstab" && preconditioner == "ilu");
-    }
-    else
-    {
-
-        return (method == "gmres" && preconditioner == "hypre_amg") || (method == "bicgstab" && preconditioner == "ilu");
-    }
+    return (method == "gmres" && preconditioner == "hypre_amg") || (method == "bicgstab" && preconditioner == "ilu");
 }
 
 void CircuitCM::assemble_matrix()
@@ -269,7 +250,7 @@ void CircuitCM::assemble_matrix()
             circuit_matrix(num_objects + group[j], group[j]) = 1.0;
             for (std::size_t k = 0; k < group.size(); ++k)
             {
-                circuit_matrix(num_objects + group[k], num_objects + group[k]) = -1.0 * inv_capacitance_mat(group[j], group[k]);
+                circuit_matrix(num_objects + group[j], num_objects + group[k]) = -1.0 * inv_capacitance_mat(group[j], group[k]);
             }
         }
     }
@@ -282,7 +263,7 @@ void CircuitCM::assemble_matrix()
             circuit_matrix(num_objects + fixed_voltage[i][j], fixed_voltage[i][j]) = 1.0;
             for (std::size_t k = 0; k < fixed_voltage[i].size(); ++k)
             {
-                circuit_matrix(num_objects + fixed_voltage[i][k], num_objects + fixed_voltage[i][k]) = -1.0 * inv_capacitance_mat(fixed_voltage[i][j], fixed_voltage[i][k]);
+                circuit_matrix(num_objects + fixed_voltage[i][j], num_objects + fixed_voltage[i][k]) = -1.0 * inv_capacitance_mat(fixed_voltage[i][j], fixed_voltage[i][k]);
             }
         }
     }
