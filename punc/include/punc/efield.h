@@ -38,7 +38,6 @@ class ESolver
 {
 private:
     df::PETScKrylovSolver solver;         /// < Linear algebra solver
-    // std::shared_ptr<df::FunctionSpace> W; /// < Function space
     std::shared_ptr<df::Form> a, L;       /// < Bilinear and linear forms
     df::PETScMatrix A;                    /// < Stiffness matrix
     df::PETScVector b;                    /// < Load vector
@@ -63,7 +62,7 @@ public:
 };
 
 /**
- * @brief Solver for the electric field (in DG0)
+ * @brief Solver for the electric field (in DG0 vector function space)
  */
 class EFieldDG0
 {
@@ -71,52 +70,51 @@ class EFieldDG0
     std::shared_ptr<df::Form> M; /// < Mass matrix
 
   public:
-	std::shared_ptr<df::FunctionSpace> Q; /// < DG0 function space
-    
     /**
      * @brief Constructor 
-     * @param mesh      The mesh
+     * @param P[in]      DG0 vector function space
      */
-	EFieldDG0(std::shared_ptr<const df::Mesh> mesh);
+    EFieldDG0(const df::FunctionSpace &P);
 
     /**
      * @brief Solver
+     * @param  E[in, out]            The electric field  
      * @param  phi[in]               The electric potential
-     * @return The electric field            
+     *            
      */
-    df::Function solve(const df::Function &phi);
+    void solve(df::Function &E, const df::Function &phi);
 };
 
 /**
  * @brief Solver for the electric field 
  * 
- * The electric field is solved in DG0, and than projected to CG1 by either using
+ * The electric field is solved in DG0, and then projected to CG1 by either using
  * arithmetic mean or Clement interpolation
  */
 class EFieldMean
 {
   private:
-    std::shared_ptr<df::FunctionSpace> Q, W; /// < Function spaces (DG0 and CG1)
     std::shared_ptr<df::Form> a, b, c, d;    /// < Forms
     df::PETScMatrix A;                       /// < Transformation matrix (DG0 -> CG1)
     df::PETScVector ones, Av, e_dg0;         /// < Vectors
 
   public:
-    std::shared_ptr<df::FunctionSpace> V; /// < Function space (CG1)
 
     /**
      * @brief Constructor 
-     * @param mesh[in]      The mesh
-     * @param aritheticmean[in]  true for arithmetic mean method, false for Clement interpolation
+     * @param  P[in]             DG0 vector function space
+     * @param  W[in]             CG1 vector function space      
+     * @param  aritheticmean[in]  true for arithmetic mean method, false for Clement interpolation
      */
-    EFieldMean(std::shared_ptr<const df::Mesh> mesh, bool arithmetic_mean = false);
+    EFieldMean(const df::FunctionSpace &P, const df::FunctionSpace &W, bool arithmetic_mean = false);
 
     /**
      * @brief Calculates either the mean or Clement interpolation of the electric field
+     * @param  E[in, out]            The electric field
      * @param  phi[in]               The electric potential
-     * @return The electric field            
+     *             
      */
-    df::Function mean(const df::Function &phi);
+    void mean(df::Function &E, const df::Function &phi);
 };
 
 // TBD: This is actually more generic.

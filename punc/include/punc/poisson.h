@@ -108,11 +108,20 @@ df::FunctionSpace CG1_vector_space(const Mesh &mesh);
 /**
  * @brief Creates a function space in DG0
  * @param mesh[in] - The Mesh 
- * @return CG1 function space
+ * @return DG0 function space
  * 
  * @see CG1_space, CG1_vector_space
  */
 df::FunctionSpace DG0_space(const Mesh &mesh);
+
+/**
+ * @brief Creates a vector function space in DG0
+ * @param mesh[in] - The Mesh 
+ * @return DG0 vector function space
+ * 
+ * @see DG0_space, CG1_space, CG1_vector_space
+ */
+df::FunctionSpace DG0_vector_space(const Mesh &mesh);
 
 /**
  * @brief Solver for Poisson's equation

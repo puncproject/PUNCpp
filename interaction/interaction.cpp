@@ -130,6 +130,7 @@ int run(
     auto V = CG1_space(mesh);
     auto W = CG1_vector_space(mesh);
     auto Q = DG0_space(mesh);
+    auto P = DG0_vector_space(mesh);
     auto dv_inv = element_volume(V);
 
     // The electric potential and electric field
@@ -168,6 +169,7 @@ int run(
     //
     PoissonSolver poisson(V, ext_bc, circuit, eps0);
     ESolver esolver(W);
+    // EFieldMean esolver(P, W);
 
     //
     // CREATE FLUX
@@ -259,11 +261,8 @@ int run(
         // ELECTRIC FIELD
         timer.tic("efield");
         esolver.solve(E, phi);
+        // esolver.mean(E, phi);
         timer.toc();
-
-        // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
-        // auto phi1 = poisson.solve(rho, objects);
-        // auto E1 = esolver.solve(phi1);
 
         // POTENTIAL ENERGY
         timer.tic("PE");

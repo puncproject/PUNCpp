@@ -25,6 +25,9 @@
 #include "../ufl/EField1D.h"
 #include "../ufl/EField2D.h"
 #include "../ufl/EField3D.h"
+#include "../ufl/EFieldDG01D.h"
+#include "../ufl/EFieldDG02D.h"
+#include "../ufl/EFieldDG03D.h"
 #include "../ufl/ErrorNorm1D.h"
 #include "../ufl/ErrorNorm2D.h"
 #include "../ufl/ErrorNorm3D.h"
@@ -132,6 +135,30 @@ df::FunctionSpace DG0_space(const Mesh &mesh)
     {
         PotentialDG3D::Form_L::CoefficientSpace_rho Q(mesh.mesh);
         return Q;
+    }
+}
+
+df::FunctionSpace DG0_vector_space(const Mesh &mesh)
+{
+    std::size_t dim = mesh.dim;
+
+    if (dim < 1 || dim > 3)
+        df::error("PUNC is programmed for dimensions up to 3D only.");
+
+    if (dim == 1)
+    {
+        EFieldDG01D::FunctionSpace P(mesh.mesh);
+        return P;
+    }
+    else if (dim == 2)
+    {
+        EFieldDG02D::FunctionSpace P(mesh.mesh);
+        return P;
+    }
+    else
+    {
+        EFieldDG03D::FunctionSpace P(mesh.mesh);
+        return P;
     }
 }
 

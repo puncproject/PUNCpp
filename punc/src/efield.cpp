@@ -68,69 +68,59 @@ void ESolver::solve(df::Function &E, const df::Function &phi)
     solver.solve(A, *E.vector(), b);
 }
 
-EFieldDG0::EFieldDG0(std::shared_ptr<const df::Mesh> mesh)
+EFieldDG0::EFieldDG0(const df::FunctionSpace &P)
 {
-	auto gdim = mesh->geometry().dim();
-	if (gdim == 1)
+    auto dim = P.mesh()->geometry().dim();
+    auto P_shared = std::make_shared<df::FunctionSpace>(P);
+	if (dim == 1)
 	{
-		Q = std::make_shared<EFieldDG01D::FunctionSpace>(mesh);
-		M = std::make_shared<EFieldDG01D::LinearForm>(Q);
-	}
-	else if (gdim == 2)
+        M = std::make_shared<EFieldDG01D::LinearForm>(P_shared);
+    }
+	else if (dim == 2)
 	{
-		Q = std::make_shared<EFieldDG02D::FunctionSpace>(mesh);
-		M = std::make_shared<EFieldDG02D::LinearForm>(Q);
-	}
-	else if (gdim == 3)
+        M = std::make_shared<EFieldDG02D::LinearForm>(P_shared);
+    }
+	else if (dim == 3)
 	{
-		Q = std::make_shared<EFieldDG03D::FunctionSpace>(mesh);
-		M = std::make_shared<EFieldDG03D::LinearForm>(Q);
-	}
+        M = std::make_shared<EFieldDG03D::LinearForm>(P_shared);
+    }
 }
 
-df::Function EFieldDG0::solve(const df::Function &phi)
+void EFieldDG0::solve(df::Function &E, const df::Function &phi)
 {
 	M->set_coefficient("phi", std::make_shared<df::Function>(phi));
-	
-	df::Function E(Q);
 	df::assemble(*E.vector(), *M);
-	return E;
 }
 
-EFieldMean::EFieldMean(std::shared_ptr<const df::Mesh> mesh, bool arithmetic_mean)
+EFieldMean::EFieldMean(const df::FunctionSpace &P, const df::FunctionSpace &W, bool arithmetic_mean)
 {
-    auto gdim = mesh->geometry().dim();
-    auto tdim = mesh->topology().dim();
+    auto gdim = P.mesh()->geometry().dim();
+    auto tdim = P.mesh()->topology().dim();
+
     std::vector<double> one_vec(gdim, 1.0);
+
+    auto P_shared = std::make_shared<df::FunctionSpace>(P);
+    auto W_shared = std::make_shared<df::FunctionSpace>(W);
     if (gdim == 1)
     {
-        V = std::make_shared<Mean1D::Form_a_FunctionSpace_0>(mesh);
-        Q = std::make_shared<Mean1D::Form_a_FunctionSpace_1>(mesh);
-        W = std::make_shared<Mean1D::Form_d_FunctionSpace_0>(mesh);
-        a = std::make_shared<Mean1D::Form_a>(Q, V);
-        c = std::make_shared<Mean1D::Form_c>(Q, V);
-        b = std::make_shared<Mean1D::Form_b>(Q);
-        d = std::make_shared<Mean1D::Form_d>(W);
+        a = std::make_shared<Mean1D::Form_a>(P_shared, W_shared);
+        c = std::make_shared<Mean1D::Form_c>(P_shared, W_shared);
+        b = std::make_shared<Mean1D::Form_b>(P_shared);
+        d = std::make_shared<Mean1D::Form_d>(P_shared);
     }
     else if (gdim == 2)
     {
-        V = std::make_shared<Mean2D::Form_a_FunctionSpace_0>(mesh);
-        Q = std::make_shared<Mean2D::Form_a_FunctionSpace_1>(mesh);
-        W = std::make_shared<Mean2D::Form_d_FunctionSpace_0>(mesh);
-        a = std::make_shared<Mean2D::Form_a>(Q, V);
-        c = std::make_shared<Mean2D::Form_c>(Q, V);
-        b = std::make_shared<Mean2D::Form_b>(Q);
-        d = std::make_shared<Mean2D::Form_d>(W);
+        a = std::make_shared<Mean2D::Form_a>(P_shared, W_shared);
+        c = std::make_shared<Mean2D::Form_c>(P_shared, W_shared);
+        b = std::make_shared<Mean2D::Form_b>(P_shared);
+        d = std::make_shared<Mean2D::Form_d>(P_shared);
     }
     else if (gdim == 3)
     {
-        V = std::make_shared<Mean3D::Form_a_FunctionSpace_0>(mesh);
-        Q = std::make_shared<Mean3D::Form_a_FunctionSpace_1>(mesh);
-        W = std::make_shared<Mean3D::Form_d_FunctionSpace_0>(mesh);
-        a = std::make_shared<Mean3D::Form_a>(Q, V);
-        c = std::make_shared<Mean3D::Form_c>(Q, V);
-        b = std::make_shared<Mean3D::Form_b>(Q);
-        d = std::make_shared<Mean3D::Form_d>(W);
+        a = std::make_shared<Mean3D::Form_a>(P_shared, W_shared);
+        c = std::make_shared<Mean3D::Form_c>(P_shared, W_shared);
+        b = std::make_shared<Mean3D::Form_b>(P_shared);
+        d = std::make_shared<Mean3D::Form_d>(P_shared);
     }
     a->set_coefficient("c1", std::make_shared<df::Constant>(tdim + 1.0));
     b->set_coefficient("c2", std::make_shared<df::Constant>(one_vec));
@@ -153,16 +143,14 @@ EFieldMean::EFieldMean(std::shared_ptr<const df::Mesh> mesh, bool arithmetic_mea
     MatDiagonalScale(A_mat, A_vec, NULL);
 }
 
-df::Function EFieldMean::mean(const df::Function &phi)
+void EFieldMean::mean(df::Function &E, const df::Function &phi)
 {
     // df::parameters["linear_algebra_backend"] = "PETSc";
     d->set_coefficient("phi", std::make_shared<df::Function>(phi));
     df::assemble(e_dg0, *d);
 
-    df::Function E(V);
     A.mult(e_dg0, *E.vector());
     // E.vector()->update_ghost_values();
-    return E;
 }
 
 ClementInterpolant::ClementInterpolant(std::shared_ptr<const df::Mesh> mesh)
