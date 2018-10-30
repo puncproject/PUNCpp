@@ -232,7 +232,7 @@ int run(
     //
     // CREATE TIMER TASKS
     //
-    vector<string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "injector", "counting particles", "io", "density", "object update", "CM"};
+    vector<string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "injector", "counting particles", "io", "density"};
     Timer timer(tasks);
 
     exit_immediately = false;
