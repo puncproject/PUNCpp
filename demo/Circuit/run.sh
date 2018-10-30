@@ -7,6 +7,6 @@ make
 rm -rf build
 mkdir -p build && cd build && cmake .. && make
 cd ..
-cp build/capacitance .
-./capacitance
+cp build/circuit .
+./circuit
 
