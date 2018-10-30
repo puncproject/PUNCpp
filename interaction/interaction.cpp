@@ -88,7 +88,7 @@ int run(
     for(size_t s=0; s<charge.size(); s++){
 
         vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
-        pdfs.push_back(std::make_shared<UniformPosition>(mesh.mesh));
+        pdfs.push_back(std::make_shared<UniformPosition>(mesh));
 
         if(distribution[s]=="maxwellian"){
             vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd[s]));

@@ -22,7 +22,7 @@ namespace punc
 
 Maxwellian::Maxwellian(double vth, std::vector<double> &vd, bool has_icdf,
                        bool has_flux_num, bool has_flux_max, double vdf_range)
-    : Pdf(vth, vd, has_icdf, has_flux_num, has_flux_max, vdf_range)
+                      : Pdf(vth, vd, true, true, true, vdf_range)
 {
     vth2 = _vth * _vth;
     factor = (1.0 / (pow(sqrt(2. * M_PI * vth2), dim)));
@@ -36,16 +36,6 @@ double Maxwellian::operator()(const std::vector<double> &v)
         v_sqrt += (v[i] - _vd[i]) * (v[i] - _vd[i]);
     }
     return factor * exp(-0.5 * v_sqrt / vth2);
-}
-
-double Maxwellian::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
 }
 
 std::vector<double> Maxwellian::icdf(const std::vector<double> &r)
@@ -81,13 +71,12 @@ double Maxwellian::flux_max(std::vector<double> &n)
     {
         tmp[i] = _vd[i] - 0.5 * n[i] * vdn + 0.5 * n[i] * sqrt(4 * vth2 + vdn * vdn);
     }
-    return this->operator()(tmp, n);
+    return Pdf::operator()(tmp, n);
 }
 
 Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_icdf,
              bool has_flux_num, bool has_flux_max, double vdf_range)
-    : Pdf(vth, vd, has_icdf, has_flux_num, has_flux_max, vdf_range),
-      k(k)
+            : Pdf(vth, vd, false, true, true, vdf_range), k(k)
 {
     assert(k > 1.5 && "kappa must be bigger than 3/2");
 
@@ -116,16 +105,6 @@ double Kappa::operator()(const std::vector<double> &v)
     return factor * pow(1.0 + v2 / ((2 * k - dim) * vth2), -(k + 1.0));
 }
 
-double Kappa::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
-}
-
 /* Number of particles for the case without any drift. */
 double Kappa::flux_num_particles(const std::vector<double> &n, double S)
 {
@@ -143,13 +122,12 @@ double Kappa::flux_max(std::vector<double> &n)
     {
         tmp[i] = sqrt( (2.*k-dim)/(2.*k+1.0) )*n[i]*_vth;
     }
-    return this->operator()(tmp, n);
+    return Pdf::operator()(tmp, n);
 }
 
 Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_icdf,
                bool has_flux_num, bool has_flux_max, double vdf_range)
-    : Pdf(vth, vd, has_icdf, has_flux_num, has_flux_max, vdf_range),
-      alpha(alpha)
+              : Pdf(vth, vd, false, true, false, vdf_range), alpha(alpha)
 {
     vth2 = _vth * _vth;
     vth4 = vth2 * vth2;
@@ -165,16 +143,6 @@ double Cairns::operator()(const std::vector<double> &v)
     }
     double v4 = v2 * v2;
     return factor * (1 + alpha * v4 / vth4) * exp(-0.5 * v2 / vth2);
-}
-
-double Cairns::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
 }
 
 double Cairns::max()
@@ -210,8 +178,8 @@ double Cairns::flux_num_particles(const std::vector<double> &n, double S)
 KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
                          double alpha, bool has_icdf, bool has_flux_num,
                          bool has_flux_max, double vdf_range)
-    : Pdf(vth, vd, has_icdf, has_flux_num, has_flux_max, vdf_range),
-    k(k), alpha(alpha)
+                        : Pdf(vth, vd, false, false, false, vdf_range), 
+                          k(k), alpha(alpha)
 
 {
     vth2 = _vth * _vth;
@@ -231,16 +199,6 @@ double KappaCairns::operator()(const std::vector<double> &v)
     double v4 = v2 * v2;
     return factor * (1.0 + alpha * v4 / vth4) *
            pow(1.0 + v2 / ((2 * k - dim) * vth2), -(k + 1.0));
-}
-
-double KappaCairns::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
 }
 
 double KappaCairns::max()

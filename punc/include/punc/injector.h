@@ -25,7 +25,6 @@
 #ifndef INJECTOR_H
 #define INJECTOR_H
 
-#include <dolfin.h>
 #include "population.h"
 #include <random>
 
