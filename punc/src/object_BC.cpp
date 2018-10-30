@@ -242,6 +242,12 @@ void CircuitBC::downcast_objects(const ObjectVector &source){
     }
 }
 
+void CircuitBC::post_solve(const df::Function &phi, Mesh &mesh){
+    for(auto &o : objects){
+        o->update(phi);
+    }
+}
+
 bool CircuitBC::check_solver_methods(std::string &method,
                                      std::string &preconditioner) const
 {

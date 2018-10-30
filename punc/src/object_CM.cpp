@@ -50,11 +50,11 @@ std::vector<df::Function> laplace_solver(const df::FunctionSpace &V,
  * GLOBAL DEFINITIONS
  ******************************************************************************/
 
-void reset_objects(std::vector<std::shared_ptr<Object>> &objects)
+void CircuitCM::pre_solve()
 {
     for (auto &o : objects)
     {
-        o->update(0.0);
+        o->set_potential(0.0);
     }
 }
 
@@ -115,7 +115,7 @@ ObjectCM::ObjectCM(const df::FunctionSpace &V,
     // Do nothing
 }
 
-void ObjectCM::update(double voltage)
+void ObjectCM::set_potential(double voltage)
 {
     potential = voltage;
     set_value(std::make_shared<df::Constant>(voltage));
@@ -140,6 +140,8 @@ CircuitCM::CircuitCM(const df::FunctionSpace &V,
                     : Circuit(object_vector, vsources, isources),
                       dt(dt), eps0(eps0)
 {
+    correction_required = true;
+
     inv_circuit_mat.resize(2 * object_vector.size(), 2 * object_vector.size(), 0.0);
     circuit_vector.resize(2 * object_vector.size());
 
@@ -341,7 +343,7 @@ void CircuitCM::assemble_vector()
     }
 }
 
-void CircuitCM::apply(df::Function &phi, Mesh &mesh)
+void CircuitCM::post_solve(const df::Function &phi, Mesh &mesh)
 {
     for (std::size_t j = 0; j < num_objects; ++j)
     {
@@ -367,7 +369,7 @@ void CircuitCM::apply(df::Function &phi, Mesh &mesh)
         {
             charge += inv_circuit_mat(num_objects + i, j) * circuit_vector[j];
         }
-        objects[i]->update(potential);
+        objects[i]->set_potential(potential);
         objects[i]->charge = charge;
     }
 
@@ -439,11 +441,11 @@ std::vector<df::Function> laplace_solver(const df::FunctionSpace &V,
         {
             if (i == j)
             {
-                objects[j]->update(1.0);
+                objects[j]->set_potential(1.0);
             }
             else
             {
-                objects[j]->update(0.0);
+                objects[j]->set_potential(0.0);
             }
         }
         df::Function rho(shared_V);

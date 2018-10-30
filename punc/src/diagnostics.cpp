@@ -148,7 +148,7 @@ void History::save(std::size_t n, double t, double num_e, double num_i, double K
     ofile << PE;
     for (auto o : objects)
     {
-        ofile << "\t" << o->potential << "\t";
+        ofile << "\t" << o->get_potential() << "\t";
         ofile << o->current << "\t";
         ofile << o->charge;
     }

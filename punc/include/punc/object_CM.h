@@ -55,10 +55,12 @@ class ObjectCM : public Object, public df::DirichletBC
 public:
     ObjectCM(const df::FunctionSpace &V,
              const Mesh &mesh, std::size_t bnd_id);
-    void update(double voltage);
-    void update(const df::Function &phi){/* Do nothing */};
+    void set_potential(double voltage);
     void apply(df::GenericVector &b);
     void apply(df::GenericMatrix &A);
+private:
+    friend class CircuitCM;
+    double image_charge = 0;
 };
 
 class CircuitCM : public Circuit
@@ -73,6 +75,8 @@ public:
               Mesh &mesh,
               double dt, double eps0 = 1.0);
 
+    void pre_solve();
+    void post_solve(const df::Function &phi, Mesh &mesh);
     void apply(df::Function &phi, Mesh &mesh);
     bool check_solver_methods(std::string &method,
                               std::string &preconditioner) const;

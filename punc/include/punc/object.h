@@ -60,23 +60,6 @@ public:
     using size_t = std::size_t;
 
     /**
-     * @brief The charge on the object.
-     * Incremented during Population::update(), and corrected by ::update().
-     */
-    double charge = 0;
-
-    double image_charge = 0;
-
-    //! Current collected during last Population::update().
-    double current = 0;
-
-    //! Latest known potential on the object.
-    double potential = 0; 
-
-    //! Boundary facet function id
-    size_t bnd_id;
-
-    /**
      * @brief Constructor
      * @param bnd_id    The id of the boundary
      */
@@ -95,17 +78,33 @@ public:
     virtual void apply(df::GenericMatrix &A){};
 
     /**
-     * @brief Update the object based on the newest potential.
-     * @param           phi     Correct potential
-     *
-     * Some methods do not know the correct charge and potential of the object
-     * before after the potential has been solved for. Given the correct
-     * a-posteriori potential the charge and potential of the object is
-     * corrected.
+     * @brief Set object potential
+     * @param   p   new potential
      */
-    virtual void update(const df::Function &phi) = 0;
+    virtual void set_potential(double p){potential=p;};
 
-    virtual void update(double voltage){};
+    /**
+     * @brief Get object potential
+     * @return   object potential
+     */
+    double get_potential(){return potential;};
+
+    /**
+     * @brief The charge on the object.
+     * Incremented during Population::update(), and corrected by ::update().
+     */
+    double charge = 0;
+
+    //! Current collected during last Population::update().
+    double current = 0;
+
+    //! Boundary facet function id
+    size_t bnd_id;
+
+
+protected:
+    //! Latest known potential on the object.
+    double potential = 0; 
 };
 
 //! A polymorphic vector of Objects.
@@ -162,10 +161,32 @@ public:
      */
     virtual void apply(df::PETScMatrix &A){};
 
-    virtual void apply(df::Function &phi, Mesh &mesh){};
+    /**
+     * @brief pre-solver preparations
+     * @see post_solve, correction_required
+     *
+     * This method is run prior to solving the Poisson equation to perform any
+     * preparations necessary, such as resetting the objects.
+     */
+    virtual void pre_solve(){};
+
+    /**
+     * @brief post-solver updates
+     * @see pre_solve, correction_required
+     *
+     * This method is run after solving the Poisson equation to update and
+     * perform corrections to the objects. Some methods will require a
+     * correction to the electric potential after this, as indicated by
+     * correction_required. The correction is applied by solving the Poisson
+     * equation again.
+     */
+    virtual void post_solve(const df::Function &phi, Mesh &mesh){};
 
     //! Number of objects
     std::size_t num_objects;
+
+    //! Whether correcting the electric potential is necessary
+    bool correction_required = false;
 
     //! A reference to the objects connected by the circuitry
     // ObjectVector &objects;
@@ -188,7 +209,6 @@ public:
 protected:
     //! Groups of object indices of charge-sharing objects.
     std::vector<std::vector<int>> groups;
-
 };
 
 } // namespace punc

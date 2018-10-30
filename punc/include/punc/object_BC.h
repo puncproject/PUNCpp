@@ -44,7 +44,18 @@ class ObjectBC: public Object, public df::DirichletBC
 public:
     ObjectBC(const df::FunctionSpace &V,
              const Mesh &mesh, std::size_t bnd_id, double eps0=1);
+
+    /**
+     * @brief Update the object based on the newest potential.
+     * @param           phi     Correct potential
+     *
+     * Some methods do not know the correct charge and potential of the object
+     * before after the potential has been solved for. Given the correct
+     * a-posteriori potential the charge and potential of the object is
+     * corrected.
+     */
     void update(const df::Function &phi);
+
     void apply(df::GenericVector &b);
     void apply(df::GenericMatrix &A);
 
@@ -73,6 +84,7 @@ public:
 
     void apply(df::GenericVector &b);
     void apply(df::PETScMatrix &A);
+    void post_solve(const df::Function &phi, Mesh &mesh);
 
     bool check_solver_methods(std::string &method,
                               std::string &preconditioner) const;
@@ -83,6 +95,7 @@ private:
     std::shared_ptr<df::Form> charge_constr;
     void apply_vsources_to_vector(df::GenericVector &b);
     void apply_isources_to_object();
+
     //! The time-step
     double dt;
 

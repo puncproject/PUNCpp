@@ -238,10 +238,6 @@ int run(
     exit_immediately = false;
     auto n_previous = n; // n from previous simulation
 
-    if(object_method == "CM"){
-        reset_objects(objects);
-    }
-
     for(; n<=steps; ++n){
 
         // We are now at timestep n
@@ -255,56 +251,21 @@ int run(
         auto rho = distribute_cg1(V, pop, dv_inv);
         timer.toc();
 
-        if(object_method == "BC")
-        {
-            // SOLVE POISSON
-            timer.tic("poisson");
+        // SOLVE POISSON EQUATION WITH OBJECTS
+        timer.tic("poisson");
+        circuit->pre_solve();
+        poisson.solve(phi, rho, objects, circuit);
+        circuit->post_solve(phi, mesh);
+
+        if(circuit->correction_required){
             poisson.solve(phi, rho, objects, circuit);
-            timer.toc();
-
-            // UPDATE OBJECT CHARGE AND POTENTIAL
-            timer.tic("object update");
-            for (auto &o : objects)
-            {
-                o->update(phi);
-            }
-            timer.toc();
-
-            // ELECTRIC FIELD
-            timer.tic("efield");
-            esolver.solve(E, phi);
-            timer.toc();
-        } else if (object_method == "CM"){
-            
-            // RESET OBJECT POTENTIAL TO 0
-            reset_objects(objects);
-           
-            // SOLVE POISSON WITH POTENTIAL EQUAL 0 ON OBJECTS
-            timer.tic("poisson");
-            poisson.solve(phi, rho, objects);
-            timer.toc();
-     
-            // ELECTRIC FIELD
-            // timer.tic("efield");
-            // esolver.solve(E, phi);
-            // timer.toc();
-   
-            // APPLY CIRCUITRY
-            timer.tic("CM");
-            circuit->apply(phi, mesh);
-            timer.toc();
-        
-            // SOLVE POISSON WITH CORRECT POTENTIAL ON OBJECTS
-            timer.tic("poisson");
-            poisson.solve(phi, rho, objects, circuit);
-            timer.toc();
-
-            // ELECTRIC FIELD
-            timer.tic("efield");
-            esolver.solve(E, phi);
-            timer.toc();
         }
+        timer.toc();
 
+        // ELECTRIC FIELD
+        timer.tic("efield");
+        esolver.solve(E, phi);
+        timer.toc();
 
         // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
         // auto phi1 = poisson.solve(rho, objects);
