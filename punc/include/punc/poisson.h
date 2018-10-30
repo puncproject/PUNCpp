@@ -149,15 +149,37 @@ public:
                   std::string preconditioner = "");
 
     /**
-     * @brief Solves Poisson's equation in the domain contaning objects and circuits
-     * @param    phi[in, out]          The electric potential
-     * @param    rho[in]               Total charge density
-     * @param    objects[in]           A vector of objects
-     * @param    circuit[in]           The circuitry
+     * @brief Solves Poisson's equation
+     * @param[in,out]   phi          The electric potential
+     * @param           rho          Total charge density
+     * @param           objects      A vector of objects
+     * @param           circuit      The circuitry
+     * @see solve_circuit
+     *
+     * Any objects and circuits are treated as boundary conditions which are
+     * applied to the matrix equation upon solving by using their apply-methods.
+     * Other pre- and post- computations may be necessary to correctly
+     * incorporate circuits.
      */
     void solve(df::Function &phi, const df::Function &rho,
                ObjectVector &objects,
                std::shared_ptr<Circuit> circuit = nullptr);
+
+    /**
+     * @brief Solves Poisson's equation and associated circuit equations.
+     * @param[in,out]   phi          The electric potential
+     * @param           rho          Total charge density
+     * @param           objects      A vector of objects
+     * @param           circuit      The circuitry
+     * @see solve, Circuit::post_solve, Circuit::pre_solve
+     * 
+     * This is a wrapper that performs all steps necessary to obtain the
+     * electric potential given charge density and circuitry.
+     */
+    void solve_circuit(df::Function &phi, const df::Function &rho,
+                      Mesh &mesh,
+                      ObjectVector &objects,
+                      std::shared_ptr<Circuit> circuit = nullptr);
 
     /**
      * @brief Calculates the residual of the Poisson solution

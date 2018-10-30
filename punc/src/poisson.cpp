@@ -308,6 +308,20 @@ void PoissonSolver::solve(df::Function &phi, const df::Function &rho,
     solver->solve(A, *phi.vector(), b);
 }
 
+void PoissonSolver::solve_circuit(df::Function &phi, const df::Function &rho,
+                                  Mesh &mesh,
+                                  ObjectVector &objects,
+                                  std::shared_ptr<Circuit> circuit)
+{
+    circuit->pre_solve();
+    solve(phi, rho, objects, circuit);
+    circuit->post_solve(phi, mesh);
+
+    if(circuit->correction_required){
+        solve(phi, rho, objects, circuit);
+    }
+}
+
 double PoissonSolver::residual(const df::Function &phi)
 {
     auto phi_vec = phi.vector();

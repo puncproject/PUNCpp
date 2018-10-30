@@ -253,13 +253,7 @@ int run(
 
         // SOLVE POISSON EQUATION WITH OBJECTS
         timer.tic("poisson");
-        circuit->pre_solve();
-        poisson.solve(phi, rho, objects, circuit);
-        circuit->post_solve(phi, mesh);
-
-        if(circuit->correction_required){
-            poisson.solve(phi, rho, objects, circuit);
-        }
+        poisson.solve_circuit(phi, rho, mesh, objects, circuit);
         timer.toc();
 
         // ELECTRIC FIELD
