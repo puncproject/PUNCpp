@@ -70,7 +70,12 @@ int main()
 
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
-    auto V = function_space(mesh.mesh, constr);
+    auto V = CG1_space(mesh, constr);
+    auto W = CG1_vector_space(mesh);
+
+    // The electric potential and electric field
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
     PhysicalConstants constants;
     double e = constants.e;
@@ -117,9 +122,10 @@ int main()
     auto species = create_species.species;
 
     Population<dim> pop(mesh);
+    std::vector<std::shared_ptr<Object>> objects = {};
 
-    PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);
-    ESolver esolver(V);
+    PoissonSolver poisson(V, boost::none, nullptr, eps0, remove_null_space);
+    ESolver esolver(W);
 
     load_particles(pop, species);
 
@@ -138,7 +144,6 @@ int main()
     std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move"};
     Timer timer(tasks);
 
-    std::vector<ObjectBC> objects{};
     for (std::size_t i = 1; i < steps; ++i)
     {
         timer.progress(i, steps, 0, override_status_print);
@@ -148,11 +153,11 @@ int main()
         timer.toc();
 
         timer.tic("poisson");
-        auto phi = poisson.solve(rho);
+        poisson.solve(phi, rho, objects);
         timer.toc();
 
         timer.tic("efield");
-        auto E = esolver.solve(phi);
+        esolver.solve(E, phi);
         timer.toc();
 
         timer.tic("PE");
@@ -168,7 +173,7 @@ int main()
         timer.toc();
 
         timer.tic("update");
-        pop.update(objects);
+        pop.update(objects, dt);
         timer.toc();
     }
 

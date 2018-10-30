@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-set(PROJECT_NAME capacitance)
+set(PROJECT_NAME circuit)
 project(${PROJECT_NAME})
 
 # Default to Release build
@@ -9,7 +9,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 add_compile_options(-Wall)
 
-file(GLOB RUN "capacitance.cpp")
+file(GLOB RUN "circuit.cpp")
 
 list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../punc/install")
 list(APPEND CMAKE_FIND_ROOT_PATH "~/.conda/envs/")

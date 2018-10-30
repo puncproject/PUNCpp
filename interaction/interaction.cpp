@@ -61,7 +61,8 @@ int run(
     double densities_tau,
     bool fields_end,
     bool state_end,
-    bool PE_save)
+    bool PE_save,
+    string object_method)
 {
 
     PhysicalConstants constants;
@@ -112,32 +113,28 @@ int run(
     //
     // IMPOSE CIRCUITRY
     //
-    vector<vector<int>> isources, vsources;
-    vector<double> ivalues, vvalues;
+    vector<Source> isources;
+    vector<Source> vsources;
 
-    if(impose_current){
-
-        isources = {{-1,0}};
-        ivalues = {-imposed_current};
-
-        vsources = {};
-        vvalues = {};
+    if(impose_current)
+    {
+        isources.push_back(Source{-1,0,-imposed_current});
 
     } else {
-
-        isources = {};
-        ivalues = {};
-
-        vsources = {{-1,0}};
-        vvalues = {imposed_voltage};
+        vsources.push_back(Source{-1, 0, imposed_voltage});
     }
 
     //
     // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
     //
-    auto V = function_space(mesh.mesh);
-    auto Q = DG0_space(mesh.mesh);
+    auto V = CG1_space(mesh);
+    auto W = CG1_vector_space(mesh);
+    auto Q = DG0_space(mesh);
     auto dv_inv = element_volume(V);
+
+    // The electric potential and electric field
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
     // Electron and ion number densities
     df::Function ne(std::make_shared<const df::FunctionSpace>(V));
@@ -154,16 +151,23 @@ int run(
         std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    ObjectBC object(V, mesh.bnd, 2, eps0);
-    vector<ObjectBC> int_bc = {object};
-
-    Circuit circuit(V, int_bc, isources, ivalues, vsources, vvalues, dt, eps0);
+    vector<std::shared_ptr<Object>> objects;
+    std::shared_ptr<Circuit> circuit;
+    if (object_method == "BC")
+    {
+        objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
+        circuit = std::make_shared<CircuitBC>(V, objects, vsources, isources, dt, eps0);
+    } else if (object_method == "CM")
+    {
+        objects.push_back(std::make_shared<ObjectCM>(V, mesh, 2));
+        circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
+    }
 
     //
     // CREATE SOLVERS
     //
     PoissonSolver poisson(V, ext_bc, circuit, eps0);
-    ESolver esolver(V);
+    ESolver esolver(W);
 
     //
     // CREATE FLUX
@@ -196,13 +200,13 @@ int run(
     //
     // HISTORY AND SATE FILES
     //
-    History hist(fname_hist, int_bc, dim, continue_simulation);
+    History hist(fname_hist, objects, dim, continue_simulation);
     State state(fname_state);
     FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
     if(continue_simulation){
         cout << "Continuing previous simulation" << endl;
-        state.load(n, t, int_bc);
+        state.load(n, t, objects);
         pop.load_file(fname_pop, binary);
     } else {
         cout << "Starting new simulation" << endl;
@@ -247,32 +251,18 @@ int run(
         auto rho = distribute_cg1(V, pop, dv_inv);
         timer.toc();
 
-        // SOLVE POISSON
-        // reset_objects(int_bc);
-        // t_rsetobj[n]= timer.elapsed();
-        /* int_bc[0].charge = 0; */
-        /* int_bc[0].charge -= current_collected*dt; */
+        // SOLVE POISSON EQUATION WITH OBJECTS
         timer.tic("poisson");
-        auto phi = poisson.solve(rho, int_bc, circuit, V);
+        poisson.solve_circuit(phi, rho, mesh, objects, circuit);
         timer.toc();
 
-        // UPDATE OBJECT CHARGE AND POTENTIAL
-        for(auto& o: int_bc)
-        {
-            o.update_charge(phi);
-            o.update_potential(phi);
-        } 
-        
         // ELECTRIC FIELD
         timer.tic("efield");
-        auto E = esolver.solve(phi);
+        esolver.solve(E, phi);
         timer.toc();
 
-        // compute_object_potentials(int_bc, E, inv_capacity, mesh.mesh);
-        //
-        // potential[n] = int_bc[0].potential;
-        // auto phi1 = poisson.solve(rho, int_bc);
-        //
+        // compute_object_potentials(objects, E, inv_capacity, mesh.mesh);
+        // auto phi1 = poisson.solve(rho, objects);
         // auto E1 = esolver.solve(phi1);
 
         // POTENTIAL ENERGY
@@ -305,7 +295,7 @@ int run(
         // WRITE HISTORY
         // Everything at n, except currents which are at n-0.5.
         timer.tic("io");
-        hist.save(n, t, num_e, num_i, KE, PE, int_bc);
+        hist.save(n, t, num_e, num_i, KE, PE, objects);
         timer.toc();
 
         // MOVE PARTICLES
@@ -318,14 +308,8 @@ int run(
 
         // UPDATE PARTICLE POSITIONS
         timer.tic("update");
-        pop.update(int_bc);
+        pop.update(objects, dt);
         timer.toc();
-
-        // CALCULATE COLLECTED CURRENT BY EACH OBJECT
-        for (auto &o : int_bc)
-        {
-            o.update_current(dt);
-        }
 
         // INJECT PARTICLES
         timer.tic("injector");
@@ -371,7 +355,7 @@ int run(
             if (state_end)
             {
                 pop.save_file(fname_pop, binary);
-                state.save(n, t, int_bc);
+                state.save(n, t, objects);
             }
             break;
         }
@@ -407,6 +391,8 @@ int main(int argc, char **argv){
     double dtwp;
     double Bx = 0;
     bool binary = false;
+
+    string object_method{"BC"};
 
     // diagnostics input
     size_t n_fields = 0;
@@ -444,6 +430,8 @@ int main(int argc, char **argv){
         ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
         ("binary", po::value(&binary), "Write binary population files (true|false)")
         
+        ("object_method", po::value(&object_method), "Object method (BC|CM)")
+
         ("Bx", po::value(&Bx), "magnetic field [T]")
 
         ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
@@ -551,9 +539,9 @@ int main(int argc, char **argv){
 
     // TBD: dim==1?
     if(mesh.dim==2){
-        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save);
+        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
     } else if(mesh.dim==3){
-        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save);
+        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;

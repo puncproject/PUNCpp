@@ -48,24 +48,24 @@ public:
     df::File ofile_ni;   ///< df::File for volumetric number density
 
     /**
-       * @brief   Constructor 
-       * @param   phi_fname - file name for phi
-       * @param   E_fname   - file name for E
-       * @param   rho_fname - file name for rho
-       * @param   ne_fname  - file name for ne
-       * @param   ni_fname  - file name for ni
-       */
+     * @brief   Constructor 
+     * @param   phi_fname - file name for phi
+     * @param   E_fname   - file name for E
+     * @param   rho_fname - file name for rho
+     * @param   ne_fname  - file name for ne
+     * @param   ni_fname  - file name for ni
+     */
     FieldWriter(const std::string &phi_fname, const std::string &E_fname,
                 const std::string &rho_fname, const std::string &ne_fname,
                 const std::string &ni_fname);
     /**
-       * @brief   Writes to file 
-       * @param   phi - electric potential
-       * @param   E   - electric field
-       * @param   rho - total charge density
-       * @param   ne  - volumetric electron number density
-       * @param   ni  - volumetric ion number density
-       */
+     * @brief   Writes to file 
+     * @param   phi - electric potential
+     * @param   E   - electric field
+     * @param   rho - total charge density
+     * @param   ne  - volumetric electron number density
+     * @param   ni  - volumetric ion number density
+     */
     void save(const df::Function &phi, const df::Function &E,
               const df::Function &rho, const df::Function &ne,
               const df::Function &ni, double t);
@@ -79,24 +79,26 @@ class State
 public:
     std::string fname; ///< std::string - name of the state file
     /**
-       * @brief   State constructor 
-       * @param   fname - a string representing the name of the file
-       */
+     * @brief   State constructor 
+     * @param   fname - a string representing the name of the file
+     */
     State(std::string fname);
     /**
-       * @brief   Loads the state of the simulation and objects 
-       * @param   n - time-steps from previous simulation
-       * @param   t - simulated time of previous simulation
-       * @param   objects - a vector of objects 
-       */
-    void load(std::size_t &n, double &t, std::vector<ObjectBC> &objects);
+     * @brief   Loads the state of the simulation and objects 
+     * @param   n - time-steps from previous simulation
+     * @param   t - simulated time of previous simulation
+     * @param   objects - a vector of objects 
+     */
+    void load(std::size_t &n, double &t,
+              ObjectVector objects);
     /**
-       * @brief   Saves the state of the simulation and objects 
-       * @param   n - number of time-steps of current simulation
-       * @param   t - current simulated total time 
-       * @param   objects - a vector of objects 
-       */
-    void save(std::size_t n, double t, std::vector<ObjectBC> &objects);
+     * @brief   Saves the state of the simulation and objects 
+     * @param   n - number of time-steps of current simulation
+     * @param   t - current simulated total time 
+     * @param   objects - a vector of objects 
+     */
+    void save(std::size_t n, double t,
+              const ObjectVector objects);
 };
 
 /**
@@ -109,32 +111,33 @@ public:
     std::ofstream ofile; ///< std::string - name of the history file
 
     /**
-         * @brief   History constructor 
-         * @param   fname - a string representing the name of the file
-         * @param   objects - a vector of objects
-         * @param   dim  - geometrical dimension
-         * @param   continue_simulation  boolean - if false creates a preamble for history file
-         */
-    History(const std::string &fname, std::vector<ObjectBC> &objects, 
+     * @brief   History constructor 
+     * @param   fname - a string representing the name of the file
+     * @param   objects - a vector of objects
+     * @param   dim  - geometrical dimension
+     * @param   continue_simulation  boolean - if false creates a preamble for history file
+     */
+    History(const std::string &fname,
+            ObjectVector objects, 
             std::size_t dim, bool continue_simulation = false);
 
     /**
-         * @brief   History destructor - closes the file 
-         */
+     * @brief   History destructor - closes the file 
+     */
     ~History() { ofile.close(); };
 
     /**
-         * @brief   Saves the history
-         * @param   n - time-step
-         * @param   t - simulated time
-         * @param   num_e - number of electrons in the simulation domain
-         * @param   num_i - number of ions in the simulation domain
-         * @param   KE  - total kinetic energy
-         * @param   PE  - total potential energy
-         * @param   objects - a vector of objects
-         */
+     * @brief   Saves the history
+     * @param   n - time-step
+     * @param   t - simulated time
+     * @param   num_e - number of electrons in the simulation domain
+     * @param   num_i - number of ions in the simulation domain
+     * @param   KE  - total kinetic energy
+     * @param   PE  - total potential energy
+     * @param   objects - a vector of objects
+     */
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
-              double PE, std::vector<ObjectBC> &objects);
+              double PE, ObjectVector objects);
 
 };
 
