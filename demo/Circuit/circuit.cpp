@@ -74,32 +74,7 @@ int main()
 	}
 
 	PoissonSolver poisson_r(V, ext_bc, circuit_r, eps0);
-
-	if (object_method == "BC")
-	{
-		// SOLVE POISSON
-		poisson_r.solve(phi, rho, objects_r, circuit_r);
-
-		// UPDATE OBJECT CHARGE AND POTENTIAL
-		for (auto &o : objects_r)
-		{
-			o->update(phi);
-		}
-	}
-	else if (object_method == "CM")
-	{
-		// RESET OBJECT POTENTIAL TO 0
-		reset_objects(objects_r);
-
-		// SOLVE POISSON WITH POTENTIAL EQUAL 0 ON OBJECTS
-		poisson_r.solve(phi, rho, objects_r);
-
-		// APPLY CIRCUITRY
-		circuit_r->apply(phi, mesh);
-
-		// SOLVE POISSON WITH CORRECT POTENTIAL ON OBJECTS
-		poisson_r.solve(phi, rho, objects_r, circuit_r);
-	}
+    poisson_r.solve_circuit(phi, rho, mesh, objects_r, circuit_r);
 
 	cout << "----------------------------------" << '\n';
 	cout << "              PART I              " << '\n';
@@ -107,7 +82,7 @@ int main()
 	for(auto& o:objects_r)
 	{
 		cout << "charge = " << o->charge;
-		cout << ", voltage = " << o->potential << '\n';
+		cout << ", voltage = " << o->get_potential() << '\n';
 	}
 	cout << "----------------------------------" << '\n';
 	cout << '\n';
@@ -142,32 +117,7 @@ int main()
 	}
 
 	PoissonSolver poisson(V, ext_bc, circuit, eps0);
-
-	if (object_method == "BC")
-	{
-		// SOLVE POISSON
-		poisson.solve(phi, rho, objects, circuit);
-
-		// UPDATE OBJECT CHARGE AND POTENTIAL
-		for (auto &o : objects)
-		{
-			o->update(phi);
-		}
-	}
-	else if (object_method == "CM")
-	{
-		// RESET OBJECT POTENTIAL TO 0
-		reset_objects(objects);
-
-		// SOLVE POISSON WITH POTENTIAL EQUAL 0 ON OBJECTS
-		poisson.solve(phi, rho, objects);
-
-		// APPLY CIRCUITRY
-		circuit->apply(phi, mesh);
-
-		// SOLVE POISSON WITH CORRECT POTENTIAL ON OBJECTS
-		poisson.solve(phi, rho, objects, circuit);
-	}
+    poisson.solve_circuit(phi, rho, mesh, objects, circuit);
 
 	std::cout<<'\n';
 	cout << "----------------------------------" << '\n';
@@ -176,7 +126,7 @@ int main()
 	for (auto &o : objects)
 	{
 		cout << "charge = " << o->charge;
-		cout << ", voltage = " << o->potential << '\n';
+		cout << ", voltage = " << o->get_potential() << '\n';
 	}
 	cout << "----------------------------------" << '\n';
 
