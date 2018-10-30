@@ -22,6 +22,57 @@ const char* fname_pop   = "population.dat";
 const bool override_status_print = true;
 const double tol = 1e-10;
 
+/*******************************************************************************
+ * INPUT VARIABLES (GLOBAL)
+ ******************************************************************************/
+
+// While this list of global varialbes is not a good solution, it is no worse
+// than having it all in the parameter list of run<dim>() or in a singleton 
+// class. One should probably refactor population based on proper template
+// polymorphism such that one didn't need the run function. Logically, the run
+// and main routines are one and the same, awkwardly split in half due to the
+// need for using either Population<2> or Population<3>. On the positive, the
+// globals are only used here, on a top-level, script-like main file.
+
+// Global input
+string fname_ifile;
+string fname_mesh;
+size_t steps = 0;
+double dt = 0;
+double dtwp;
+double Bx = 0;
+bool binary = false;
+
+string object_method{"BC"};
+
+// diagnostics input
+size_t n_fields = 0;
+size_t n_state = 0;
+bool densities_ema = false;
+double densities_tau = 0.0;
+bool fields_end = false;
+bool state_end = true;
+bool PE_save = false;
+
+// Object input
+bool impose_current = true; 
+double imposed_current;
+double imposed_voltage;
+
+// Species input
+vector<int> npc;
+vector<int> num;
+vector<double> density;
+vector<double> thermal;
+vector<double> vx;
+vector<double> charge;
+vector<double> mass;
+vector<double> kappa;
+vector<double> alpha;
+vector<string> distribution;
+
+/******************************************************************************/
+
 bool exit_immediately = true;
 void signal_handler(int signum){
     if(exit_immediately){
@@ -34,42 +85,12 @@ void signal_handler(int signum){
     }
 }
 
-// Horrible, horrible list of arguments. Hopefully only temporary.
 template <size_t dim>
-int run(
-    Mesh &mesh,
-    size_t steps,
-    double dt,
-    double Bx,
-    bool impose_current,
-    double imposed_current,
-    double imposed_voltage,
-    vector<int> npc,
-    vector<int> num,
-    vector<double> density,
-    vector<double> thermal,
-    vector<double> vx,
-    vector<double> charge,
-    vector<double> mass,
-    vector<double> kappa,
-    vector<double> alpha,
-    vector<string> distribution,
-    bool binary,
-    size_t n_fields,
-    size_t n_state,
-    bool densities_ema,
-    double densities_tau,
-    bool fields_end,
-    bool state_end,
-    bool PE_save,
-    string object_method)
+int run(Mesh &mesh)
 {
 
     PhysicalConstants constants;
     double eps0 = constants.eps0;
-
-    // To be moved into Mesh
-    // auto facet_vec = exterior_boundaries(mesh.bnd, mesh.ext_bnd_id);
 
     vector<double> B(dim, 0); // Magnetic field aligned with x-axis
     B[0] = Bx;
@@ -179,7 +200,6 @@ int run(
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
     cout << "Loading particles" << endl;
-
     Population<dim> pop(mesh);
 
     size_t n = 0;
@@ -379,47 +399,6 @@ int main(int argc, char **argv){
     signal(SIGINT, signal_handler);
     df::set_log_level(df::WARNING);
 
-    //
-    // INPUT VARIABLES
-    //
-
-    // Global input
-    string fname_ifile;
-    string fname_mesh;
-    size_t steps = 0;
-    double dt = 0;
-    double dtwp;
-    double Bx = 0;
-    bool binary = false;
-
-    string object_method{"BC"};
-
-    // diagnostics input
-    size_t n_fields = 0;
-    size_t n_state = 0;
-    bool densities_ema = false;
-    double densities_tau = 0.0;
-    bool fields_end = false;
-    bool state_end = true;
-    bool PE_save = false;
-
-    // Object input
-    bool impose_current = true; 
-    double imposed_current;
-    double imposed_voltage;
-
-    // Species input
-    vector<int> npc;
-    vector<int> num;
-    vector<double> density;
-    vector<double> thermal;
-    vector<double> vx;
-    vector<double> charge;
-    vector<double> mass;
-    vector<double> kappa;
-    vector<double> alpha;
-    vector<string> distribution;
-
     po::options_description desc("Options");
     desc.add_options()
         ("help", "show help (this)")
@@ -539,9 +518,9 @@ int main(int argc, char **argv){
 
     // TBD: dim==1?
     if(mesh.dim==2){
-        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
+        return run<2>(mesh);
     } else if(mesh.dim==3){
-        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
+        return run<3>(mesh);
     } else {
         cout << "Only 2D and 3D supported" << endl;
         return 1;
