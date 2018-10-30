@@ -275,9 +275,13 @@ bool CircuitBC::check_solver_methods(std::string &method,
     }
 }
 
-void CircuitBC::apply(df::GenericVector &b)
+void CircuitBC::pre_solve()
 {
     apply_isources_to_object();
+}
+
+void CircuitBC::apply(df::GenericVector &b)
+{
     apply_vsources_to_vector(b);
 }
 
@@ -388,6 +392,7 @@ void CircuitBC::apply_vsources_to_vector(df::GenericVector &b)
     }
 }
 
+// Should be moved to Circuit base class, but requires some structural changes
 void CircuitBC::apply_isources_to_object()
 {
     for (std::size_t i = 0; i < isources.size(); ++i)

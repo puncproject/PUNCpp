@@ -84,6 +84,7 @@ public:
 
     void apply(df::GenericVector &b);
     void apply(df::PETScMatrix &A);
+    void pre_solve();
     void post_solve(const df::Function &phi, Mesh &mesh);
 
     bool check_solver_methods(std::string &method,

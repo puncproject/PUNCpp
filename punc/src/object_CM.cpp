@@ -52,6 +52,7 @@ std::vector<df::Function> laplace_solver(const df::FunctionSpace &V,
 
 void CircuitCM::pre_solve()
 {
+    apply_isources_to_object();
     for (auto &o : objects)
     {
         o->set_potential(0.0);
@@ -353,8 +354,6 @@ void CircuitCM::post_solve(const df::Function &phi, Mesh &mesh)
         objects[i]->set_potential(potential);
         objects[i]->charge = charge;
     }
-
-    apply_isources_to_object();
 }
 
 void CircuitCM::apply_isources_to_object()
