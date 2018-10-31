@@ -1,6 +1,27 @@
+// Copyright (C) 2018, Diako Darian and Sigvald Marholm
+//
+// This file is part of PUNC++.
+//
+// PUNC++ is free software: you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later
+// version.
+//
+// PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+// details.
+//
+// You should have received a copy of the GNU General Public License along with
+// PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * @file		interaction.cpp
+ * @brief		Main PUNC executable
+ */
+#include "parser.h"
 #include <punc.h>
 #include <dolfin.h>
-#include <boost/program_options.hpp>
 #include <csignal>
 
 using namespace punc;
@@ -33,27 +54,6 @@ void signal_handler(int signum){
         cout << "Press Ctrl+C again to force quit." << endl;
         exit_immediately = true;
     }
-}
-
-/**
- * @brief Safely get multiple options
- * @param   key     Key to the option
- * @param   len     Length the resulting vector should have
- * @param   def     Default value in case no vector is present
- */
-template <typename T>
-vector<T> get_vector(po::variables_map options, string key, size_t len, T def){
-    vector<T> res;
-    if(options.count(key)){
-        res = options[key].as<vector<T>>();
-        if(res.size() != len){
-            cerr << "Wrong number of " << key << " specified" << endl;
-            exit(1);
-        }
-    } else {
-        res = vector<T>(len, def);
-    }
-    return res;
 }
 
 template <size_t dim>
@@ -94,8 +94,7 @@ int run(const po::variables_map &options)
         std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
     vector<df::DirichletBC> ext_bc = {bc};
 
-    vector<double> B(dim, 0); // Magnetic field aligned with x-axis
-    B[0] = options["Bx"].as<double>();
+    vector<double> B = get_vector<double>(options, "B", dim, vector<double>(dim, 0));
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
 
     //
@@ -118,14 +117,14 @@ int run(const po::variables_map &options)
         return 1;
     }
 
-    vector<string> distribution = get_vector<string>(options, "species.distribution", nSpecies, "maxwellian");
-    vector<int> npc             = get_vector<int>(options, "species.npc", nSpecies, 0);
+    vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
+    vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
     cout << "before" << endl;
-    vector<int> num             = get_vector<int>(options, "species.num", nSpecies, 0);
+    vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
     cout << "after" << endl;
-    vector<double> kappa        = get_vector<double>(options, "species.kappa", nSpecies, 0);
-    vector<double> alpha        = get_vector<double>(options, "species.alpha", nSpecies, 0);
-    vector<double> vx           = get_vector<double>(options, "species.vx", nSpecies, 0);
+    vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
+    vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
+    vector<vector<double>> vd = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
 
     for(size_t s=0; s<nSpecies; s++){
         charge[s] *= constants.e;
@@ -133,7 +132,6 @@ int run(const po::variables_map &options)
     }
 
     // FIXME: Move to input file
-    vector<vector<double>> vd(charge.size(), vector<double>(dim));
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
@@ -141,7 +139,7 @@ int run(const po::variables_map &options)
     CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
-        vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
+        // vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
         pdfs.push_back(std::make_shared<UniformPosition>(mesh.mesh));
 
         if(distribution[s]=="maxwellian"){
@@ -448,7 +446,7 @@ int main(int argc, char **argv){
         ("dt"    , po::value<double>() , "timestep [s] (overrides dtwp)")
         ("dtwp"  , po::value<double>() , "timestep [1/w_p of first specie]")
 
-        ("Bx", po::value<double>()->default_value(0), "magnetic field [T]")
+        ("B", po::value<string>(), "magnetic field [T]")
 
         ("impose_current"  , po::value<bool>()   , "Whether to impose current or voltage (true|false)")
         ("imposed_current" , po::value<double>() , "Current imposed on object [A]")
@@ -458,7 +456,7 @@ int main(int argc, char **argv){
         ("species.mass"         , po::value<vector<double>>() , "mass [electron masses]")
         ("species.density"      , po::value<vector<double>>() , "number density [1/m^3]")
         ("species.thermal"      , po::value<vector<double>>() , "thermal speed [m/s]")
-        ("species.vx"           , po::value<vector<double>>() , "drift velocity [m/s]")
+        ("species.vdrift"       , po::value<vector<string>>() , "drift velocity [m/s]")
         ("species.alpha"        , po::value<vector<double>>() , "spectral index alpha")
         ("species.kappa"        , po::value<vector<double>>() , "spectral index kappa")
         ("species.npc"          , po::value<vector<int>>()    , "number of particles per cell")
