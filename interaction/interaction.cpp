@@ -119,9 +119,7 @@ int run(const po::variables_map &options)
 
     vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
     vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
-    cout << "before" << endl;
     vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
-    cout << "after" << endl;
     vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
     vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
     vector<vector<double>> vd = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
@@ -185,25 +183,33 @@ int run(const po::variables_map &options)
     bool PE_save = options["diagnostics.PE_save"].as<bool>();
 
     //
-    // IMPOSE CIRCUITRY
+    // SETUP CIRCUITRY
     //
     cout << "Setup circuitry" << endl;
-    
-    double imposed_current = options["imposed_current"].as<double>();
-    double imposed_voltage = options["imposed_voltage"].as<double>();
-    bool impose_current = options["impose_current"].as<bool>();
 
     vector<Source> isources;
     vector<Source> vsources;
 
-    if(impose_current)
-    {
-        isources.push_back(Source{-1,0,-imposed_current});
-
-    } else {
-        vsources.push_back(Source{-1, 0, imposed_voltage});
+    for(auto &str : options["objects.vsource"].as<vector<string>>()){
+        std::istringstream iss(str);
+        Source source;
+        iss >> source.node_a >> source.node_b >> source.value;
+        vsources.push_back(source);
     }
 
+    for(auto &str : options["objects.isource"].as<vector<string>>()){
+        std::istringstream iss(str);
+        Source source;
+        iss >> source.node_a >> source.node_b >> source.value;
+        isources.push_back(source);
+    }
+
+    for(auto &s : vsources){
+        cout << "V_{" << s.node_a << s.node_b << "} = " << s.value << endl;
+    }
+    for(auto &s : isources){
+        cout << "I_{" << s.node_a << s.node_b << "} = " << s.value << endl;
+    }
 
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
@@ -279,9 +285,6 @@ int run(const po::variables_map &options)
     double num_e            = pop.num_of_negatives();
     double num_i            = pop.num_of_positives();
     double num_tot          = pop.num_of_particles();
-
-    cout << "imposed_current: " << imposed_current <<'\n';
-    cout << "imposed_voltage: " << imposed_voltage << '\n';
 
     cout << "Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
@@ -448,10 +451,6 @@ int main(int argc, char **argv){
 
         ("B", po::value<string>(), "magnetic field [T]")
 
-        ("impose_current"  , po::value<bool>()   , "Whether to impose current or voltage (true|false)")
-        ("imposed_current" , po::value<double>() , "Current imposed on object [A]")
-        ("imposed_voltage" , po::value<double>() , "Voltage imposed on object [V]")
-
         ("species.charge"       , po::value<vector<double>>() , "charge [elementary chages]")
         ("species.mass"         , po::value<vector<double>>() , "mass [electron masses]")
         ("species.density"      , po::value<vector<double>>() , "number density [1/m^3]")
@@ -465,6 +464,8 @@ int main(int argc, char **argv){
 
         ("objects.method" , po::value<string>()->default_value("BC") , "Object method (BC|CM)")
         ("objects.charge" , po::value<vector<double>>()              , "Initial object charge")
+        ("objects.vsource" , po::value<vector<string>>()             , "Voltage source: node_a node_b value")
+        ("objects.isource" , po::value<vector<string>>()             , "Current source: node_a node_b value")
 
         ("diagnostics.n_fields"      , po::value<size_t>()                    , "write fields to file every nth time-step")
         ("diagnostics.densities_tau" , po::value<double>()                    , "exponential moving average relaxation time (disable with 0)")
