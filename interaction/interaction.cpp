@@ -122,14 +122,12 @@ int run(const po::variables_map &options)
     vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
     vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
     vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
-    vector<vector<double>> vd = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
+    vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
 
     for(size_t s=0; s<nSpecies; s++){
         charge[s] *= constants.e;
         mass[s] *= constants.m_e;
     }
-
-    // FIXME: Move to input file
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
@@ -137,7 +135,6 @@ int run(const po::variables_map &options)
     CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
-        // vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
         pdfs.push_back(std::make_shared<UniformPosition>(mesh.mesh));
 
         if(distribution[s]=="maxwellian"){
