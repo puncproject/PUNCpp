@@ -223,7 +223,15 @@ int run(const po::variables_map &options)
     //
     // CREATE SOLVERS
     //
-    PoissonSolver poisson(V, ext_bc, circuit, eps0);
+    string linalg_method         = options["linalg.method"].as<string>();
+    string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
+    
+    PoissonSolver poisson(V, ext_bc, circuit, eps0, false,
+                          linalg_method, linalg_preconditioner);
+
+    poisson.set_abstol(options["linalg.abstol"].as<double>());
+    poisson.set_reltol(options["linalg.reltol"].as<double>());
+
     ESolver esolver(W);
 
     //
@@ -442,9 +450,9 @@ int main(int argc, char **argv){
 
         ("Bx", po::value<double>()->default_value(0), "magnetic field [T]")
 
-        ("impose_current", po::value<bool>(), "Whether to impose current or voltage (true|false)")
-        ("imposed_current", po::value<double>(), "Current imposed on object [A]")
-        ("imposed_voltage", po::value<double>(), "Voltage imposed on object [V]")
+        ("impose_current"  , po::value<bool>()   , "Whether to impose current or voltage (true|false)")
+        ("imposed_current" , po::value<double>() , "Current imposed on object [A]")
+        ("imposed_voltage" , po::value<double>() , "Voltage imposed on object [V]")
 
         ("species.charge"       , po::value<vector<double>>() , "charge [elementary chages]")
         ("species.mass"         , po::value<vector<double>>() , "mass [electron masses]")
@@ -457,8 +465,8 @@ int main(int argc, char **argv){
         ("species.num"          , po::value<vector<int>>()    , "number of particles in total (overrides npc)")
         ("species.distribution" , po::value<vector<string>>() , "distribution (maxwellian|kappa|cairns|kappa-cairns)")
 
-        ("objects.method", po::value<string>(), "Object method (BC|CM)")
-        ("objects.charge", po::value<vector<double>>(), "Initial object charge")
+        ("objects.method" , po::value<string>()->default_value("BC") , "Object method (BC|CM)")
+        ("objects.charge" , po::value<vector<double>>()              , "Initial object charge")
 
         ("diagnostics.n_fields"      , po::value<size_t>()                    , "write fields to file every nth time-step")
         ("diagnostics.densities_tau" , po::value<double>()                    , "exponential moving average relaxation time (disable with 0)")
@@ -467,10 +475,10 @@ int main(int argc, char **argv){
         ("diagnostics.PE_save"       , po::value<bool>()                      , "calculate and save potential energy")
         ("diagnostics.binary"        , po::value<bool>()->default_value(true) , "write binary population files (true|false)")
 
-        ("linalg.method"         , po::value<string>()->default_value("") , "Linear algebra solver")
-        ("linalg.preconditioner" , po::value<string>()->default_value("") , "Linear algebra preconditioner")
-        ("linalg.abstol"         , po::value<double>()                    , "Absolute residual tolerance")
-        ("linalg.reltol"         , po::value<double>()                    , "Relative residual tolerance")
+        ("linalg.method"         , po::value<string>()->default_value("")    , "Linear algebra solver")
+        ("linalg.preconditioner" , po::value<string>()->default_value("")    , "Linear algebra preconditioner")
+        ("linalg.abstol"         , po::value<double>()->default_value(1e-14) , "Absolute residual tolerance")
+        ("linalg.reltol"         , po::value<double>()->default_value(1e-12) , "Relative residual tolerance")
     ;
 
     // Setting config file as positional argument
