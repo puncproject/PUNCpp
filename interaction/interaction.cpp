@@ -1,6 +1,27 @@
+// Copyright (C) 2018, Diako Darian and Sigvald Marholm
+//
+// This file is part of PUNC++.
+//
+// PUNC++ is free software: you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later
+// version.
+//
+// PUNC++ is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+// details.
+//
+// You should have received a copy of the GNU General Public License along with
+// PUNC++. If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * @file		interaction.cpp
+ * @brief		Main PUNC executable
+ */
+#include "parser.h"
 #include <punc.h>
 #include <dolfin.h>
-#include <boost/program_options.hpp>
 #include <csignal>
 
 using namespace punc;
@@ -15,6 +36,7 @@ using std::accumulate;
 using std::string;
 using std::ifstream;
 using std::ofstream;
+using std::make_shared;
 
 const char* fname_hist  = "history.dat";
 const char* fname_state = "state.dat";
@@ -34,53 +56,79 @@ void signal_handler(int signum){
     }
 }
 
-// Horrible, horrible list of arguments. Hopefully only temporary.
 template <size_t dim>
-int run(
-    Mesh &mesh,
-    size_t steps,
-    double dt,
-    double Bx,
-    bool impose_current,
-    double imposed_current,
-    double imposed_voltage,
-    vector<int> npc,
-    vector<int> num,
-    vector<double> density,
-    vector<double> thermal,
-    vector<double> vx,
-    vector<double> charge,
-    vector<double> mass,
-    vector<double> kappa,
-    vector<double> alpha,
-    vector<string> distribution,
-    bool binary,
-    size_t n_fields,
-    size_t n_state,
-    bool densities_ema,
-    double densities_tau,
-    bool fields_end,
-    bool state_end,
-    bool PE_save,
-    string object_method)
+int run(const po::variables_map &options)
 {
-
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    // To be moved into Mesh
-    // auto facet_vec = exterior_boundaries(mesh.bnd, mesh.ext_bnd_id);
+    //
+    // SETUP MESH AND FIELDS
+    //
+    cout << "Setup mesh and fields" << endl;
 
-    vector<double> B(dim, 0); // Magnetic field aligned with x-axis
-    B[0] = Bx;
+    Mesh mesh(options["mesh"].as<string>());
+
+    auto V = CG1_space(mesh);
+    auto W = CG1_vector_space(mesh);
+    auto Q = DG0_space(mesh);
+    auto P = DG0_vector_space(mesh);
+    auto dv_inv = element_volume(V);
+
+    // The electric potential and electric field
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E(std::make_shared<const df::FunctionSpace>(W));
+
+    // Electron and ion number densities
+    df::Function ne(std::make_shared<const df::FunctionSpace>(V));
+    df::Function ni(std::make_shared<const df::FunctionSpace>(V));
+
+    // Exponential moving average of number densities
+    df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
+    df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
+
+    auto u0 = std::make_shared<df::Constant>(0.0);
+
+    // mesh.ext_bnd_id will always be 1, but better not rely on it.
+    // Perhaps we can use a function which returns this DirichletBC.
+    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
+        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
+    vector<df::DirichletBC> ext_bc = {bc};
+
+    vector<double> B = get_vector<double>(options, "B", dim, vector<double>(dim, 0));
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
 
     //
-    // CREATE SPECIES
+    // SETUP SPECIES
     //
+    cout << "Setup species" << endl;
 
-    // FIXME: Move to input file
-    vector<vector<double>> vd(charge.size(), vector<double>(dim));
+    vector<double> charge  = options["species.charge"].as<vector<double>>();
+    vector<double> mass    = options["species.mass"].as<vector<double>>();
+    vector<double> thermal = options["species.thermal"].as<vector<double>>();
+    vector<double> density = options["species.density"].as<vector<double>>();
+
+    size_t nSpecies = charge.size();
+    if(mass.size()    != nSpecies
+    || density.size() != nSpecies
+    || thermal.size() != nSpecies){
+        
+        cerr << "Inconsistent number of species specified. "
+             << "Check species.charge, species.mass, species.density and species.thermal" << endl;
+        return 1;
+    }
+
+    vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
+    vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
+    vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
+    vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
+    vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
+    vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
+
+    for(size_t s=0; s<nSpecies; s++){
+        charge[s] *= constants.e;
+        mass[s] *= constants.m_e;
+    }
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
@@ -88,7 +136,6 @@ int run(
     CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
-        vd[s][0] = vx[s]; // fill in x-component of velocity vector for each species
         pdfs.push_back(std::make_shared<UniformPosition>(mesh));
 
         if(distribution[s]=="maxwellian"){
@@ -110,50 +157,65 @@ int run(
     }
     auto species = create_species.species;
 
+    create_flux(species, mesh.exterior_facets);
+
     //
-    // IMPOSE CIRCUITRY
+    // TIME CONTROL
     //
+    cout << "Setup time" << endl;
+
+    double dt = 0;
+    if(options.count("dt")){
+        dt = options["dt"].as<double>();
+    } else {
+        double dtwp = options["dtwp"].as<double>();
+        double wp0 = sqrt(pow(charge[0],2)*density[0]/(eps0*mass[0]));
+        dt = dtwp/wp0;
+    }
+
+    size_t steps = options["steps"].as<size_t>();
+    double densities_tau = options["diagnostics.densities_tau"].as<double>();
+    size_t n_fields = options["diagnostics.n_fields"].as<size_t>();
+    bool fields_end = options["diagnostics.fields_end"].as<bool>();
+    bool state_end = options["diagnostics.state_end"].as<bool>();
+    bool PE_save = options["diagnostics.PE_save"].as<bool>();
+
+    //
+    // SETUP CIRCUITRY
+    //
+    cout << "Setup circuitry" << endl;
+
     vector<Source> isources;
     vector<Source> vsources;
 
-    if(impose_current)
-    {
-        isources.push_back(Source{-1,0,-imposed_current});
-
-    } else {
-        vsources.push_back(Source{-1, 0, imposed_voltage});
+    if(options.count("objects.vsource")){
+        for(auto &str : options["objects.vsource"].as<vector<string>>()){
+            std::istringstream iss(str);
+            Source source;
+            iss >> source.node_a >> source.node_b >> source.value;
+            vsources.push_back(source);
+        }
     }
 
-    //
-    // CREATE FUNCTION SPACES AND BOUNDARY CONDITIONS
-    //
-    auto V = CG1_space(mesh);
-    auto W = CG1_vector_space(mesh);
-    auto Q = DG0_space(mesh);
-    auto P = DG0_vector_space(mesh);
-    auto dv_inv = element_volume(V);
+    if(options.count("options.isource")){
+        for(auto &str : options["objects.isource"].as<vector<string>>()){
+            std::istringstream iss(str);
+            Source source;
+            iss >> source.node_a >> source.node_b >> source.value;
+            isources.push_back(source);
+        }
+    }
 
-    // The electric potential and electric field
-    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
-    df::Function E(std::make_shared<const df::FunctionSpace>(W));
-
-    // Electron and ion number densities
-    df::Function ne(std::make_shared<const df::FunctionSpace>(V));
-    df::Function ni(std::make_shared<const df::FunctionSpace>(V));
-    // Exponential moving average of number densities
-    df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
-    df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
-
-    auto u0 = std::make_shared<df::Constant>(0.0);
-
-    // mesh.ext_bnd_id will always be 1, but better not rely on it.
-    // Perhaps we can use a function which returns this DirichletBC.
-    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
-    vector<df::DirichletBC> ext_bc = {bc};
+    for(auto &s : vsources){
+        cout << "  V_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
+    }
+    for(auto &s : isources){
+        cout << "  I_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
+    }
 
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
+    string object_method = options["objects.method"].as<string>();
     if (object_method == "BC")
     {
         objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
@@ -167,21 +229,22 @@ int run(
     //
     // CREATE SOLVERS
     //
-    PoissonSolver poisson(V, ext_bc, circuit, eps0);
+    string linalg_method         = options["linalg.method"].as<string>();
+    string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
+    
+    PoissonSolver poisson(V, ext_bc, circuit, eps0, false,
+                          linalg_method, linalg_preconditioner);
+
+    poisson.set_abstol(options["linalg.abstol"].as<double>());
+    poisson.set_reltol(options["linalg.reltol"].as<double>());
+
     ESolver esolver(W);
     // EFieldMean esolver(P, W);
-
-    //
-    // CREATE FLUX
-    //
-    cout << "Create flux" << endl;
-    create_flux(species, mesh.exterior_facets);
 
     //
     // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
     //
     cout << "Loading particles" << endl;
-
     Population<dim> pop(mesh);
 
     size_t n = 0;
@@ -206,6 +269,8 @@ int run(
     State state(fname_state);
     FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
+    bool binary = options["diagnostics.binary"].as<bool>();
+
     if(continue_simulation){
         cout << "Continuing previous simulation" << endl;
         state.load(n, t, objects);
@@ -223,9 +288,6 @@ int run(
     double num_e            = pop.num_of_negatives();
     double num_i            = pop.num_of_positives();
     double num_tot          = pop.num_of_particles();
-
-    cout << "imposed_current: " << imposed_current <<'\n';
-    cout << "imposed_voltage: " << imposed_voltage << '\n';
 
     cout << "Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
@@ -317,7 +379,7 @@ int run(
 
         // AVERAGING
         timer.tic("io");
-        if (densities_ema)
+        if (fabs(densities_tau)<tol)
         {
             density_cg1(V, pop, ne, ni, dv_inv);
             ema(ne, ne_ema, dt, densities_tau);
@@ -326,7 +388,7 @@ int run(
         // SAVE FIELDS
         if(n_fields !=0 && n%n_fields == 0)
         {
-            if (densities_ema)
+            if (fabs(densities_tau)<tol)
             {
                 fields.save(phi, E, rho, ne_ema, ni_ema, t);
             }else{
@@ -340,7 +402,7 @@ int run(
             // SAVE FIELDS
             if (fields_end)
             {
-                if (densities_ema)
+                if (fabs(densities_tau))
                 {
                     fields.save(phi, E, rho, ne_ema, ni_ema, t);
                 }
@@ -378,83 +440,44 @@ int main(int argc, char **argv){
     signal(SIGINT, signal_handler);
     df::set_log_level(df::WARNING);
 
-    //
-    // INPUT VARIABLES
-    //
-
-    // Global input
-    string fname_ifile;
-    string fname_mesh;
-    size_t steps = 0;
-    double dt = 0;
-    double dtwp;
-    double Bx = 0;
-    bool binary = false;
-
-    string object_method{"BC"};
-
-    // diagnostics input
-    size_t n_fields = 0;
-    size_t n_state = 0;
-    bool densities_ema = false;
-    double densities_tau = 0.0;
-    bool fields_end = false;
-    bool state_end = true;
-    bool PE_save = false;
-
-    // Object input
-    bool impose_current = true; 
-    double imposed_current;
-    double imposed_voltage;
-
-    // Species input
-    vector<int> npc;
-    vector<int> num;
-    vector<double> density;
-    vector<double> thermal;
-    vector<double> vx;
-    vector<double> charge;
-    vector<double> mass;
-    vector<double> kappa;
-    vector<double> alpha;
-    vector<string> distribution;
-
     po::options_description desc("Options");
     desc.add_options()
-        ("help", "show help (this)")
-        ("input", po::value(&fname_ifile), "config file")
-        ("mesh", po::value(&fname_mesh), "mesh file")
-        ("steps", po::value(&steps), "number of timesteps")
-        ("dt", po::value(&dt), "timestep [s] (overrides dtwp)") 
-        ("dtwp", po::value(&dtwp), "timestep [1/w_p of first specie]")
-        ("binary", po::value(&binary), "Write binary population files (true|false)")
-        
-        ("object_method", po::value(&object_method), "Object method (BC|CM)")
+        ("help"  , "show help (this)")
+        ("input" , po::value<string>() , "input file (.ini)")
+        ("mesh"  , po::value<string>() , "mesh file (.xml or .hdf5)")
+        ("steps" , po::value<size_t>() , "number of timesteps")
+        ("dt"    , po::value<double>() , "timestep [s] (overrides dtwp)")
+        ("dtwp"  , po::value<double>() , "timestep [1/w_p of first specie]")
 
-        ("Bx", po::value(&Bx), "magnetic field [T]")
+        ("B", po::value<string>(), "magnetic field [T]")
 
-        ("impose_current", po::value(&impose_current), "Whether to impose current or voltage (true|false)")
-        ("imposed_current", po::value(&imposed_current), "Current imposed on object [A]")
-        ("imposed_voltage", po::value(&imposed_voltage), "Voltage imposed on object [V]")
+        ("species.charge"       , po::value<vector<double>>() , "charge [elementary chages]")
+        ("species.mass"         , po::value<vector<double>>() , "mass [electron masses]")
+        ("species.density"      , po::value<vector<double>>() , "number density [1/m^3]")
+        ("species.thermal"      , po::value<vector<double>>() , "thermal speed [m/s]")
+        ("species.vdrift"       , po::value<vector<string>>() , "drift velocity [m/s]")
+        ("species.alpha"        , po::value<vector<double>>() , "spectral index alpha")
+        ("species.kappa"        , po::value<vector<double>>() , "spectral index kappa")
+        ("species.npc"          , po::value<vector<int>>()    , "number of particles per cell")
+        ("species.num"          , po::value<vector<int>>()    , "number of particles in total (overrides npc)")
+        ("species.distribution" , po::value<vector<string>>() , "distribution (maxwellian|kappa|cairns|kappa-cairns)")
 
-        ("species.charge", po::value(&charge), "charge [elementary chages]")
-        ("species.mass", po::value(&mass), "mass [electron masses]")
-        ("species.density", po::value(&density), "number density [1/m^3]")
-        ("species.thermal", po::value(&thermal), "thermal speed [m/s]")
-        ("species.vx", po::value(&vx), "drift velocity [m/s]")
-        ("species.alpha", po::value(&alpha), "spectral index alpha")
-        ("species.kappa", po::value(&kappa), "spectral index kappa")
-        ("species.npc", po::value(&npc), "number of particles per cell")
-        ("species.num", po::value(&num), "number of particles in total (overrides npc)")
-        ("species.distribution", po::value(&distribution), "distribution (maxwellian)")
+        ("objects.method" , po::value<string>()->default_value("BC") , "Object method (BC|CM)")
+        ("objects.charge" , po::value<vector<double>>()              , "Initial object charge")
+        ("objects.vsource" , po::value<vector<string>>()             , "Voltage source: node_a node_b value")
+        ("objects.isource" , po::value<vector<string>>()             , "Current source: node_a node_b value")
 
-        ("diagnostics.n_fields", po::value(&n_fields), "write fields to file every nth time-step")
-        ("diagnostics.n_state", po::value(&n_state), "write state to file every nth time-step")
-        ("diagnostics.densities_ema", po::value(&densities_ema), "apply exponential moving average on densities")
-        ("diagnostics.densities_tau", po::value(&densities_tau), "relaxation time")
-        ("diagnostics.fields_end", po::value(&fields_end), "write to file every nth time-step")
-        ("diagnostics.state_end", po::value(&state_end), "write to file every nth time-step")
-        ("diagnostics.PE_save", po::value(&PE_save), "calculate and save potential energy")
+        ("diagnostics.n_fields"      , po::value<size_t>()                    , "write fields to file every nth time-step")
+        ("diagnostics.densities_tau" , po::value<double>()                    , "exponential moving average relaxation time (disable with 0)")
+        ("diagnostics.fields_end"    , po::value<bool>()                      , "write to file every nth time-step")
+        ("diagnostics.state_end"     , po::value<bool>()                      , "write to file every nth time-step")
+        ("diagnostics.PE_save"       , po::value<bool>()                      , "calculate and save potential energy")
+        ("diagnostics.binary"        , po::value<bool>()->default_value(true) , "write binary population files (true|false)")
+
+        ("linalg.method"         , po::value<string>()->default_value("")    , "Linear algebra solver")
+        ("linalg.preconditioner" , po::value<string>()->default_value("")    , "Linear algebra preconditioner")
+        ("linalg.abstol"         , po::value<double>()->default_value(1e-14) , "Absolute residual tolerance")
+        ("linalg.reltol"         , po::value<double>()->default_value(1e-12) , "Relative residual tolerance")
     ;
 
     // Setting config file as positional argument
@@ -480,6 +503,7 @@ int main(int argc, char **argv){
         return 1;
     }
 
+    string fname_ifile = options["input"].as<string>();
     ifstream ifile;
     ifile.open(fname_ifile);
     po::store(po::parse_config_file(ifile, desc), options);
@@ -488,61 +512,13 @@ int main(int argc, char **argv){
 
     cout << "PUNC++ started!" << endl;
 
-    //
-    // PRE-PROCESS INPUT
-    //
-    PhysicalConstants constants;
-    double eps0 = constants.eps0;
+    Mesh mesh(options["mesh"].as<string>());
 
-    size_t nSpecies = charge.size();
-    for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
-    }
-
-    if(fabs(dt)<tol){
-        double wp0 = sqrt(pow(charge[0],2)*density[0]/(eps0*mass[0]));
-        dt = dtwp/wp0;
-    }
-
-    if(num.size() != 0 && npc.size() != 0){
-        cout << "Use only npc or num. Not mixed." << endl;
-        return 1;
-    }
-    if(num.size() == 0) num = vector<int>(nSpecies, 0);
-    if(npc.size() == 0) npc = vector<int>(nSpecies, 0);
-    if(kappa.size() == 0) kappa = vector<double>(nSpecies, 0);
-    if(alpha.size() == 0) alpha = vector<double>(nSpecies, 0);
-    if(vx.size() == 0) vx = vector<double>(nSpecies, 0);
-
-    // Sanity checks (avoids segfaults)
-    if(charge.size()       != nSpecies
-    || mass.size()         != nSpecies
-    || density.size()      != nSpecies
-    || distribution.size() != nSpecies 
-    || npc.size()          != nSpecies
-    || num.size()          != nSpecies
-    || thermal.size()      != nSpecies
-    || vx.size()           != nSpecies
-    || kappa.size()        != nSpecies
-    || alpha.size()        != nSpecies){
-
-        cout << "Wrong arguments for species." << endl;
-        return 1;
-    }
-
-    //
-    // CREATE MESH
-    //
-    Mesh mesh(fname_mesh);
-
-    // TBD: dim==1?
-    if(mesh.dim==2){
-        return run<2>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
-    } else if(mesh.dim==3){
-        return run<3>(mesh, steps, dt, Bx, impose_current, imposed_current, imposed_voltage, npc, num, density, thermal, vx, charge, mass, kappa, alpha, distribution, binary, n_fields, n_state, densities_ema, densities_tau, fields_end, state_end, PE_save, object_method);
-    } else {
-        cout << "Only 2D and 3D supported" << endl;
+         if(mesh.dim==1) return run<1>(options);
+    else if(mesh.dim==2) return run<2>(options);
+    else if(mesh.dim==3) return run<3>(options);
+    else {
+        cerr << "Only 1D, 2D and 3D supported" << endl;
         return 1;
     }
 }
