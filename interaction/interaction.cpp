@@ -190,25 +190,29 @@ int run(const po::variables_map &options)
     vector<Source> isources;
     vector<Source> vsources;
 
-    for(auto &str : options["objects.vsource"].as<vector<string>>()){
-        std::istringstream iss(str);
-        Source source;
-        iss >> source.node_a >> source.node_b >> source.value;
-        vsources.push_back(source);
+    if(options.count("objects.vsource")){
+        for(auto &str : options["objects.vsource"].as<vector<string>>()){
+            std::istringstream iss(str);
+            Source source;
+            iss >> source.node_a >> source.node_b >> source.value;
+            vsources.push_back(source);
+        }
     }
 
-    for(auto &str : options["objects.isource"].as<vector<string>>()){
-        std::istringstream iss(str);
-        Source source;
-        iss >> source.node_a >> source.node_b >> source.value;
-        isources.push_back(source);
+    if(options.count("options.isource")){
+        for(auto &str : options["objects.isource"].as<vector<string>>()){
+            std::istringstream iss(str);
+            Source source;
+            iss >> source.node_a >> source.node_b >> source.value;
+            isources.push_back(source);
+        }
     }
 
     for(auto &s : vsources){
-        cout << "V_{" << s.node_a << s.node_b << "} = " << s.value << endl;
+        cout << "  V_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
     }
     for(auto &s : isources){
-        cout << "I_{" << s.node_a << s.node_b << "} = " << s.value << endl;
+        cout << "  I_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
     }
 
     vector<std::shared_ptr<Object>> objects;
