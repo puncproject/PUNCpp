@@ -59,12 +59,14 @@ void signal_handler(int signum){
 template <size_t dim>
 int run(const po::variables_map &options)
 {
+    cout << "Starting " << dim << "D PIC simulation" << endl;
+
     PhysicalConstants constants;
     double eps0 = constants.eps0;
 
-    //
-    // SETUP MESH AND FIELDS
-    //
+    /***************************************************************************
+     * SETUP MESH AND FIELDS
+     **************************************************************************/
     cout << "Setup mesh and fields" << endl;
 
     Mesh mesh(options["mesh"].as<string>());
@@ -98,9 +100,9 @@ int run(const po::variables_map &options)
     vector<double> B = get_vector<double>(options, "B", dim, vector<double>(dim, 0));
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
 
-    //
-    // SETUP SPECIES
-    //
+    /***************************************************************************
+     * SETUP SPECIES
+     **************************************************************************/
     cout << "Setup species" << endl;
 
     vector<double> charge  = options["species.charge"].as<vector<double>>();
@@ -159,11 +161,6 @@ int run(const po::variables_map &options)
 
     create_flux(species, mesh.exterior_facets);
 
-    //
-    // TIME CONTROL
-    //
-    cout << "Setup time" << endl;
-
     double dt = 0;
     if(options.count("dt")){
         dt = options["dt"].as<double>();
@@ -173,16 +170,9 @@ int run(const po::variables_map &options)
         dt = dtwp/wp0;
     }
 
-    size_t steps = options["steps"].as<size_t>();
-    double densities_tau = options["diagnostics.densities_tau"].as<double>();
-    size_t n_fields = options["diagnostics.n_fields"].as<size_t>();
-    bool fields_end = options["diagnostics.fields_end"].as<bool>();
-    bool state_end = options["diagnostics.state_end"].as<bool>();
-    bool PE_save = options["diagnostics.PE_save"].as<bool>();
-
-    //
-    // SETUP CIRCUITRY
-    //
+    /***************************************************************************
+     * SETUP CIRCUITRY
+     **************************************************************************/
     cout << "Setup circuitry" << endl;
 
     vector<Source> isources;
@@ -226,9 +216,60 @@ int run(const po::variables_map &options)
         circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
     }
 
-    //
-    // CREATE SOLVERS
-    //
+    /***************************************************************************
+     * SETUP DIAGNOSTICS
+     **************************************************************************/
+    cout << "Setup diagnostics" << endl;
+
+    double densities_tau = options["diagnostics.densities_tau"].as<double>();
+    size_t n_fields = options["diagnostics.n_fields"].as<size_t>();
+    bool fields_end = options["diagnostics.fields_end"].as<bool>();
+    bool state_end = options["diagnostics.state_end"].as<bool>();
+    bool PE_save = options["diagnostics.PE_save"].as<bool>();
+    bool binary = options["diagnostics.binary"].as<bool>();
+
+    ifstream ifile_state(fname_state);
+    ifstream ifile_hist(fname_hist);
+    ifstream ifile_pop(fname_pop);
+
+    bool continue_simulation = false;
+    if(ifile_state.good() && ifile_hist.good() && ifile_pop.good()){
+        continue_simulation = true;
+    }
+
+    ifile_state.close();
+    ifile_hist.close();
+    ifile_pop.close();
+
+    History hist(fname_hist, objects, dim, continue_simulation);
+    State state(fname_state);
+    FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
+
+    /***************************************************************************
+     * SETUP PARTICLES
+     **************************************************************************/
+    cout << "Setup particles" << endl;
+
+    Population<dim> pop(mesh);
+
+    size_t n = 0;
+    double t = 0;
+
+    if(continue_simulation){
+        cout << "  Continuing previous simulation" << endl;
+        state.load(n, t, objects);
+        pop.load_file(fname_pop, binary);
+    } else {
+        cout << "  Starting new simulation" << endl;
+        load_particles(pop, species);
+    }
+
+
+    /***************************************************************************
+     * SETUP SOLVERS
+     **************************************************************************/
+    cout << "Setup solvers" << endl;
+
     string linalg_method         = options["linalg.method"].as<string>();
     string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
     
@@ -241,62 +282,36 @@ int run(const po::variables_map &options)
     ESolver esolver(W);
     // EFieldMean esolver(P, W);
 
-    //
-    // LOAD NEW PARTICLES OR CONTINUE SIMULATION FROM FILE
-    //
-    cout << "Loading particles" << endl;
-    Population<dim> pop(mesh);
+    /***************************************************************************
+     * SETUP TIME LOOP CONTROL
+     **************************************************************************/
+    cout << "Setup time loop control" << endl;
 
-    size_t n = 0;
-    double t = 0;
-    bool continue_simulation = false;
+    size_t steps = options["steps"].as<size_t>();
 
-    ifstream ifile_state(fname_state);
-    ifstream ifile_hist(fname_hist);
-    ifstream ifile_pop(fname_pop);
 
-    if(ifile_state.good() && ifile_hist.good() && ifile_pop.good()){
-        continue_simulation = true;
-    }
-
-    ifile_hist.close();
-    ifile_pop.close();
-
-    //
-    // HISTORY AND SATE FILES
-    //
-    History hist(fname_hist, objects, dim, continue_simulation);
-    State state(fname_state);
-    FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
-
-    bool binary = options["diagnostics.binary"].as<bool>();
-
-    if(continue_simulation){
-        cout << "Continuing previous simulation" << endl;
-        state.load(n, t, objects);
-        pop.load_file(fname_pop, binary);
-    } else {
-        cout << "Starting new simulation" << endl;
-        load_particles(pop, species);
-    }
-
-    //
-    // CREATE HISTORY VARIABLES
-    //
     double KE               = 0;
     double PE               = 0;
     double num_e            = pop.num_of_negatives();
     double num_i            = pop.num_of_positives();
     double num_tot          = pop.num_of_particles();
 
-    cout << "Num positives:  " << num_i;
+    cout << "  Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
     cout << " total: " << num_tot << endl;
 
-    //
-    // CREATE TIMER TASKS
-    //
-    vector<string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "injector", "counting particles", "io", "density"};
+    vector<string> tasks{"distributor",
+                         "poisson",
+                         "efield",
+                         "update",
+                         "PE",
+                         "accelerator",
+                         "move",
+                         "injector",
+                         "counting particles",
+                         "io",
+                         "density"};
+
     Timer timer(tasks);
 
     exit_immediately = false;
