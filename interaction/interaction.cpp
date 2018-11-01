@@ -120,17 +120,17 @@ int run(const po::variables_map &options)
         return 1;
     }
 
+    for(size_t s=0; s<nSpecies; s++){
+        charge[s] *= constants.e;
+        mass[s] *= constants.m_e;
+    }
+
     vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
     vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
     vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
     vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
     vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
     vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
-
-    for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
-    }
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
