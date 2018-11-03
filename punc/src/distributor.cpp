@@ -25,6 +25,10 @@
 #include "../include/punc/distributor.h"
 #include "../ufl/WeightedVolume.h"
 
+#include <dolfin/fem/assemble.h>
+#include <dolfin/fem/Form.h>
+#include <dolfin/fem/fem_utils.h>
+
 namespace punc
 {
 

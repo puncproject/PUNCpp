@@ -29,6 +29,13 @@
 #include "mesh.h"
 #include "poisson.h"
 #include "distributions.h"
+
+#include <dolfin/mesh/Facet.h>
+#include <dolfin/mesh/Vertex.h>
+#include <dolfin/mesh/Cell.h>
+#include <dolfin/mesh/MeshEntityIterator.h>
+#include <dolfin/fem/UFC.h>
+
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>

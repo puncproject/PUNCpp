@@ -24,6 +24,8 @@
 
 #include "../include/punc/diagnostics.h"
 #include "../ufl/Energy.h"
+#include <dolfin/fem/assemble.h>
+#include <dolfin/fem/Form.h>
 
 namespace punc
 {

@@ -23,8 +23,13 @@
 #ifndef EFIELD_H
 #define EFIELD_H
 
-#include <dolfin.h>
-#include <petscvec.h>
+#include <dolfin/function/Function.h>
+#include <dolfin/function/FunctionSpace.h>
+#include <dolfin/fem/Form.h>
+#include <dolfin/la/PETScVector.h>
+#include <dolfin/la/PETScMatrix.h>
+#include <dolfin/la/PETScKrylovSolver.h>
+#include <dolfin/mesh/Mesh.h>
 
 namespace punc
 {

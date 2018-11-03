@@ -26,6 +26,7 @@
 #define OBJECT_H
 
 #include "mesh.h"
+
 #include <dolfin/function/Function.h>
 #include <dolfin/la/GenericVector.h>
 #include <dolfin/la/GenericMatrix.h>

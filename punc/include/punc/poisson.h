@@ -24,7 +24,16 @@
 #define POISSON_H
 
 #include "object.h"
-#include <dolfin.h>
+
+#include <dolfin/function/Expression.h>
+#include <dolfin/mesh/SubDomain.h>
+#include <dolfin/function/FunctionSpace.h>
+#include <dolfin/fem/Form.h>
+#include <dolfin/fem/DirichletBC.h>
+#include <dolfin/la/PETScVector.h>
+#include <dolfin/la/PETScKrylovSolver.h>
+#include <dolfin/la/VectorSpaceBasis.h>
+
 #include <boost/optional.hpp>
 
 namespace punc

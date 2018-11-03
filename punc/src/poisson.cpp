@@ -16,6 +16,12 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/poisson.h"
+
+#include <dolfin/la/Vector.h>
+#include <dolfin/fem/assemble.h>
+#include <dolfin/function/Constant.h>
+#include <dolfin/math/basic.h>
+
 #include "../ufl/Potential1D.h"
 #include "../ufl/Potential2D.h"
 #include "../ufl/Potential3D.h"

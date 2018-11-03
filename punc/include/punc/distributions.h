@@ -26,7 +26,7 @@
 #define DISTRIBUTIONS_H
 
 #include "mesh.h"
-#include <dolfin/mesh/Mesh.h>
+
 #include <boost/math/special_functions/erf.hpp>
 
 namespace punc
