@@ -12,14 +12,14 @@ int main()
     std::vector<std::string> tasks{"move", "update", "injector"};
     Timer timer(tasks);
 
-    const std::size_t dim = 2;
+    const std::size_t dim = 3;
 
     std::string fname;
     if (dim==2)
     {
-        fname = "../../mesh/2D/nothing_in_square";
+        fname = "empty_square";
     }else if (dim==3){
-        fname = "../../mesh/3D/nothing_in_cube";
+        fname = "empty_cube";
     }
     
     Mesh mesh(fname);
@@ -28,8 +28,6 @@ int main()
     PhysicalConstants constants;
     double e = constants.e;
     double me = constants.m_e;
-    // double mi = constants.m_i;
-    // double kB = constants.k_B;
     double eps0 = constants.eps0;
 
     int npc = 16;
@@ -40,7 +38,7 @@ int main()
     double vthe = debye * wpe;
     std::vector<double> vd(dim, 0.0);
 
-    UniformPosition pdf(mesh.mesh); // Position distribution
+    UniformPosition pdf(mesh); // Position distribution
     // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
     //Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
     // Cairns vdf(vthe, vd, 0.2); // Cairns velocity distribution
