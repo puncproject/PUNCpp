@@ -182,6 +182,23 @@ void PhiBoundary::eval(df::Array<double> &values, const df::Array<double> &x) co
     }
 }
 
+std::vector<df::DirichletBC> exterior_bc(const df::FunctionSpace &V, 
+                                         const Mesh &mesh,
+                                         const std::vector<double> &vd,
+                                         const std::vector<double> &B)
+{
+    auto V_shared = std::make_shared<df::FunctionSpace>(V);
+    
+    auto phi_bc = std::make_shared<PhiBoundary>(B, vd);
+
+    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), phi_bc,
+                       std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), 
+                       mesh.ext_bnd_id);
+
+    std::vector<df::DirichletBC> ext_bc = {bc};
+    return ext_bc;
+}
+
 NonPeriodicBoundary::NonPeriodicBoundary(const std::vector<double> &Ld,
                                          const std::vector<bool> &periodic)
                                          :df::SubDomain(), Ld(Ld), periodic(periodic){}

@@ -86,6 +86,47 @@ public:
 };
 
 /**
+ * @brief Returns boundary condition for the Poisson's equation at the exterior boundaries
+ * @param V[in]    - Space functions 
+ * @param mesh[in] - The Mesh 
+ * @param vd[in]   - Drift velocity
+ * @param B[in]    - External magnetic field
+ * @return std::vector of df::DirichletBC - a vector containing the boundary condition 
+ * 
+ * In the absence of drift velocity and a homogeneous background magnetic flux 
+ * density, the boundary condition for the electric potential needed by the 
+ * Poisson solver is simply set to zero. In the presence of a homogeneous 
+ * background magnetic flux density \f[\mathbf{B}_0\f] and a constant drift velocity 
+ * \f[\mathbf{v}_{\mathrm{d}}\f] there must be a homogeneous background electric field 
+ * \f[\mathbf{E}_0\f] consistent with the \f[\mathbf{E}\times\mathbf{B}\f] drift velocity:
+ *
+ *  \f[
+ *	\mathbf{v}_{\mathrm{d}} = \frac{\mathbf{E}_0\times\mathbf{B}_0}{\lVert\vec{B}_0\rVert^2}.
+ *
+ * \f]
+ * 
+ * This implies that the component of \f[\mathbf{E}_0\f] which is perpendicular to 
+ * \f[\mathbf{B}_0\f] must equal \f[-\mathbf{v}_{\mathrm{d}}\times\mathbf{B}_0\f].
+ * Any other components of \f[\mathbf{E}_0\f] must be zero; otherwise the particles 
+ * would be accelerated and not maintain the (homogeneous) drift velocity. 
+ * Assuming the exterior boundary \f[\Gamma_e\f] to be sufficiently far away from 
+ * any perturbations in the fields, the potential at \f[\Gamma_e\f] is therefore 
+ * given by the following Dirichlet boundary condition:
+ * 
+ *\f[
+ *	\phi = \phi_{0} \overset{\text{def}}{=} (\mathbf{v}_{\mathrm{d}}\times\mathbf{B}_0)\cdot\mathbf{x} \text{on}\Gamma_e, 
+ *	
+ *\f]
+ * where \f[\mathbf{x}\f] is the position on \f[\Gamma_e\f] and the integration 
+ * constant is arbitrarily set to zero (the forces only depends on the gradient 
+ * of \f[\phi\f] anyway).
+ */
+std::vector<df::DirichletBC> exterior_bc(const df::FunctionSpace &V, 
+                                         const Mesh &mesh,
+                                         const std::vector<double> &vd,
+                                         const std::vector<double> &B);
+
+/**
  * @brief Creates a function space in CG1
  * @param mesh[in] - The Mesh 
  * @param constr[in] Constraint to be imposed for periodic problems
