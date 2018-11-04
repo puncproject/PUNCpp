@@ -8,6 +8,7 @@ test.cpp
 scatter.py
 particles.txt
 profiling.txt
+*.xyz
 
 
 

@@ -27,6 +27,10 @@
 #define DIAGNOSTICS_H
 
 #include "population.h"
+
+#include <dolfin/io/File.h>
+#include <dolfin/fem/DofMap.h>
+
 #include <chrono>
 #include <iomanip>
 

@@ -16,6 +16,8 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/population.h"
+#include <dolfin/geometry/Point.h>
+#include <dolfin/geometry/BoundingBoxTree.h>
 
 namespace punc
 {

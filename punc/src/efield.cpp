@@ -16,6 +16,12 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/efield.h"
+
+#include <dolfin/fem/assemble.h>
+#include <dolfin/function/Constant.h>
+#include <petscvec.h>
+#include <petscmat.h>
+
 #include "../ufl/EField1D.h"
 #include "../ufl/EField2D.h"
 #include "../ufl/EField3D.h"

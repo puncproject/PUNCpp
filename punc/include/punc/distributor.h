@@ -26,6 +26,7 @@
 #define DISTRIBUTOR_H
 
 #include "population.h"
+#include <dolfin/fem/DofMap.h>
 
 namespace punc
 {

@@ -30,9 +30,11 @@
 #define OBJECT_CM_H
 
 #include "object.h"
+
 #include <dolfin/function/FunctionSpace.h>
 #include <dolfin/fem/Form.h>
 #include <dolfin/fem/DirichletBC.h>
+
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/lu.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>

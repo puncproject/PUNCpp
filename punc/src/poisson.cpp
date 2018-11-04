@@ -16,6 +16,12 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/poisson.h"
+
+#include <dolfin/la/Vector.h>
+#include <dolfin/fem/assemble.h>
+#include <dolfin/function/Constant.h>
+#include <dolfin/math/basic.h>
+
 #include "../ufl/Potential1D.h"
 #include "../ufl/Potential2D.h"
 #include "../ufl/Potential3D.h"
@@ -180,6 +186,23 @@ void PhiBoundary::eval(df::Array<double> &values, const df::Array<double> &x) co
     {
         values[0] += x[i] * E[i];
     }
+}
+
+std::vector<df::DirichletBC> exterior_bc(const df::FunctionSpace &V, 
+                                         const Mesh &mesh,
+                                         const std::vector<double> &vd,
+                                         const std::vector<double> &B)
+{
+    auto V_shared = std::make_shared<df::FunctionSpace>(V);
+    
+    auto phi_bc = std::make_shared<PhiBoundary>(B, vd);
+
+    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), phi_bc,
+                       std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), 
+                       mesh.ext_bnd_id);
+
+    std::vector<df::DirichletBC> ext_bc = {bc};
+    return ext_bc;
 }
 
 NonPeriodicBoundary::NonPeriodicBoundary(const std::vector<double> &Ld,

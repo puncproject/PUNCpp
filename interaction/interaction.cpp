@@ -89,14 +89,6 @@ int run(const po::variables_map &options)
     df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
 
-    auto u0 = std::make_shared<df::Constant>(0.0);
-
-    // mesh.ext_bnd_id will always be 1, but better not rely on it.
-    // Perhaps we can use a function which returns this DirichletBC.
-    df::DirichletBC bc(std::make_shared<df::FunctionSpace>(V), u0,
-        std::make_shared<df::MeshFunction<size_t>>(mesh.bnd), mesh.ext_bnd_id);
-    vector<df::DirichletBC> ext_bc = {bc};
-
     vector<double> B = get_vector<double>(options, "B", dim, vector<double>(dim, 0));
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
 
@@ -281,6 +273,8 @@ int run(const po::variables_map &options)
     string linalg_method         = options["linalg.method"].as<string>();
     string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
     
+    auto ext_bc = exterior_bc(V, mesh, vd[0], B);
+
     PoissonSolver poisson(V, ext_bc, circuit, eps0, false,
                           linalg_method, linalg_preconditioner);
 

@@ -11,54 +11,100 @@ const bool override_status_print = true;
 class LangmuirWave2D : public Pdf
 {
   private:
-    std::shared_ptr<const df::Mesh> mesh;
+    std::shared_ptr<const df::Mesh> _mesh;
     double amplitude, mode;
     const std::vector<double> Ld;
-    int dim_;
-    std::vector<double> domain_;
 
   public:
-    LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+    LangmuirWave2D(const Mesh &mesh,
                    double amplitude, double mode,
                    const std::vector<double> &Ld);
 
     double operator()(const std::vector<double> &x);
     double max() { return 1.0 + amplitude; }
-    int dim() { return dim_; }
-    std::vector<double> domain() { return domain_; }
 };
 
-LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+LangmuirWave2D::LangmuirWave2D(const Mesh &mesh,
                                double amplitude, double mode,
                                const std::vector<double> &Ld)
-    : mesh(mesh), amplitude(amplitude), mode(mode),
-      Ld(Ld)
+    : _mesh(mesh.mesh), amplitude(amplitude),
+      mode(mode), Ld(Ld)
 {
-    dim_ = mesh->geometry().dim();
-    auto coordinates = mesh->coordinates();
+    dim = mesh.dim;
+    auto coordinates = _mesh->coordinates();
     auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
     auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-    domain_.resize(2 * dim_);
-    for (int i = 0; i < dim_; ++i)
+    domain.resize(2 * dim);
+    for (int i = 0; i < dim; ++i)
     {
-        domain_[i] = Ld_min;
-        domain_[i + dim_] = Ld_max;
+        domain[i] = Ld_min;
+        domain[i + dim] = Ld_max;
     }
 }
 
 double LangmuirWave2D::operator()(const std::vector<double> &x)
 {
-    return (locate(mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+    return (locate(_mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
 }
+
+class Gif
+{
+  public:
+    std::size_t num;
+    std::ofstream ofile;
+
+    Gif(const std::string &fname, std::size_t num) : num(num)
+    {
+        ofile.open(fname, std::ofstream::out);
+    }
+
+    ~Gif() { ofile.close(); };
+
+    template <typename PopulationType>
+    void save(PopulationType &pop)
+    {
+        ofile << num << std::endl;
+        ofile << "Langmuir simulations " << std::endl;
+
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q < 0)
+                {
+                    ofile << 'O' << "\t";
+                    ofile << particle.x[0] << "\t";
+                    ofile << particle.x[1] << "\t";
+                    ofile << 0.0 << std::endl;
+                }
+            }
+        }
+
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q > 0)
+                {
+                    ofile << 'C' << "\t";
+                    ofile << particle.x[0] << "\t";
+                    ofile << particle.x[1] << "\t";
+                    ofile << 0.0 << std::endl;
+                }
+            }
+        }
+    }
+};
 
 int main()
 {
     df::set_log_level(df::WARNING);
 
     double dt = 0.1;
-    std::size_t steps = 30;
+    std::size_t steps = 300;
 
-    std::string fname{"../../mesh/2D/nothing_in_square"};
+    const char *fname_gif = "gif.xyz";
+    std::string fname{"nothing_in_square"};
     Mesh mesh(fname);
 
     const std::size_t dim = 2;
@@ -86,15 +132,15 @@ int main()
     auto dv_inv = element_volume(V);
 
     double vth = 0.0;
-    int npc = 64;
+    int npc = 4;
     double ne = 100;
 
     CreateSpecies create_species(mesh, Ld[0]);
 
     double A = 0.5, mode = 1.0;
 
-    LangmuirWave2D pdfe(mesh.mesh, A, mode, Ld); // Electron position distribution
-    UniformPosition pdfi(mesh.mesh);             // Ion position distribution
+    LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
+    UniformPosition pdfi(mesh);             // Ion position distribution
 
     Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
     Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
@@ -136,12 +182,15 @@ int main()
     std::cout << ", num negatives: " << num2;
     std::cout << " total: " << num3 << '\n';
 
+    Gif gif(fname_gif, num3);
+    gif.save(pop);
+
     std::vector<double> KE(steps-1);
     std::vector<double> PE(steps-1);
     std::vector<double> TE(steps-1);
     double KE0 = kinetic_energy(pop);
 
-    std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move"};
+    std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "io"};
     Timer timer(tasks);
 
     for (std::size_t i = 1; i < steps; ++i)
@@ -175,6 +224,11 @@ int main()
         timer.tic("update");
         pop.update(objects, dt);
         timer.toc();
+
+        timer.tic("io");
+        gif.save(pop);
+        timer.toc();
+
     }
 
     if (override_status_print)
