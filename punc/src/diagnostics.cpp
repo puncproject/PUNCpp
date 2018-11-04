@@ -27,6 +27,8 @@
 #include <dolfin/fem/assemble.h>
 #include <dolfin/fem/Form.h>
 
+#include <iostream>
+
 namespace punc
 {
 
@@ -143,6 +145,8 @@ void History::save(std::size_t n, double t, double num_e, double num_i, double K
                    double PE, ObjectVector objects)
 {
     ofile << n << "\t";
+    ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    ofile << std::scientific;
     ofile << t << "\t";
     ofile << num_e << "\t";
     ofile << num_i << "\t";
