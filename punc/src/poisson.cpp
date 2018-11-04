@@ -258,6 +258,7 @@ void PeriodicBoundary::map(const df::Array<double> &x, df::Array<double> &y) con
 }
 
 PoissonSolver::PoissonSolver(const df::FunctionSpace &V, 
+                             ObjectVector &objects,
                              boost::optional<std::vector<df::DirichletBC>& > ext_bc,
                              std::shared_ptr<Circuit> circuit,
                              double eps0,
@@ -309,6 +310,11 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     }
     
     df::assemble(A, *a);
+    
+    for (auto &bc : objects)
+    {
+        bc->apply(A);
+    }
 
     if(circuit){
         circuit->apply(A);
@@ -349,7 +355,6 @@ void PoissonSolver::solve(df::Function &phi, const df::Function &rho,
     }
     for(auto& bc: objects)
     {
-        bc->apply(A);
         bc->apply(b);
     }
     if(circuit) circuit->apply(b);

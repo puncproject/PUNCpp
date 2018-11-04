@@ -267,7 +267,7 @@ int run(const po::variables_map &options)
     
     auto ext_bc = exterior_bc(V, mesh, vd[0], B);
 
-    PoissonSolver poisson(V, ext_bc, circuit, eps0, false,
+    PoissonSolver poisson(V, objects, ext_bc, circuit, eps0, false,
                           linalg_method, linalg_preconditioner);
 
     poisson.set_abstol(options["linalg.abstol"].as<double>());

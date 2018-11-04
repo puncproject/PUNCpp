@@ -200,6 +200,7 @@ public:
      * @param preconditioner    Preconditioner for matrix equation
      */
     PoissonSolver(const df::FunctionSpace &V, 
+                  ObjectVector &objects,
                   boost::optional<std::vector<df::DirichletBC>& > ext_bc = boost::none,
                   std::shared_ptr<Circuit> circuit = nullptr,
                   double eps0 = 1,

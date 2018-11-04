@@ -170,7 +170,7 @@ int main()
     Population<dim> pop(mesh);
     std::vector<std::shared_ptr<Object>> objects = {};
 
-    PoissonSolver poisson(V, boost::none, nullptr, eps0, remove_null_space);
+    PoissonSolver poisson(V, objects, boost::none, nullptr, eps0, remove_null_space);
     ESolver esolver(W);
 
     load_particles(pop, species);

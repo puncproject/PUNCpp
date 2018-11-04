@@ -408,7 +408,7 @@ std::vector<df::Function> laplace_solver(const df::FunctionSpace &V,
                        mesh.ext_bnd_id);
 
     std::vector<df::DirichletBC> ext_bc = {bc};
-    PoissonSolver poisson(V, ext_bc, nullptr, eps0);
+    PoissonSolver poisson(V, objects, ext_bc, nullptr, eps0);
 
     auto num_objects = objects.size();
 

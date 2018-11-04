@@ -73,7 +73,7 @@ int main()
 		circuit_r = std::make_shared<CircuitCM>(V, objects_r, vsources_r, isources_r, mesh, dt, eps0);
 	}
 
-	PoissonSolver poisson_r(V, ext_bc, circuit_r, eps0);
+	PoissonSolver poisson_r(V, objects_r, ext_bc, circuit_r, eps0);
     poisson_r.solve_circuit(phi, rho, mesh, objects_r, circuit_r);
 
 	cout << "----------------------------------" << '\n';
@@ -116,7 +116,7 @@ int main()
 		circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
 	}
 
-	PoissonSolver poisson(V, ext_bc, circuit, eps0);
+    PoissonSolver poisson(V, objects, ext_bc, circuit, eps0);
     poisson.solve_circuit(phi, rho, mesh, objects, circuit);
 
 	std::cout<<'\n';
