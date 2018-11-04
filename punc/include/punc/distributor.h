@@ -89,19 +89,16 @@ std::vector<double> weighted_element_volume(const df::FunctionSpace &V);
  * \f]
  */
 template <typename PopulationType>
-df::Function distribute(const df::FunctionSpace &V,
-                        PopulationType &pop,
-                        const std::vector<double> &dv_inv)
+void distribute(PopulationType &pop, df::Function &rho,
+                const std::vector<double> &dv_inv)
 {
-    auto mesh = V.mesh();
+    auto V = rho.function_space();
+    auto mesh = V->mesh();
     auto tdim = mesh->topology().dim();
-    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
+    std::size_t len_rho = rho.vector()->size();
+    std::vector<double> rho0(len_rho, 0.0);
 
-    auto element = V.element();
+    auto element = V->element();
     auto s_dim = element->space_dimension();
 
     std::vector<double> basis_matrix(s_dim);
@@ -113,7 +110,7 @@ df::Function distribute(const df::FunctionSpace &V,
         df::Cell _cell(*mesh, cell_id);
         _cell.get_vertex_coordinates(vertex_coordinates);
         auto cell_orientation = _cell.orientation();
-        auto dof_id = V.dofmap()->cell_dofs(cell_id);
+        auto dof_id = V->dofmap()->cell_dofs(cell_id);
 
         std::vector<double> basis(1);
         std::vector<double> accum(s_dim, 0.0);
@@ -143,7 +140,6 @@ df::Function distribute(const df::FunctionSpace &V,
         rho0[i] *= dv_inv[i];
     }
     rho.vector()->set_local(rho0);
-    return rho;
 }
 
 /**
@@ -170,18 +166,16 @@ df::Function distribute(const df::FunctionSpace &V,
  * \f]
  */
 template <typename PopulationType>
-df::Function distribute_cg1(const df::FunctionSpace &V,
-                            PopulationType &pop,
-                            const std::vector<double> &dv_inv)
+void distribute_cg1(PopulationType &pop, df::Function &rho,
+                    const std::vector<double> &dv_inv)
 {
-    auto mesh = V.mesh();
-    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
+    auto V = rho.function_space();
 
-    auto element = V.element();
+    auto mesh = V->mesh();
+    std::size_t len_rho = rho.vector()->size();
+    std::vector<double> rho0(len_rho, 0.0);
+
+    auto element = V->element();
     auto s_dim = element->space_dimension();
     auto v_dim = element->value_dimension(0);
     auto n_dim = s_dim / v_dim;
@@ -190,7 +184,7 @@ df::Function distribute_cg1(const df::FunctionSpace &V,
 
     for (auto &cell : pop.cells)
     {
-        auto dof_id = V.dofmap()->cell_dofs(cell.id);
+        auto dof_id = V->dofmap()->cell_dofs(cell.id);
         std::vector<double> accum(n_dim, 0.0);
         for (auto &particle : cell.particles)
         {
@@ -213,7 +207,6 @@ df::Function distribute_cg1(const df::FunctionSpace &V,
         rho0[i] *= dv_inv[i];
     }
     rho.vector()->set_local(rho0);
-    return rho;
 }
 
 /**
@@ -233,17 +226,15 @@ df::Function distribute_cg1(const df::FunctionSpace &V,
  * \f]
  */
 template <typename PopulationType>
-df::Function distribute_dg0(const df::FunctionSpace &Q, PopulationType &pop)
+void distribute_dg0(PopulationType &pop, df::Function &rho)
 {
-    df::Function rho(std::make_shared<const df::FunctionSpace>(Q));
-    auto rho_vec = rho.vector();
-    std::size_t len_rho = rho_vec->size();
-    std::vector<double> rho0(len_rho);
-    rho_vec->get_local(rho0);
+    auto Q = rho.function_space();
+    std::size_t len_rho = rho.vector()->size();
+    std::vector<double> rho0(len_rho, 0.0);
 
     for (auto &cell : pop.cells)
     {
-        auto dof_id = Q.dofmap()->cell_dofs(cell.id);
+        auto dof_id = Q->dofmap()->cell_dofs(cell.id);
         double accum = 0.0;
         for (auto &particle : cell.particles)
         {
@@ -252,7 +243,6 @@ df::Function distribute_dg0(const df::FunctionSpace &Q, PopulationType &pop)
         rho0[dof_id[0]] = accum / cell.volume();
     }
     rho.vector()->set_local(rho0);
-    return rho;
 }
 
 } // namespace punc

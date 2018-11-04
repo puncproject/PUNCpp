@@ -79,6 +79,7 @@ int run(const po::variables_map &options)
 
     // The electric potential and electric field
     df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
     df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
     // Electron and ion number densities
@@ -329,7 +330,7 @@ int run(const po::variables_map &options)
 
         // DISTRIBUTE
         timer.tic("distributor");
-        auto rho = distribute_cg1(V, pop, dv_inv);
+        distribute_cg1(pop, rho, dv_inv);
         timer.toc();
 
         // SOLVE POISSON EQUATION WITH OBJECTS
