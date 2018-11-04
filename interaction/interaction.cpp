@@ -112,17 +112,17 @@ int run(const po::variables_map &options)
         return 1;
     }
 
+    for(size_t s=0; s<nSpecies; s++){
+        charge[s] *= constants.e;
+        mass[s] *= constants.m_e;
+    }
+
     vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
     vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
     vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
     vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
     vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
     vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
-
-    for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
-    }
 
     vector<std::shared_ptr<Pdf>> pdfs;
     vector<std::shared_ptr<Pdf>> vdfs;
@@ -198,13 +198,21 @@ int run(const po::variables_map &options)
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
     string object_method = options["objects.method"].as<string>();
+    vector<double> object_charges = get_repeated<double>(options, "objects.charge", mesh.num_objects, 0);
     if (object_method == "BC")
     {
-        objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
+        for(size_t i=0; i<mesh.num_objects; i++){
+            objects.push_back(std::make_shared<ObjectBC>(V, mesh, i+2, eps0));
+            objects[i]->charge = object_charges[i];
+        }
+
         circuit = std::make_shared<CircuitBC>(V, objects, vsources, isources, dt, eps0);
     } else if (object_method == "CM")
     {
-        objects.push_back(std::make_shared<ObjectCM>(V, mesh, 2));
+        for(size_t i=0; i<mesh.num_objects; i++){
+            objects.push_back(std::make_shared<ObjectCM>(V, mesh, i+2));
+            objects[i]->charge = object_charges[i];
+        }
         circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
     }
 
