@@ -206,13 +206,21 @@ int run(const po::variables_map &options)
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
     string object_method = options["objects.method"].as<string>();
+    vector<double> object_charges = get_repeated<double>(options, "objects.charge", mesh.num_objects, 0);
     if (object_method == "BC")
     {
-        objects.push_back(std::make_shared<ObjectBC>(V, mesh, 2, eps0));
+        for(size_t i=0; i<mesh.num_objects; i++){
+            objects.push_back(std::make_shared<ObjectBC>(V, mesh, i+2, eps0));
+            objects[i]->charge = object_charges[i];
+        }
+
         circuit = std::make_shared<CircuitBC>(V, objects, vsources, isources, dt, eps0);
     } else if (object_method == "CM")
     {
-        objects.push_back(std::make_shared<ObjectCM>(V, mesh, 2));
+        for(size_t i=0; i<mesh.num_objects; i++){
+            objects.push_back(std::make_shared<ObjectCM>(V, mesh, i+2));
+            objects[i]->charge = object_charges[i];
+        }
         circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
     }
 
