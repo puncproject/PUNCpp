@@ -55,33 +55,30 @@ vector<Species> read_species(po::variables_map options, const Mesh &mesh){
     vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
     vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, mesh.dim, vector<double>(mesh.dim, 0));
 
-    vector<std::shared_ptr<Pdf>> pdfs;
-    vector<std::shared_ptr<Pdf>> vdfs;
+    vector<Species> species;
 
-    CreateSpecies create_species(mesh);
     for(size_t s=0; s<charge.size(); s++){
 
-        pdfs.push_back(std::make_shared<UniformPosition>(mesh));
+        std::shared_ptr<Pdf> pdf = std::make_shared<UniformPosition>(mesh);
+        std::shared_ptr<Pdf> vdf;
 
         if(distribution[s]=="maxwellian"){
-            vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd[s]));
+            vdf = std::make_shared<Maxwellian>(thermal[s], vd[s]);
         } else if (distribution[s]=="kappa") {
-            vdfs.push_back(std::make_shared<Kappa>(thermal[s], vd[s], kappa[s]));
+            vdf = std::make_shared<Kappa>(thermal[s], vd[s], kappa[s]);
         }else if (distribution[s] == "cairns"){
-            vdfs.push_back(std::make_shared<Cairns>(thermal[s], vd[s], alpha[s]));
+            vdf = std::make_shared<Cairns>(thermal[s], vd[s], alpha[s]);
         }else if (distribution[s] == "kappa-cairns"){
-            vdfs.push_back(std::make_shared<KappaCairns>(thermal[s], vd[s], kappa[s], alpha[s]));
+            vdf = std::make_shared<KappaCairns>(thermal[s], vd[s], kappa[s], alpha[s]);
         } else {
             cerr << "Unsupported velocity distribution: ";
             cerr << distribution[s] << endl;
             exit(1);
         }
 
-        create_species.create_raw(charge[s], mass[s], density[s],
-                *(pdfs[s]), *(vdfs[s]), npc[s], num[s]);
+        species.emplace_back(charge[s], mass[s], density[s], num[s],
+                ParticleAmountType::in_total, mesh, pdf, vdf);
     }
-
-    auto species = create_species.species;
 
     return species;
 }

@@ -221,7 +221,7 @@ int run(const po::variables_map &options)
     string linalg_method         = options["linalg.method"].as<string>();
     string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
     
-    auto ext_bc = exterior_bc(V, mesh, species[0].vdf.vd(), B);
+    auto ext_bc = exterior_bc(V, mesh, species[0].vdf->vd(), B);
 
     PoissonSolver poisson(V, objects, ext_bc, circuit, eps0, false,
                           linalg_method, linalg_preconditioner);

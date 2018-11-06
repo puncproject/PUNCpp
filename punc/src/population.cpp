@@ -39,67 +39,32 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
     }
 }
 
-CreateSpecies::CreateSpecies(const Mesh &mesh, double X) : X(X)
-{
-    g_dim = mesh.dim;
-    volume = mesh.volume();
-    num_cells = mesh.mesh->num_cells();
-}
+Species::Species(double charge, double mass, double density, double amount,
+                 ParticleAmountType type, const Mesh &mesh,
+                 std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf)
+                : pdf(pdf), vdf(vdf) {
 
-void CreateSpecies::create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, 
-                               int npc, int num)
-{
-    if (num==0)
-    {
-        num = npc * num_cells;
-    }
-    double w = (n / num) * volume;
-    q *= w;
-    m *= w;
-    n /= w;
-
-    Species s(q, m, n, num, pdf, vdf);
-    species.emplace_back(s);
-}
-
-void CreateSpecies::create(double q, double m, double n, Pdf &pdf, Pdf &vdf,
-                           int npc, int num)
-{
-    if (std::isnan(T))
-    {
-        double wp = sqrt((n * q * q) / (epsilon_0 * m));
-        T = 1.0 / wp;
-    }
-    if (std::isnan(M))
-    {
-        if (num==0)
-        {
-            num = npc * num_cells;
-        }
-        double w =  (n / num) * volume;
-        Q *= w;
-        
-        M = (T * T * Q * Q) /
-                  (epsilon_0 * pow(X, g_dim));
+    // NB: Deliberate fall-through
+    switch(type){
+    case ParticleAmountType::per_cell:
+        amount *= mesh.mesh->num_cells();
+    case ParticleAmountType::in_total:
+        amount /= mesh.volume();
+    case ParticleAmountType::per_volume:
+        amount = density / amount;
+    case ParticleAmountType::phys_per_sim:
+        break;
+    default:
+        std::cerr << "Invalid ParticleAmountType";
+        exit(1);
     }
 
-    q /= Q;
-    m /= M;
-    n *= pow(X, g_dim);
+    // Amount is now the number of physical particles per simulation particle
+    q = charge  * amount;
+    m = mass    * amount;
+    n = density / amount;
 
-    vdf.set_vth(vdf.vth()/(X / T));
-
-    std::vector<double> tmp_v(g_dim);
-    auto tmp_vd = vdf.vd();
-
-    for (int i = 0; i < g_dim; ++i)
-    {
- 
-        tmp_v[i] = tmp_vd[i] / (X/T);
-    }
-    vdf.set_vd(tmp_v);
-
-    create_raw(q, m, n, pdf, vdf, npc, num);
+    num = n * mesh.volume();
 }
 
 }
