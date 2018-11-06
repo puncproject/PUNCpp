@@ -23,6 +23,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <punc/population.h>
+
 #include <string>
 #include <vector>
 #include <iostream>
@@ -34,6 +36,8 @@ using std::cerr;
 using std::endl;
 using std::vector;
 using std::string;
+
+namespace punc {
 
 /**
  * @brief Splits a string by spaces to a vector of type T
@@ -55,14 +59,22 @@ vector<T> str_to_vec(const string &str)
  * @param   key     Key to the options
  * @param   num     Number of options that should be present
  * @param   def     Default value in case no option is present
+ * @see get_vector, get_repeated_vector
  *
- * This is for repeated options like this:
+ * This is when you want to make sure that an option is repeated exactly num
+ * times, or not at all (in which case it defaults to def). For instance:
  *
- * [species]
- * mass = 1
+ * @code
+ *      [species]
+ *      mass = 1
  *
- * [species]
- * mass = 1836
+ *      [species]
+ *      mass = 1836
+ * @endcode
+ *
+ * As a counter example, if there were three species, and the middle one lacked
+ * a mass, reading the array using options[key].as<vector<T>>() would return an
+ * array of only two masses. This function handles this safely.
  */
 template <typename T>
 vector<T> get_repeated(po::variables_map options, string key, size_t num, T def){
@@ -86,9 +98,13 @@ vector<T> get_repeated(po::variables_map options, string key, size_t num, T def)
  * @param   len     Length the vector should have
  * @param   def     Default vector in case no option is present
  *
- * This is for a single vector options like this:
+ * This is for a single vector-valued option like this:
  *
- * B = 1.0 0.0 0.0
+ * @code
+ *      B = 1.0 0.0 0.0
+ * @endcode
+ *
+ * It checks that the vector has the correct amount of parameters.
  */
 template <typename T>
 vector<T> get_vector(po::variables_map options,
@@ -113,14 +129,20 @@ vector<T> get_vector(po::variables_map options,
  * @param   num     Numbe of options that should be present
  * @param   len     Length the vector should have
  * @param   def     Default vector in case no option is present
+ * @see get_repeated, get_vector
  *
- * This is for repeated vector options like this:
+ * This is for repeated vector-valued options like this:
  *
- * [species]
- * vdrift = 1.0 0.0 0.0
+ * @code
+ *      [species]
+ *      vdrift = 1.0 0.0 0.0
  *
- * [species]
- * vdrift = 1.0 0.0 0.0
+ *      [species]
+ *      vdrift = 1.0 0.0 0.0
+ * @endcode
+ *
+ * It ensures the correct number of repetions, as well as the correct number
+ * of options.
  */
 template <typename T>
 vector<vector<T>> get_repeated_vector(po::variables_map options,
@@ -148,5 +170,15 @@ vector<vector<T>> get_repeated_vector(po::variables_map options,
     }
     return res;
 }
+
+/**
+ * @brief Reads all species from options
+ * @param   options     Options from ini-file and CLI
+ * @param   mesh        The mesh
+ * @return              Vector of all species
+ */
+vector<Species> read_species(po::variables_map options, const Mesh &mesh);
+
+} // namespace punc
 
 #endif // PARSER_H

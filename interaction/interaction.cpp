@@ -19,7 +19,7 @@
  * @file		interaction.cpp
  * @brief		Main PUNC executable
  */
-#include "parser.h"
+#include "io.h"
 #include <punc.h>
 #include <dolfin.h>
 #include <csignal>
@@ -98,60 +98,7 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup species" << endl;
 
-    vector<double> charge  = options["species.charge"].as<vector<double>>();
-    vector<double> mass    = options["species.mass"].as<vector<double>>();
-    vector<double> thermal = options["species.thermal"].as<vector<double>>();
-    vector<double> density = options["species.density"].as<vector<double>>();
-
-    size_t nSpecies = charge.size();
-    if(mass.size()    != nSpecies
-    || density.size() != nSpecies
-    || thermal.size() != nSpecies){
-        
-        cerr << "Inconsistent number of species specified. "
-             << "Check species.charge, species.mass, species.density and species.thermal" << endl;
-        return 1;
-    }
-
-    for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
-    }
-
-    vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
-    vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
-    vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
-    vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
-    vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
-    vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, dim, vector<double>(dim, 0));
-
-    vector<std::shared_ptr<Pdf>> pdfs;
-    vector<std::shared_ptr<Pdf>> vdfs;
-
-    CreateSpecies create_species(mesh);
-    for(size_t s=0; s<charge.size(); s++){
-
-        pdfs.push_back(std::make_shared<UniformPosition>(mesh));
-
-        if(distribution[s]=="maxwellian"){
-            vdfs.push_back(std::make_shared<Maxwellian>(thermal[s], vd[s]));
-        } else if (distribution[s]=="kappa") {
-            vdfs.push_back(std::make_shared<Kappa>(thermal[s], vd[s], kappa[s]));
-        }else if (distribution[s] == "cairns"){
-            vdfs.push_back(std::make_shared<Cairns>(thermal[s], vd[s], alpha[s]));
-        }else if (distribution[s] == "kappa-cairns"){
-            vdfs.push_back(std::make_shared<KappaCairns>(thermal[s], vd[s], kappa[s], alpha[s]));
-        } else {
-            cout << "Unsupported velocity distribution: ";
-            cout << distribution[s] << endl;
-            return 1;
-        }
-
-        create_species.create_raw(charge[s], mass[s], density[s],
-                *(pdfs[s]), *(vdfs[s]), npc[s], num[s]);
-    }
-    auto species = create_species.species;
-
+    auto species = read_species(options, mesh);
     create_flux(species, mesh.exterior_facets);
 
     double dt = 0;
@@ -159,7 +106,7 @@ int run(const po::variables_map &options)
         dt = options["dt"].as<double>();
     } else {
         double dtwp = options["dtwp"].as<double>();
-        double wp0 = sqrt(pow(charge[0],2)*density[0]/(eps0*mass[0]));
+        double wp0 = sqrt(pow(species[0].q,2)*species[0].n/(eps0*species[0].m));
         dt = dtwp/wp0;
     }
 
@@ -274,7 +221,7 @@ int run(const po::variables_map &options)
     string linalg_method         = options["linalg.method"].as<string>();
     string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
     
-    auto ext_bc = exterior_bc(V, mesh, vd[0], B);
+    auto ext_bc = exterior_bc(V, mesh, species[0].vdf.vd(), B);
 
     PoissonSolver poisson(V, objects, ext_bc, circuit, eps0, false,
                           linalg_method, linalg_preconditioner);

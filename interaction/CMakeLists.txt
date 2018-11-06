@@ -9,7 +9,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 add_compile_options(-Wall)
 
-file(GLOB RUN "interaction.cpp")
+file(GLOB SOURCE_FILES "*.cpp")
 
 list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../punc/install")
 list(APPEND CMAKE_FIND_ROOT_PATH "~/.conda/envs/")
@@ -28,6 +28,6 @@ include_directories(${Boost_INCLUDE_DIRS})
 message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
 message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
 
-add_executable(${PROJECT_NAME} ${RUN})
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${PUNC} ${DOLFIN_LIBRARIES}
     ${DOLFIN_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
