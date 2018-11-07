@@ -88,9 +88,9 @@ struct PhysicalConstants
     double m_e = boost::units::si::constants::codata::m_e / boost::units::si::kilograms;                              ///< Electron mass
     double ratio = boost::units::si::constants::codata::m_e_over_m_p / boost::units::si::dimensionless();             ///< Electron to proton mass ratio
     double m_i = m_e / ratio;                                                                                         ///< Proton mass
-
     double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;      ///< Boltzmann constant
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad; ///< Electric constant
+    double amu = boost::units::si::constants::codata::m_u / boost::units::si::kilograms;                              ///< Atomic mass constant
 };
 
 /**

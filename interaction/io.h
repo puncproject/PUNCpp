@@ -469,7 +469,7 @@ vector<vector<T>> get_repeated_vector(po::variables_map options,
  * @param   mesh        The mesh
  * @return              Vector of all species
  */
-vector<Species> read_species(po::variables_map options, const Mesh &mesh);
+vector<Species> read_species(const Options &opt, const Mesh &mesh);
 
 } // namespace punc
 

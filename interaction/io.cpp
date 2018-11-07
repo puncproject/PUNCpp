@@ -36,65 +36,88 @@ bool split_suffix(const string &in, string &body, string &suffix, const vector<s
     return false;
 }
 
-vector<Species> read_species(po::variables_map options, const Mesh &mesh){
+vector<Species> read_species(const Options &opt, const Mesh &mesh){
 
     PhysicalConstants constants;
 
-    vector<double> charge  = options["species.charge"].as<vector<double>>();
-    vector<double> mass    = options["species.mass"].as<vector<double>>();
-    vector<double> thermal = options["species.thermal"].as<vector<double>>();
-    vector<double> density = options["species.density"].as<vector<double>>();
-
-    // vector<double> density = options.get<vector<double>>("species.density");
-    // auto density = options.get<vector<double>>("species.density");
-    // vector<double> density;
-    // options.get("species.density", density);
+    vector<double> charge, mass, density, thermal;
+    vector<string> charge_suffix, mass_suffix, thermal_suffix;
+    opt.get_repeated("species.charge"     , charge , 0, {"C", "e", ""}, charge_suffix);
+    opt.get_repeated("species.mass"       , mass   , 0, {"kg", "me", "amu", ""}, mass_suffix);
+    opt.get_repeated("species.density"    , density, 0);
+    opt.get_repeated("species.temperature", thermal, 0, {"K", "m/s", "eV", ""}, thermal_suffix);
 
     size_t nSpecies = charge.size();
     if(mass.size()    != nSpecies
     || density.size() != nSpecies
     || thermal.size() != nSpecies){
         
-        cerr << "Inconsistent number of species specified. "
-             << "Check species.charge, species.mass, species.density and species.thermal" << endl;
+        cerr << "Unequal number of species.charge, species.mass, "
+             << "species.density and species.temperature specified" << endl;
         exit(1);
     }
 
     for(size_t s=0; s<nSpecies; s++){
-        charge[s] *= constants.e;
-        mass[s] *= constants.m_e;
+        if(charge_suffix[s]=="e") charge[s] *= constants.e;
+        if(mass_suffix[s]=="me")  mass[s]   *= constants.m_e;
+        if(mass_suffix[s]=="amu") mass[s]   *= constants.amu;
+        if(thermal_suffix[s]=="eV") thermal[s] *= constants.e/constants.k_B;
+        if(thermal_suffix[s]=="K" || thermal_suffix[s]==""){
+            thermal[s] = sqrt(constants.k_B*thermal[s]/mass[s]);
+        }
     }
 
-    vector<string> distribution = get_repeated<string>(options, "species.distribution", nSpecies, "maxwellian");
-    vector<int> npc             = get_repeated<int>(options, "species.npc", nSpecies, 0);
-    vector<int> num             = get_repeated<int>(options, "species.num", nSpecies, 0);
-    vector<double> kappa        = get_repeated<double>(options, "species.kappa", nSpecies, 0);
-    vector<double> alpha        = get_repeated<double>(options, "species.alpha", nSpecies, 0);
-    vector<vector<double>> vd   = get_repeated_vector<double>(options, "species.vdrift", nSpecies, mesh.dim, vector<double>(mesh.dim, 0));
+    vector<string> distribution(nSpecies, "maxwellian");
+    opt.get_repeated("species.distribution", distribution, nSpecies, true);
+
+    vector<double> amount;
+    vector<string> amount_suffix(nSpecies, "in total");
+    opt.get_repeated("species.amount", amount, nSpecies,
+                     {"in total", "per cell", "per volume", "phys per sim", ""},
+                     amount_suffix);
+
+    vector<double> kappa(nSpecies, 4);
+    opt.get_repeated("species.kappa", kappa, nSpecies, true);
+
+    vector<double> alpha(nSpecies, 0);
+    opt.get_repeated("species.alpha", alpha, nSpecies, true);
+
+    vector<vector<double>> vdrift(nSpecies, vector<double>(mesh.dim));
+    opt.get_repeated_vector("species.vdrift", vdrift, mesh.dim, nSpecies, true);
 
     vector<Species> species;
 
-    for(size_t s=0; s<charge.size(); s++){
+    for(size_t s=0; s<nSpecies; s++){
 
         std::shared_ptr<Pdf> pdf = std::make_shared<UniformPosition>(mesh);
         std::shared_ptr<Pdf> vdf;
 
         if(distribution[s]=="maxwellian"){
-            vdf = std::make_shared<Maxwellian>(thermal[s], vd[s]);
+            vdf = std::make_shared<Maxwellian>(thermal[s], vdrift[s]);
         } else if (distribution[s]=="kappa") {
-            vdf = std::make_shared<Kappa>(thermal[s], vd[s], kappa[s]);
+            vdf = std::make_shared<Kappa>(thermal[s], vdrift[s], kappa[s]);
         }else if (distribution[s] == "cairns"){
-            vdf = std::make_shared<Cairns>(thermal[s], vd[s], alpha[s]);
+            vdf = std::make_shared<Cairns>(thermal[s], vdrift[s], alpha[s]);
         }else if (distribution[s] == "kappa-cairns"){
-            vdf = std::make_shared<KappaCairns>(thermal[s], vd[s], kappa[s], alpha[s]);
+            vdf = std::make_shared<KappaCairns>(thermal[s], vdrift[s], kappa[s], alpha[s]);
         } else {
-            cerr << "Unsupported velocity distribution: ";
-            cerr << distribution[s] << endl;
+            cerr << "species.distribution must be one of: "
+                 << "\"maxwellian\", \"kappa\", \"cairns\", \"kappa-cairns\""
+                 << endl;
             exit(1);
         }
 
-        species.emplace_back(charge[s], mass[s], density[s], num[s],
-                ParticleAmountType::in_total, mesh, pdf, vdf);
+        ParticleAmountType type = ParticleAmountType::in_total;
+        if(amount_suffix[s]=="per cell"){
+            type = ParticleAmountType::per_cell;
+        } else if(amount_suffix[s]=="per volume"){
+            type = ParticleAmountType::per_volume;
+        } else if(amount_suffix[s]=="phys per sim"){
+            type = ParticleAmountType::phys_per_sim;
+        }
+
+        species.emplace_back(charge[s], mass[s], density[s], amount[s],
+                             type, mesh, pdf, vdf);
     }
 
     return species;
