@@ -24,6 +24,18 @@
 
 namespace punc {
 
+bool split_suffix(const string &in, string &body, string &suffix, const vector<string> &suffixes){
+    for(auto &s : suffixes){
+        size_t pos = in.rfind(s);
+        if(pos != string::npos){
+            suffix = s;
+            body = in.substr(0,pos);
+            return true;
+        }
+    }
+    return false;
+}
+
 vector<Species> read_species(po::variables_map options, const Mesh &mesh){
 
     PhysicalConstants constants;
@@ -32,6 +44,11 @@ vector<Species> read_species(po::variables_map options, const Mesh &mesh){
     vector<double> mass    = options["species.mass"].as<vector<double>>();
     vector<double> thermal = options["species.thermal"].as<vector<double>>();
     vector<double> density = options["species.density"].as<vector<double>>();
+
+    // vector<double> density = options.get<vector<double>>("species.density");
+    // auto density = options.get<vector<double>>("species.density");
+    // vector<double> density;
+    // options.get("species.density", density);
 
     size_t nSpecies = charge.size();
     if(mass.size()    != nSpecies

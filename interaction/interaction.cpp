@@ -404,6 +404,9 @@ int main(int argc, char **argv){
 
     signal(SIGINT, signal_handler);
     df::set_log_level(df::WARNING);
+    
+    auto single = po::value<string>();
+    auto repeated = po::value<vector<string>>();
 
     po::options_description desc("Options");
     desc.add_options()
@@ -443,6 +446,12 @@ int main(int argc, char **argv){
         ("linalg.preconditioner" , po::value<string>()->default_value("")    , "Linear algebra preconditioner")
         ("linalg.abstol"         , po::value<double>()->default_value(1e-14) , "Absolute residual tolerance")
         ("linalg.reltol"         , po::value<double>()->default_value(1e-12) , "Relative residual tolerance")
+
+        ("a", repeated, "")
+        ("b", repeated, "")
+        ("c", repeated, "")
+        ("d", repeated, "")
+
     ;
 
     // Setting config file as positional argument
@@ -476,6 +485,31 @@ int main(int argc, char **argv){
     ifile.close();
 
     cout << "PUNC++ started!" << endl;
+
+    Options opt(options);
+    vector<vector<double>> a = {{10,20,30},{1,2,3}};
+    vector<vector<double>> b = {{3,3}, {2,2}};
+    vector<string> sa = {"",""};
+    vector<string> sb = {"per volume", "per cell"};
+    opt.get_repeated_vector("a", a, 0, 0, {""}, sa, true);
+    opt.get_repeated_vector("b", b, 2, 2, {"per cell", "per volume"}, sb, true);
+    for(auto &x:a)  {for(auto &y:x) cout << y << " "; cout << endl;}
+    for(auto &x:sa) cout << x << endl;
+    for(auto &x:b)  {for(auto &y:x) cout << y << " "; cout << endl;}
+    for(auto &x:sb) cout << x << endl;
+    vector<double> c;
+    string sc;
+    opt.get_vector("c", c, 0, {"pc", "pv"}, sc);
+    for(auto &y:c) cout << y << " "; cout << endl;
+    cout << sc << endl;
+
+    double d;
+    opt.get("d", d);
+    cout << d << endl;
+
+//    vector<double> rep;
+//    opt.get_repeated("rep", rep, 3);
+//    for(auto &r : rep) cout << r << endl;
 
     Mesh mesh(options["mesh"].as<string>());
 
