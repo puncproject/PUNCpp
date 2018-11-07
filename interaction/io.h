@@ -56,10 +56,98 @@ vector<T> str_to_vec(const string &str)
     return result;
 }
 
+/**
+ * @brief Option parser
+ * 
+ * This class extends the functionality of boost::program_options according
+ * to our needs. Specifically we need to be able to read repeated options,
+ * vector valued quantities, and quantities with suffixes. Consider 
+ * instance the following excerpt from an input file:
+ *
+ * @code
+ *  mesh = my_mesh.xml
+ *  dt = 0.2
+ *  B = 0.1 0 0
+ *
+ *  [species]
+ *  charge = -1
+ *  vdrift = 1 0 0
+ *  amount = 10 per cell
+ *
+ *  [species]
+ *  vdrift = 1 0 0
+ *  amount = 10 per cell
+ *
+ *  [species]
+ *  charge = 3
+ *  vdrift = 0 0 0
+ *  amount = 10 per cell
+ *  
+ * @endcode
+ *
+ * - dt is a double, mesh is a string.
+ * - dt is a scalar, B is a vector.
+ * - dt is a single value, but charge is repeated multiple times.
+ * - dt has no suffix, but amount is specified per cell.
+ *
+ * In addition, it is often desirable to require a certain length of a vector
+ * or number of repetitions. For instance, in the above example charge is
+ * by mistake specified only twice, which yields a vector of length two.
+ * Below follows examples of how to obtain the values in mesh, B and amount:
+ *
+ * @code
+ *  Options opt(vm);
+ *
+ *  string mesh;
+ *  opt.get("mesh", mesh);
+ *
+ *  size_t dims = 3;
+ *  vector<double> B(dims); // Zero vector as default
+ *  opt.get_vector("B", B, dims, true);
+ *
+ *  size_t n_species = 2;
+ *  vector<double> amount;
+ *  string amount_suffix;
+ *  opt.get_repeated("species.amount", amount, n_species,
+ *                   {"per cell", "per volume"}, amount_suffix);
+ * @endcode
+ *
+ */
 class Options {
 public:
     Options(po::variables_map vm) : vm(vm) {};
     
+    /**
+     * @brief Get an entry with a suffix
+     * @param       key         Key for which to get the value and suffix.
+     * @param[out]  res         The value of the entry.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
+    template <typename T>
+    void get(const string &key, T &res, bool optional = false) const {
+        string suffix; // throw away
+        get(key, res, {""}, suffix, optional);
+    };
+
+    /**
+     * @brief Get an entry with a suffix
+     * @param       key         Key for which to get the value and suffix.
+     * @param[out]  res         The value of the entry.
+     * @param       suffixes    Vector of valid suffixes.
+     * @param[out]  suffix      The suffix of the entry.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * To make suffixes optional, include the empty string "" in suffixes.
+     * Beware that this will always trigger a match, and the search for 
+     * a suffix stops on the first match, so this empty string must be the
+     * last element.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get(const string &key, T &res, const vector<string> &suffixes,
              string &suffix, bool optional = false) const {
@@ -69,35 +157,43 @@ public:
         if(res_.size()){ // Empty for non-present, optional options
             res = res_[0];
         }
-//        if(vm.count(key)){
-//            string body = vm[key].as<string>();
-//
-//            string head;
-//            bool found = split_suffix(body, head, suffix, suffixes);
-//            if(!found){
-//                cerr << "Parameter " << key << " has invalid suffix. ";
-//                cerr << "Valid suffixes:";
-//                for(auto &s : suffixes) cerr << " \"" << s << "\"";
-//                cerr << endl;
-//                exit(1);
-//            }
-//
-//            std::istringstream iss(head);
-//            iss >> res;
-//
-//        } else if(!optional){
-//
-//            cerr << "Missing mandatory parameter " << key << endl;
-//            exit(1);
-//        }
     };
 
+    /**
+     * @brief Get repeated entries
+     * @param       key         Key for which to get values and suffixes.
+     * @param[out]  res         Vector of values for each entry.
+     * @param       num         Number of entries. 0 for arbitrary number.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
-    void get(const string &key, T &res, bool optional = false) const {
-        string suffix; // throw away
-        get(key, res, {""}, suffix, optional);
+    void get_repeated(const string &key, vector<T> &res, size_t num,
+                      bool optional = false) const {
+
+        vector<string> suffix; // throw away
+        get_repeated(key, res, num, {""}, suffix, optional);
     };
 
+    /**
+     * @brief Get repeated entries with suffixes
+     * @param       key         Key for which to get values and suffixes.
+     * @param[out]  res         Vector of values for each entry.
+     * @param       num         Number of entries. 0 for arbitrary number.
+     * @param       suffixes    Vector of valid suffixes.
+     * @param[out]  suffix      Vector of suffixes for each entry.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * To make suffixes optional, include the empty string "" in suffixes.
+     * Beware that this will always trigger a match, and the search for 
+     * a suffix stops on the first match, so this empty string must be the
+     * last element.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get_repeated(const string &key, vector<T> &res, size_t num,
                       const vector<string> &suffixes, vector<string> &suffix,
@@ -109,51 +205,19 @@ public:
             res = vector<T>();
             for(auto &r : res_) res.push_back(r[0]);
         }
-        
-//        if(vm.count(key)){
-//            vector<string> bodies = vm[key].as<vector<string>>();
-//            
-//            if(num != 0 && bodies.size() != num){
-//                cerr << "Expected " << num << " " << key << " parameters" << endl;
-//                exit(1);
-//            }
-//
-//            res = vector<T>();
-//            suffix = vector<string>();
-//
-//            for(auto &body : bodies){
-//                string head, tail;
-//                bool found = split_suffix(body, head, tail, suffixes);
-//                if(!found){
-//                    cerr << "Parameter " << key << " has invalid suffix. ";
-//                    cerr << "Valid suffixes:";
-//                    for(auto &s : suffixes) cerr << " \"" << s << "\"";
-//                    cerr << endl;
-//                    exit(1);
-//                }
-//                std::istringstream iss(head);
-//                T tmp;
-//                iss >> tmp;
-//                res.push_back(tmp);
-//                suffix.push_back(tail);
-//            }
-//
-//        } else if (!optional){
-//
-//            cerr << "Missing mandatory parameter " << key << endl;
-//            exit(1);
-//        }
-
     };
 
-    template <typename T>
-    void get_repeated(const string &key, vector<T> &res, size_t num,
-                      bool optional = false) const {
 
-        vector<string> suffix; // throw away
-        get_repeated(key, res, num, {""}, suffix, optional);
-    };
-
+    /**
+     * @brief Get a vector valued entry
+     * @param       key         Key for which to get a value and suffix.
+     * @param[out]  res         The vector value of the entry.
+     * @param       len         Length of the vector. 0 for arbitrary length.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get_vector(const string &key, vector<T> &res, size_t len,
                     bool optional = false) const {
@@ -162,6 +226,23 @@ public:
         get_vector(key, res, len, {""}, suffix, optional);
     }
 
+    /**
+     * @brief Get a vector valued entry with a suffix
+     * @param       key         Key for which to get a value and suffix.
+     * @param[out]  res         The vector value of the entry.
+     * @param       len         Length of the vector. 0 for arbitrary length.
+     * @param       suffixes    Vector of valid suffixes.
+     * @param[out]  suffix      The suffix of the entry.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * To make suffixes optional, include the empty string "" in suffixes.
+     * Beware that this will always trigger a match, and the search for 
+     * a suffix stops on the first match, so this empty string must be the
+     * last element.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get_vector(const string &key, vector<T> &res, size_t len,
                     const vector<string> &suffixes,
@@ -178,6 +259,17 @@ public:
 
     }
 
+    /**
+     * @brief Get repeated vector valued entries
+     * @param       key         Key for which to get values and suffixes.
+     * @param[out]  res         Vector of vector values for each entry.
+     * @param       len         Length of vectors. 0 for arbitrary length.
+     * @param       num         Number of entries. 0 for arbitrary number.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get_repeated_vector(const string &key, vector<vector<T>> &res,
                              size_t len, size_t num,
@@ -187,6 +279,24 @@ public:
         get_repeated_vector(key, res, len, num, {""}, suffix, optional);
     }
 
+    /**
+     * @brief Get repeated vector valued entries with suffixes
+     * @param       key         Key for which to get values and suffixes.
+     * @param[out]  res         Vector of vector values for each entry.
+     * @param       len         Length of vectors. 0 for arbitrary length.
+     * @param       num         Number of entries. 0 for arbitrary number.
+     * @param       suffixes    Vector of valid suffixes.
+     * @param[out]  suffix      Vector of suffixes for each entry.
+     * @param       optional    Whether the key is optional or mandatory.
+     *
+     * To make suffixes optional, include the empty string "" in suffixes.
+     * Beware that this will always trigger a match, and the search for 
+     * a suffix stops on the first match, so this empty string must be the
+     * last element.
+     *
+     * If an optional key is not present, the value already in res will
+     * be left untouched, and acts as a default value.
+     */
     template <typename T>
     void get_repeated_vector(const string &key, vector<vector<T>> &res,
                              size_t len, size_t num,
