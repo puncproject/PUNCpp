@@ -56,6 +56,7 @@ vector<T> str_to_vec(const string &str)
     return result;
 }
 
+
 /**
  * @brief Option parser
  * 
@@ -307,8 +308,8 @@ public:
                              bool optional = false) const {
 
         if(vm.count(key)){
+
             vector<string> bodies = vm[key].as<vector<string>>();
-            
             if(num != 0 && bodies.size() != num){
                 cerr << "Expected " << num << " " << key << " parameters" << endl;
                 exit(1);
@@ -321,7 +322,7 @@ public:
                 string head, tail;
                 bool found = split_suffix(body, head, tail, suffixes);
                 if(!found){
-                    cerr << "Parameter " << key << " has invalid suffix. ";
+                    cerr << key << " has invalid suffix. ";
                     cerr << "Valid suffixes:";
                     for(auto &s : suffixes) cerr << " \"" << s << "\"";
                     cerr << endl;
@@ -329,11 +330,11 @@ public:
                 }
                 vector<T> tmp = str_to_vec<T>(head);
                 if(len != 0 && tmp.size() != len){
-                    cerr << "Expected parameter " << key << " to be vector of ";
+                    cerr << "Expected " << key << " to be vector of ";
                     cerr << "length " << len << endl;
                     exit(1);
                 }
-                res.push_back(str_to_vec<T>(head));
+                res.push_back(tmp);
                 suffix.push_back(tail);
             }
 
