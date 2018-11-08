@@ -57,7 +57,7 @@ void signal_handler(int signum){
 }
 
 template <size_t dim>
-int run(const po::variables_map &options)
+int run(const Options &opt)
 {
     cout << "Starting " << dim << "D PIC simulation" << endl;
 
@@ -69,7 +69,9 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup mesh and fields" << endl;
 
-    Mesh mesh(options["mesh"].as<string>());
+    string mesh_fname;
+    opt.get("mesh", mesh_fname);
+    Mesh mesh(mesh_fname);
 
     auto V = CG1_space(mesh);
     auto W = CG1_vector_space(mesh);
@@ -90,7 +92,8 @@ int run(const po::variables_map &options)
     df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
 
-    vector<double> B = get_vector<double>(options, "B", dim, vector<double>(dim, 0));
+    vector<double> B(dim, 0);
+    opt.get_vector("B", B, dim, true);
     double B_norm = accumulate(B.begin(), B.end(), 0.0);
 
     /***************************************************************************
@@ -98,16 +101,15 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup species" << endl;
 
-    auto species = read_species(Options(options), mesh);
+    auto species = read_species(opt, mesh);
     create_flux(species, mesh.exterior_facets);
 
-    double dt = 0;
-    if(options.count("dt")){
-        dt = options["dt"].as<double>();
-    } else {
-        double dtwp = options["dtwp"].as<double>();
+    double dt;
+    string dt_suffix;
+    opt.get("dt", dt, {"plasma periods", "s", ""}, dt_suffix);
+    if(dt_suffix=="plasma periods"){
         double wp0 = sqrt(pow(species[0].q,2)*species[0].n/(eps0*species[0].m));
-        dt = dtwp/wp0;
+        dt /= wp0;
     }
 
     /***************************************************************************
@@ -118,22 +120,22 @@ int run(const po::variables_map &options)
     vector<Source> isources;
     vector<Source> vsources;
 
-    if(options.count("objects.vsource")){
-        for(auto &str : options["objects.vsource"].as<vector<string>>()){
-            std::istringstream iss(str);
-            Source source;
-            iss >> source.node_a >> source.node_b >> source.value;
-            vsources.push_back(source);
-        }
+    vector<string> vsources_str, isources_str;
+    opt.get_repeated("objects.vsource", vsources_str, 0, true);
+    opt.get_repeated("objects.isource", isources_str, 0, true);
+    
+    for(auto &str : vsources_str){
+        std::istringstream iss(str);
+        Source source;
+        iss >> source.node_a >> source.node_b >> source.value;
+        vsources.push_back(source);
     }
 
-    if(options.count("options.isource")){
-        for(auto &str : options["objects.isource"].as<vector<string>>()){
-            std::istringstream iss(str);
-            Source source;
-            iss >> source.node_a >> source.node_b >> source.value;
-            isources.push_back(source);
-        }
+    for(auto &str : isources_str){
+        std::istringstream iss(str);
+        Source source;
+        iss >> source.node_a >> source.node_b >> source.value;
+        isources.push_back(source);
     }
 
     for(auto &s : vsources){
@@ -145,8 +147,13 @@ int run(const po::variables_map &options)
 
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
-    string object_method = options["objects.method"].as<string>();
-    vector<double> object_charges = get_repeated<double>(options, "objects.charge", mesh.num_objects, 0);
+
+    string object_method = "BC";
+    opt.get("objects.method", object_method, true);
+
+    vector<double> object_charges(mesh.num_objects, 0);
+    opt.get_repeated("object.charge", object_charges, mesh.num_objects, true);
+
     if (object_method == "BC")
     {
         for(size_t i=0; i<mesh.num_objects; i++){
@@ -169,12 +176,23 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup diagnostics" << endl;
 
-    double densities_tau = options["diagnostics.densities_tau"].as<double>();
-    size_t n_fields = options["diagnostics.n_fields"].as<size_t>();
-    bool fields_end = options["diagnostics.fields_end"].as<bool>();
-    bool state_end = options["diagnostics.state_end"].as<bool>();
-    bool PE_save = options["diagnostics.PE_save"].as<bool>();
-    bool binary = options["diagnostics.binary"].as<bool>();
+    double densities_tau = 0;
+    opt.get("diagnostics.densities_tau", densities_tau, true);
+
+    size_t n_fields = 0;
+    opt.get("diagnostics.n_fields", n_fields, true);
+
+    bool fields_end = true;
+    opt.get("diagnostics.fields_end", fields_end, true);
+
+    bool state_end = true;
+    opt.get("diagnostics.state_end", state_end, true);
+
+    bool PE_save = false;
+    opt.get("diagnostics.PE_save", PE_save, true);
+
+    bool binary = true;
+    opt.get("diagnostics.binary", binary, true);
 
     ifstream ifile_state(fname_state);
     ifstream ifile_hist(fname_hist);
@@ -218,16 +236,22 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup solvers" << endl;
 
-    string linalg_method         = options["linalg.method"].as<string>();
-    string linalg_preconditioner = options["linalg.preconditioner"].as<string>();
+    string linalg_method, linalg_preconditioner;
+    opt.get("linalg.method", linalg_method, true);
+    opt.get("linalg.preconditioner", linalg_preconditioner, true);
+
+    double linalg_abstol = 1e-14;
+    double linalg_reltol = 1e-12;
+    opt.get("linalg.abstol", linalg_abstol, true);
+    opt.get("linalg.reltol", linalg_reltol, true);
     
     auto ext_bc = exterior_bc(V, mesh, species[0].vdf->vd(), B);
 
     PoissonSolver poisson(V, objects, ext_bc, circuit, eps0, false,
                           linalg_method, linalg_preconditioner);
 
-    poisson.set_abstol(options["linalg.abstol"].as<double>());
-    poisson.set_reltol(options["linalg.reltol"].as<double>());
+    poisson.set_abstol(linalg_abstol);
+    poisson.set_reltol(linalg_reltol);
 
     ESolver esolver(W);
     // EFieldMean esolver(P, W);
@@ -237,7 +261,8 @@ int run(const po::variables_map &options)
      **************************************************************************/
     cout << "Setup time loop control" << endl;
 
-    size_t steps = options["steps"].as<size_t>();
+    size_t steps;
+    opt.get("steps", steps);
 
 
     double KE               = 0;
@@ -407,44 +432,72 @@ int main(int argc, char **argv){
     
     auto value = po::value<vector<string>>();
 
+    // IMPORTANT:
+    // It is important that we maintain a complete and unambiguous description
+    // of the arguments here. By doing so, we do not have to fully document it
+    // in the user guide, but can refer to this list for up-to-date information.
+
     po::options_description desc("Options");
     desc.add_options()
         ("help"  , "show help (this)")
-        ("input" , po::value<string>() , "input file (.ini)")
-        ("mesh"  , po::value<string>() , "mesh file (.xml or .hdf5)")
-        ("steps" , po::value<size_t>() , "number of timesteps")
-        ("dt"    , po::value<double>() , "timestep [s] (overrides dtwp)")
-        ("dtwp"  , po::value<double>() , "timestep [1/w_p of first specie]")
+        ("input" , value, "input file (.ini)")
+        ("mesh"  , value, "mesh file (.xml or .hdf5)")
+        ("steps" , value, "number of timesteps")
+        ("dt"    , value, "timestep. Suffixes:\n"
+                          "  s - seconds (default)\n"
+                          "  plasma periods - plasma periods of the 0th species")
+        ("B"     , value, "magnetic field [T] (default: zero)")
 
-        ("B", po::value<string>(), "magnetic field [T]")
+        ("species.charge"       , value, "charge. Suffixes:\n"
+                                         "  C - coulomb (default)\n"
+                                         "  e - elementary charges")
+        ("species.mass"         , value, "mass. Suffixes:\n"
+                                         "  kg  - kilogram (default)\n"
+                                         "  me  - electron masses\n"
+                                         "  amu - atomic mass units")
+        ("species.density"      , value, "number density [1/m^3]")
+        ("species.temperature"  , value, "temperature. Suffixes:\n"
+                                         "  K   - kelvin (default)\n"
+                                         "  eV  - electron volts\n"
+                                         "  m/s - thermal speed in m/s")
+        ("species.vdrift"       , value, "drift velocity (default: zero) [m/s]")
+        ("species.alpha"        , value, "spectral index alpha (default: 0)")
+        ("species.kappa"        , value, "spectral index kappa (default: 4)")
+        ("species.amount"       , value, "number of simulation particles (of this species). Suffixes:\n"
+                                         "  in total - Total number of particles (default)\n"
+                                         "  per cell - Particles per cell\n"
+                                         "  per volume - Particles per volume (number density)\n"
+                                         "  phys per sim - Physical particles per simulation particle (statistical weight)")
+        ("species.distribution" , value, "distribution. Options:\n"
+                                         "  maxwellian   - Maxwellian\n"
+                                         "  kappa        - Kappa\n"
+                                         "  cairns       - Cairns\n"
+                                         "  kappa-cairns - Kappa-Cairns")
 
-        ("species.charge"       , value , "charge [elementary chages]")
-        ("species.mass"         , value , "mass [electron masses]")
-        ("species.density"      , value , "number density [1/m^3]")
-        ("species.temperature"  , value , "thermal speed [m/s]")
-        ("species.vdrift"       , value , "drift velocity [m/s]")
-        ("species.alpha"        , value , "spectral index alpha")
-        ("species.kappa"        , value , "spectral index kappa")
-        ("species.amount"       , value , "number of particles per cell")
-        ("species.num"          , value , "number of particles in total (overrides npc)")
-        ("species.distribution" , value , "distribution (maxwellian|kappa|cairns|kappa-cairns)")
+        ("objects.method" , value, "Object method. Options:\n"
+                                   "  BC - Method described in PUNC++ paper\n"
+                                   "  CM - Method described in PTetra paper")
+        ("objects.charge" , value, "Initial object charge (one per object, in ascending order, default: zero) [C]")
+        ("objects.vsource", value, "Voltage source. Syntax: object_a object_b value\n"
+                                   "  object_a - object index (objects indexed in ascending order)\n"
+                                   "  object_b - object index (objects indexed in ascending order)\n"
+                                   "  value    - voltage [V]")
+        ("objects.isource", value, "Current source. Syntax: object_a object_b value\n"
+                                   "  object_a - object index (objects indexed in ascending order)\n"
+                                   "  object_b - object index (objects indexed in ascending order)\n"
+                                   "  value    - current [I]")
 
-        ("objects.method" , po::value<string>()->default_value("BC") , "Object method (BC|CM)")
-        ("objects.charge" , po::value<vector<double>>()              , "Initial object charge")
-        ("objects.vsource" , po::value<vector<string>>()             , "Voltage source: node_a node_b value")
-        ("objects.isource" , po::value<vector<string>>()             , "Current source: node_a node_b value")
+        ("diagnostics.n_fields"     , value, "write fields to file every nth time-step")
+        ("diagnostics.densities_tau", value, "exponential moving average relaxation time (disable with 0)")
+        ("diagnostics.fields_end"   , value, "write to file every nth time-step")
+        ("diagnostics.state_end"    , value, "write to file every nth time-step")
+        ("diagnostics.PE_save"      , value, "calculate and save potential energy")
+        ("diagnostics.binary"       , value, "write binary population files (true|false)")
 
-        ("diagnostics.n_fields"      , po::value<size_t>()                    , "write fields to file every nth time-step")
-        ("diagnostics.densities_tau" , po::value<double>()                    , "exponential moving average relaxation time (disable with 0)")
-        ("diagnostics.fields_end"    , po::value<bool>()                      , "write to file every nth time-step")
-        ("diagnostics.state_end"     , po::value<bool>()                      , "write to file every nth time-step")
-        ("diagnostics.PE_save"       , po::value<bool>()                      , "calculate and save potential energy")
-        ("diagnostics.binary"        , po::value<bool>()->default_value(true) , "write binary population files (true|false)")
-
-        ("linalg.method"         , po::value<string>()->default_value("")    , "Linear algebra solver")
-        ("linalg.preconditioner" , po::value<string>()->default_value("")    , "Linear algebra preconditioner")
-        ("linalg.abstol"         , po::value<double>()->default_value(1e-14) , "Absolute residual tolerance")
-        ("linalg.reltol"         , po::value<double>()->default_value(1e-12) , "Relative residual tolerance")
+        ("linalg.method"        , value , "Linear algebra solver")
+        ("linalg.preconditioner", value , "Linear algebra preconditioner")
+        ("linalg.abstol"        , value , "Absolute residual tolerance")
+        ("linalg.reltol"        , value , "Relative residual tolerance")
     ;
 
     // Setting config file as positional argument
@@ -479,11 +532,14 @@ int main(int argc, char **argv){
 
     cout << "PUNC++ started!" << endl;
 
-    Mesh mesh(options["mesh"].as<string>());
+    Options opt(options);
+    string mesh_fname;
+    opt.get("mesh", mesh_fname);
+    Mesh mesh(mesh_fname);
 
-         if(mesh.dim==1) return run<1>(options);
-    else if(mesh.dim==2) return run<2>(options);
-    else if(mesh.dim==3) return run<3>(options);
+         if(mesh.dim==1) return run<1>(opt);
+    else if(mesh.dim==2) return run<2>(opt);
+    else if(mesh.dim==3) return run<3>(opt);
     else {
         cerr << "Only 1D, 2D and 3D supported" << endl;
         return 1;
