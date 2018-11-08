@@ -92,8 +92,8 @@ void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &face
     
     for (std::size_t i = 0; i < num_species; ++i)
     {
-        auto dim = species[i].vdf.dim;
-        auto domain = species[i].vdf.domain;
+        auto dim = species[i].vdf->dim;
+        auto domain = species[i].vdf->domain;
         volume = 1.0;
         for (int k = 0; k < dim; k++)
         {
@@ -102,10 +102,10 @@ void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &face
 
         for (std::size_t j = 0; j < num_facets; ++j)
         {
-            if (species[i].vdf.has_flux_number)
+            if (species[i].vdf->has_flux_number)
             {
-                auto num = species[i].vdf.flux_num_particles(facets[j].normal, facets[j].area);
-                species[i].vdf.num_particles.push_back(num);
+                auto num = species[i].vdf->flux_num_particles(facets[j].normal, facets[j].area);
+                species[i].vdf->num_particles.push_back(num);
             }
             else
             {
@@ -118,15 +118,15 @@ void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &face
                         x[k] = domain[k] + rand(rng) * (domain[k + dim] - domain[k]);
                     }
 
-                    sum += species[i].vdf(x, facets[j].normal);
+                    sum += (*species[i].vdf)(x, facets[j].normal);
                 }
                 auto num = facets[j].area*sum*volume/n_iter;
-                species[i].vdf.num_particles.push_back(num);
+                species[i].vdf->num_particles.push_back(num);
             }
 
-            if (species[i].vdf.has_flux_max)
+            if (species[i].vdf->has_flux_max)
             {
-                species[i].vdf.pdf_max.push_back(species[i].vdf.flux_max(facets[j].normal));
+                species[i].vdf->pdf_max.push_back(species[i].vdf->flux_max(facets[j].normal));
             }
             else
             {
@@ -139,10 +139,10 @@ void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &face
                         x[k] = domain[k] + rand(rng) * (domain[k + dim] - domain[k]);
                     }
 
-                    pdf_x = species[i].vdf(x, facets[j].normal);
+                    pdf_x = (*species[i].vdf)(x, facets[j].normal);
                     max = max > pdf_x ? max : pdf_x;
                 }
-                species[i].vdf.pdf_max.push_back(max*1.01);
+                species[i].vdf->pdf_max.push_back(max*1.01);
             }
         }
     }

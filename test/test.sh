@@ -23,6 +23,7 @@ cd ../interaction
 cd ../test
 rm -f *.dat
 ln -sf ../interaction/build/interaction
+echo "inspect result with: mpl history.dat \"truth(-0.136,0.03)(ema(1e-6)(I[0]))\""
 ./interaction test.ini
 
 # Test simulation results 

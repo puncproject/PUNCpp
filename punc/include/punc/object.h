@@ -44,9 +44,18 @@ namespace df = dolfin;
  */
 class Source {
 public:
-    int node_a;
-    int node_b;
-    double value;
+    /**
+     * @brief Constructor
+     * @param   node_a  Ascending object index of object connected to minus
+     * @param   node_a  Ascending object index of object connected to plus
+     * @param   value   Value of the source
+     **/
+    Source(int node_a, int node_b, double value) :
+        node_a(node_a), node_b(node_b), value(value) {};
+
+    int node_a;     ///< Ascending object index of object connected to minus
+    int node_b;     ///< Ascending object index of object connected to plus
+    double value;   ///< Value of the source
 };
 
 /**

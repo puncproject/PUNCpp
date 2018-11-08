@@ -47,6 +47,13 @@ namespace punc
 
 namespace df = dolfin;
 
+enum class ParticleAmountType {
+    in_total,       ///< Total number of simulation particles
+    per_cell,       ///< Simulation particles per cell
+    per_volume,     ///< Simulation particles per volume (number density)
+    phys_per_sim    ///< Physical particles per simulation particle
+};
+
 /**
  * @brief Generic matrix-vector product
  * @param y[in]   the vector
@@ -81,9 +88,9 @@ struct PhysicalConstants
     double m_e = boost::units::si::constants::codata::m_e / boost::units::si::kilograms;                              ///< Electron mass
     double ratio = boost::units::si::constants::codata::m_e_over_m_p / boost::units::si::dimensionless();             ///< Electron to proton mass ratio
     double m_i = m_e / ratio;                                                                                         ///< Proton mass
-
     double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;      ///< Boltzmann constant
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad; ///< Electric constant
+    double amu = boost::units::si::constants::codata::m_u / boost::units::si::kilograms;                              ///< Atomic mass constant
 };
 
 /**
@@ -117,15 +124,27 @@ Particle<len>::Particle(const double *x, const double *v,
 class Species 
 {
 public:
-    double q; ///< Charge
-    double m; ///< Mass
-    double n; ///< Density
-    int num;  ///< Initial number of particles
-    Pdf &pdf; ///< Position distribution function (initially)
-    Pdf &vdf; ///< Velocity distribution function (initially and at boundary)
+    double q;                  ///< Charge of simulation particle
+    double m;                  ///< Mass of simulation particle
+    double n;                  ///< Density of simulation particles
+    int num;                   ///< Initial number of simulation particles
+    std::shared_ptr<Pdf> pdf;  ///< Position distribution function (initially)
+    std::shared_ptr<Pdf> vdf;  ///< Velocity distribution function (initially and at boundary)
 
-    Species(double q, double m, double n, int num, Pdf &pdf, Pdf &vdf) :
-            q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
+    /**
+     * @brief Constructor
+     * @param   charge  Charge of physical particle
+     * @param   mass    Mass of physical particle
+     * @param   density Density of physical particles
+     * @param   amount  Amount of simulation particles
+     * @param   type    How the amount of simulation particles are specified
+     * @param   mesh    The mesh
+     * @param   pdf     Position distribution function
+     * @param   vdf     Velocity distribution function
+     */
+    Species(double charge, double mass, double density, double amount,
+            ParticleAmountType type, const Mesh &mesh,
+            std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf);
 };
 
 /**
