@@ -127,7 +127,7 @@ public:
     double q;                  ///< Charge of simulation particle
     double m;                  ///< Mass of simulation particle
     double n;                  ///< Density of simulation particles
-    int num;                   ///< Initial number of simulation particles
+    size_t num;                ///< Initial number of simulation particles
     std::shared_ptr<Pdf> pdf;  ///< Position distribution function (initially)
     std::shared_ptr<Pdf> vdf;  ///< Velocity distribution function (initially and at boundary)
 

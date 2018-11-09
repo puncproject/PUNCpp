@@ -210,6 +210,7 @@ void load_particles(PopulationType &pop, std::vector<Species> &species)
     std::uniform_real_distribution<double> rand(0.0, 1.0);
 
     auto num_species = species.size();
+
     std::vector<double> xs, vs;
     for (std::size_t i = 0; i < num_species; ++i)
     {
