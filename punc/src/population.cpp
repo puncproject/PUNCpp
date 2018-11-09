@@ -65,8 +65,6 @@ Species::Species(double charge, double mass, double density, double amount,
     n = density / amount;
 
     num = n * mesh.volume();
-
-    std::cout << amount << " " << q << " " << m << " " << n << " " << mesh.volume() << " " << num << std::endl;
 }
 
 }

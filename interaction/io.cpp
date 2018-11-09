@@ -61,7 +61,10 @@ vector<Species> read_species(const Options &opt, const Mesh &mesh){
         if(charge_suffix[s]=="e") charge[s] *= constants.e;
         if(mass_suffix[s]=="me")  mass[s]   *= constants.m_e;
         if(mass_suffix[s]=="amu") mass[s]   *= constants.amu;
-        if(thermal_suffix[s]=="eV") thermal[s] *= constants.e/constants.k_B;
+        if(thermal_suffix[s]=="eV"){
+            thermal[s] *= constants.e/constants.k_B;
+            thermal[s] = sqrt(constants.k_B*thermal[s]/mass[s]);
+        }
         if(thermal_suffix[s]=="K" || thermal_suffix[s]==""){
             thermal[s] = sqrt(constants.k_B*thermal[s]/mass[s]);
         }
