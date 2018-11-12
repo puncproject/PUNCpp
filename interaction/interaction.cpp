@@ -365,22 +365,19 @@ int run(const Options &opt)
 
         // AVERAGING
         timer.tic("io");
-        if (fabs(relaxation_time)<tol)
+        if (fabs(relaxation_time)>tol)
         {
             density_cg1(V, pop, ne, ni, dv_inv);
             ema(ne, ne_ema, dt, relaxation_time);
             ema(ni, ni_ema, dt, relaxation_time);
-        }
-        // SAVE FIELDS
-        if(save_fields_n !=0 && n%save_fields_n == 0)
-        {
-            if (fabs(relaxation_time)<tol)
-            {
+            if(save_fields_n !=0 && n%save_fields_n == 0){
                 fields.save(phi, E, rho, ne_ema, ni_ema, t);
-            }else{
-                density_cg1(V, pop, ne, ni, dv_inv);
-                fields.save(phi, E, rho, ne, ni, t);
             }
+        }
+        else if (save_fields_n !=0 && n%save_fields_n == 0)
+        {
+            density_cg1(V, pop, ne, ni, dv_inv);
+            fields.save(phi, E, rho, ne, ni, t);
         } 
         // SAVE STATE AND BREAK LOOP
         if(exit_immediately || n==steps)
