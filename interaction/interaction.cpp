@@ -217,13 +217,19 @@ int run(const Options &opt)
     size_t n = 0;
     double t = 0;
 
+    bool prefill = true;
+    opt.get("prefill", prefill, true);
+
     if(continue_simulation){
         cout << "  Continuing previous simulation" << endl;
         state.load(n, t, objects);
         pop.load_file(fname_pop, binary_population);
     } else {
         cout << "  Starting new simulation" << endl;
-        load_particles(pop, species);
+        if(prefill){
+            cout << "  Initializing particles" << endl;
+            load_particles(pop, species);
+        }
     }
 
 
@@ -434,14 +440,15 @@ int main(int argc, char **argv){
 
     po::options_description desc("Options");
     desc.add_options()
-        ("help"  , "show help (this)")
-        ("input" , value(), "Input file (.ini)")
-        ("mesh"  , value(), "Mesh file (.xml or .hdf5)")
-        ("steps" , value(), "Number of timesteps")
-        ("dt"    , value(), "Timestep. Suffixes:\n"
-                          "  s - seconds (default)\n"
-                          "  periods - plasma periods of the 0th species")
-        ("B"     , value(), "Magnetic field [T] (default: zero)")
+        ("help"   , "show help (this)")
+        ("input"  , value(), "Input file (.ini)")
+        ("mesh"   , value(), "Mesh file (.xml or .hdf5)")
+        ("steps"  , value(), "Number of timesteps")
+        ("dt"     , value(), "Timestep. Suffixes:\n"
+                           "  s - seconds (default)\n"
+                           "  periods - plasma periods of the 0th species")
+        ("B"      , value(), "Magnetic field [T] (default: zero)")
+        ("prefill", value(), "Whether to initialize new simulation by prefilling the domain uniformly with particles. Options: true (default), false")
 
         ("species.charge"       , value(), "Charge. Suffixes:\n"
                                          "  C - coulomb (default)\n"
