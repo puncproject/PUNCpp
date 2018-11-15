@@ -74,6 +74,12 @@ double Maxwellian::flux_max(std::vector<double> &n)
     return Pdf::operator()(tmp, n);
 }
 
+double Maxwellian::debye(double m, double n, double eps0)
+{
+    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
+    return sqrt(eps0*m/(n*e*e))*_vth;
+}
+
 Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_icdf,
              bool has_flux_num, bool has_flux_max, double vdf_range)
             : Pdf(vth, vd, false, true, true, vdf_range), k(k)
@@ -123,6 +129,13 @@ double Kappa::flux_max(std::vector<double> &n)
         tmp[i] = sqrt( (2.*k-dim)/(2.*k+1.0) )*n[i]*_vth;
     }
     return Pdf::operator()(tmp, n);
+}
+
+double Kappa::debye(double m, double n, double eps0)
+{
+    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
+    double B = (k-0.5)/(k-1.5);
+    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
 }
 
 Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_icdf,
@@ -175,6 +188,13 @@ double Cairns::flux_num_particles(const std::vector<double> &n, double S)
     return num_particles;
 }
 
+double Cairns::debye(double m, double n, double eps0)
+{
+    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
+    double B = (1. + 3. * alpha) / (1. + 15 * alpha);
+    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
+}
+
 KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
                          double alpha, bool has_icdf, bool has_flux_num,
                          bool has_flux_max, double vdf_range)
@@ -216,6 +236,13 @@ double KappaCairns::max()
         max = factor;
     }
     return max;
+}
+
+double KappaCairns::debye(double m, double n, double eps0)
+{
+    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
+    double B = ((k - 0.5) / (k - 1.5)) * ((1. + 3. * alpha * ((k - 1.5) / (k - 0.5))) / (1. + 15 * alpha * ((k - 1.5) / (k - 2.5))));
+    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
 }
 
 } // namespace punc
