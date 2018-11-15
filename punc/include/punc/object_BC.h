@@ -79,8 +79,8 @@ public:
 
     CircuitBC(const df::FunctionSpace &V,
               const ObjectVector &object_vector,
-              const std::vector<Source> &vsources,
-              const std::vector<Source> &isources,
+              const VSourceVector &vsources,
+              const ISourceVector &isources,
               double dt, double eps0 = 1.0);
 
     void apply(df::GenericVector &b);

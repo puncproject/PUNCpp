@@ -114,29 +114,25 @@ int run(const Options &opt)
      **************************************************************************/
     cout << "Setup circuitry" << endl;
 
-    vector<Source> isources;
-    vector<Source> vsources;
+    ISourceVector isources;
+    VSourceVector vsources;
 
     vector<vector<double>> vsources_, isources_;
     opt.get_repeated_vector("objects.vsource", vsources_, 3, 0, true);
     opt.get_repeated_vector("objects.isource", isources_, 3, 0, true);
     
     for(auto &s : vsources_){
-        Source source(s[0], s[1], s[2]);
+        VSource source(s[0], s[1], s[2]);
         vsources.push_back(source);
     }
 
     for(auto &s : isources_){
-        Source source(s[0], s[1], s[2]);
+        ISource source(s[0], s[1], s[2]);
         isources.push_back(source);
     }
 
-    for(auto &s : vsources){
-        cout << "  V_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
-    }
-    for(auto &s : isources){
-        cout << "  I_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
-    }
+    for(auto &s : vsources) cout << "  " << s << endl;
+    for(auto &s : isources) cout << "  " << s << endl;
 
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;

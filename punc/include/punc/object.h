@@ -58,6 +58,18 @@ public:
     double value;   ///< Value of the source
 };
 
+class VSource : public Source {
+public:
+    VSource(int node_a, int node_b, double value) :
+        Source(node_a, node_b, value) {};
+};
+
+class ISource : public Source {
+public:
+    ISource(int node_a, int node_b, double value) :
+        Source(node_a, node_b, value) {};
+};
+
 /**
  * @brief Object interface
  * 
@@ -120,8 +132,11 @@ protected:
 //! A polymorphic vector of Objects.
 using ObjectVector = std::vector<std::shared_ptr<Object>>;
 
-//! A vector of voltage or current sources
-using SourceVector = std::vector<Source>;
+//! A vector of voltage sources
+using VSourceVector = std::vector<VSource>;
+
+//! A vector of current sources
+using ISourceVector = std::vector<ISource>;
 
 /**
  * @brief Circuit interface
@@ -140,8 +155,8 @@ public:
      * @param   isources        current sources
      */
     Circuit(const ObjectVector &object_vector,
-            const SourceVector &vsources,
-            const SourceVector &isources);
+            const VSourceVector &vsources,
+            const ISourceVector &isources);
 
     /**
      * @brief Check if selected solvers are valid or assign default solvers.
@@ -203,10 +218,10 @@ public:
     // Stored in children instead, as derived type
 
     //! A reference to the voltage sources in the circuit
-    const SourceVector &vsources;
+    const VSourceVector &vsources;
 
     //! A reference to the current sources in the circuit
-    const SourceVector &isources;
+    const ISourceVector &isources;
 
     /*
      * Note: I am not quite sure how good an idea it is to have all these
@@ -220,6 +235,16 @@ protected:
     //! Groups of object indices of charge-sharing objects.
     std::vector<std::vector<int>> groups;
 };
+
+/**
+ * @name Printing functions
+ *
+ * Overloading "put-to" operators for convenient printing.
+ */
+///@{
+std::ostream& operator<<(std::ostream& out, const VSource &s);
+std::ostream& operator<<(std::ostream& out, const ISource &s);
+///@}
 
 } // namespace punc
 

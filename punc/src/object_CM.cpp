@@ -134,8 +134,8 @@ void ObjectCM::apply(df::GenericMatrix &A)
 
 CircuitCM::CircuitCM(const df::FunctionSpace &V, 
                      ObjectVector &object_vector,
-                     const SourceVector &vsources,
-                     const SourceVector &isources,
+                     const VSourceVector &vsources,
+                     const ISourceVector &isources,
                      Mesh &mesh,
                      double dt, double eps0)
                     : Circuit(object_vector, vsources, isources),
