@@ -65,6 +65,14 @@ Circuit::Circuit(const ObjectVector &object_vector,
 
 }
 
+// std::ostream& operator<<(std::ostream& out, const VSource &s){
+//     return cout << "V_{" << s.node_a << ", " << s.node.b << "} = " << s.value;
+// }
+// 
+// std::ostream& operator<<(std::ostream& out, const ISource &s){
+//     return cout << "I_{" << s.node_a << ", " << s.node.b << "} = " << s.value;
+// }
+
 /*******************************************************************************
  * LOCAL DEFINITIONS
  ******************************************************************************/

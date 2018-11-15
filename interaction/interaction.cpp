@@ -100,7 +100,6 @@ int run(const Options &opt)
      * SETUP SPECIES
      **************************************************************************/
     cout << "Setup species" << endl;
-
     auto species = read_species(opt, mesh);
     create_flux(species, mesh.exterior_facets);
 
@@ -108,90 +107,7 @@ int run(const Options &opt)
      * SETUP TIME-STEP
      **************************************************************************/
     cout << "Setup time-step" << endl;
-
-    double pi = 3.141592653589793238462643383279502;
-
-    double dt_plasma = 0.1;
-    double dt_gyro = 0.1;
-    double dt_cell = 1;
-    double vrange = 1;
-    double phi_max = 0;
-    double phi_min = 0;
-    opt.get("time.dt_plasma", dt_plasma, true);
-    opt.get("time.dt_gyro", dt_gyro, true);
-    opt.get("time.dt_cell", dt_cell, true);
-    opt.get("time.vrange", vrange, true);
-    opt.get("time.phi_max", phi_max, true);
-    opt.get("time.phi_min", phi_min, true);
-
-    double wp_max = 0;
-    for(auto &s : species){
-        double wp = sqrt(pow(s.q,2)*s.n/(eps0*s.m));
-        if(wp > wp_max) wp_max = wp;
-    }
-    double dt = dt_plasma*2*pi/wp_max;
-    double dt_tmp = dt;
-    cout << "wp=" << wp_max << ", dt=" << dt_tmp << endl;
-
-    double wc_max = 0;
-    for(auto &s : species){
-        double wc = s.q*B_norm/s.m;
-        if(wc > wc_max) wc_max = wc;
-    }
-    if(fabs(wc_max)>tol){
-        dt_tmp = dt_gyro*2*pi/wc_max;
-        if(dt_tmp < dt) dt = dt_tmp;
-    }
-    cout << "wc=" << wc_max << ", dt=" << dt_tmp << endl;
-
-    double v_max = 0;
-    for(auto &s : species){
-        vector<double> vd_vec = s.vdf->vd();
-        double vd = sqrt(accumulate(vd_vec.begin(), vd_vec.end(), 0.0));
-        double vth = s.vdf->vth();
-
-        // Maximum and minimum phi on boundary. Not implemented to take into
-        // account B-field which may cause it to be non-zero.
-        double phi_bnd_min = 0;
-        double phi_bnd_max = 0;
-
-        // Maximum and minimum phi in domain (typically on an object).
-        // Specified by user since it's hard to know a-priori for floating
-        // objects.
-
-        double dphi = 0;
-        if(s.q<0){
-            dphi = phi_max-phi_bnd_min;
-        } else {
-            dphi = phi_min-phi_bnd_max;
-        }
-        
-        double v_max_s = sqrt(pow(vd+vrange*vth,2)-2*s.q*dphi/s.m);
-        cout << "vd=" << vd << ", vth=" << vth << ", vrange=" << vrange << ", dphi=" << dphi << ", q=" << s.q << ", m=" << s.m << endl;
-        if(v_max_s > v_max) v_max = v_max_s;
-    }
-    double h_min = mesh.mesh->hmin();
-    dt_tmp = dt_cell * h_min / v_max;
-    if(dt_tmp < dt) dt = dt_tmp;
-    cout << "v_max=" << v_max << ", h_min=" << h_min << ", dt=" << dt_tmp << endl;
-
-    dt_tmp = 1;
-    string dt_suffix = "auto";
-    opt.get("time.dt", dt_tmp, {"auto", "s", ""}, dt_suffix, true);
-    if(dt_suffix=="auto"){
-        dt *= dt_tmp;
-    } else {
-        dt = dt_tmp;
-    }
-
-    dt_plasma = dt*wp_max/(2*pi);
-    dt_gyro = dt*wc_max/(2*pi);
-    dt_cell = dt*v_max/h_min;
-
-    cout << "  dt = " << dt << " seconds\n"
-         << "     = at most " << dt_plasma << " plasma periods\n"
-         << "     = at most " << dt_gyro << " cyclotron periods\n"
-         << "     = at most " << dt_cell << " cell diameters traveled per timestep" << endl;
+    double dt = read_timestep(opt, mesh, species, B, eps0);
 
     /***************************************************************************
      * SETUP CIRCUITRY
@@ -543,7 +459,7 @@ int main(int argc, char **argv){
         ("time.dt_plasma", value(), "Max timestep in terms of plasma periods")
         ("time.dt_gyro"  , value(), "Max timestep in terms of gyroperiods")
         ("time.dt_cell"  , value(), "Max cells traveled per time-step")
-        ("time.vrange"   , value(), "Max fraction of thermal speed to account for when computing timestep based on particle speed")
+        ("time.sigma"    , value(), "Max fraction of thermal speed to account for when computing timestep based on particle speed")
         ("time.phi_max"  , value(), "Max potential expected in the domain (for computing timestep)")
         ("time.phi_min"  , value(), "Min potential expected in the domain (for computing timestep)")
 

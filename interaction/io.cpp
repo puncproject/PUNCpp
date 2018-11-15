@@ -126,4 +126,52 @@ vector<Species> read_species(const Options &opt, const Mesh &mesh){
     return species;
 }
 
+double read_timestep(const Options &opt, const Mesh &mesh,
+                     const vector<Species> &species,
+                     const vector<double> &B, double eps0){
+    double dt_plasma = 0.1;
+    double dt_gyro = 0.1;
+    double dt_cell = 1;
+    double sigma = 1;
+    double phi_max = 0;
+    double phi_min = 0;
+    opt.get("time.dt_plasma", dt_plasma, true);
+    opt.get("time.dt_gyro", dt_gyro, true);
+    opt.get("time.dt_cell", dt_cell, true);
+    opt.get("time.sigma", sigma, true);
+    opt.get("time.phi_max", phi_max, true);
+    opt.get("time.phi_min", phi_min, true);
+
+    double Tp = min_plasma_period(species, eps0);
+    double dt = dt_plasma*Tp;
+
+    double Tg = min_gyro_period(species, B);
+    double dt_tmp = dt_gyro*Tg;
+    if(dt_tmp < dt) dt = dt_tmp;
+
+    double v_max = max_speed(species, sigma, phi_min, phi_max);
+    double h_min = mesh.mesh->hmin();
+    dt_tmp = dt_cell * h_min / v_max;
+    if(dt_tmp < dt) dt = dt_tmp;
+
+    dt_tmp = 1;
+    string dt_suffix = "auto";
+    opt.get("time.dt", dt_tmp, {"auto", "s", ""}, dt_suffix, true);
+    if(dt_suffix=="auto"){
+        dt *= dt_tmp;
+    } else {
+        dt = dt_tmp;
+    }
+
+    dt_plasma = dt/Tp;
+    dt_gyro = dt/Tg;
+    dt_cell = dt*v_max/h_min;
+
+    cout << "  dt = " << dt << " seconds\n"
+         << "     = at most " << dt_plasma << " plasma periods\n"
+         << "     = at most " << dt_gyro << " gyro periods\n"
+         << "     = at most " << dt_cell << " cell diameters traveled per timestep" << endl;
+    return dt;
+}
+
 } // namespace punc

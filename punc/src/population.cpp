@@ -19,8 +19,7 @@
 #include <dolfin/geometry/Point.h>
 #include <dolfin/geometry/BoundingBoxTree.h>
 
-namespace punc
-{
+namespace punc {
 
 signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
 {
@@ -67,4 +66,53 @@ Species::Species(double charge, double mass, double density, double amount,
     num = n * mesh.volume();
 }
 
+double min_plasma_period(const std::vector<Species> &species, double eps0){
+
+    double wp_max = 0;
+    for(auto &s : species){
+        double wp = sqrt(pow(s.q,2)*s.n/(eps0*s.m));
+        if(wp > wp_max) wp_max = wp;
+    }
+    return 2*M_PI/wp_max;
 }
+
+double min_gyro_period(const std::vector<Species> &species,
+                       const std::vector<double> &B){
+
+    double B_norm = std::accumulate(B.begin(), B.end(), 0.0);
+    double wc_max = 0;
+    for(auto &s : species){
+        double wc = s.q*B_norm/s.m;
+        if(wc > wc_max) wc_max = wc;
+    }
+    return 2*M_PI/wc_max;
+}
+
+double max_speed(const std::vector<Species> &species,
+                 double k, double phi_min, double phi_max){
+
+    double v_max = 0;
+    for(auto &s : species){
+        std::vector<double> vd_vec = s.vdf->vd();
+        double vd = sqrt(std::accumulate(vd_vec.begin(), vd_vec.end(), 0.0));
+        double vth = s.vdf->vth();
+
+        // Maximum and minimum phi on boundary. Not implemented to take into
+        // account B-field which may cause it to be non-zero.
+        const double phi_bnd_min = 0;
+        const double phi_bnd_max = 0;
+
+        double dphi = 0;
+        if(s.q<0){
+            dphi = phi_max-phi_bnd_min;
+        } else {
+            dphi = phi_min-phi_bnd_max;
+        }
+        
+        double v_max_s = sqrt(pow(vd+k*vth,2)-2*s.q*dphi/s.m);
+        if(v_max_s > v_max) v_max = v_max_s;
+    }
+    return v_max;
+}
+
+} // namespace punc
