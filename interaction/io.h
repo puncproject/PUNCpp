@@ -357,6 +357,17 @@ private:
  */
 vector<Species> read_species(const Options &opt, const Mesh &mesh);
 
+/**
+ * @brief Reads timestep from options
+ * @param   options     Options from ini-file and CLI
+ * @param   mesh        The mesh
+ * @param   eps0        The permittivity of vacuum
+ * @return              The timestep
+ */
+double read_timestep(const Options &opt, const Mesh &mesh,
+                     const vector<Species> &species,
+                     const vector<double> &B, double eps0);
+
 } // namespace punc
 
 #endif // IO_h

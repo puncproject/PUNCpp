@@ -36,7 +36,7 @@ namespace punc
  * @param       node        Object to look for
  * @param[out]  group       List of objects sharing charge with node
  */
-static void get_charge_sharing_set(SourceVector &vsources, int node, std::vector<int> &group);
+static void get_charge_sharing_set(VSourceVector &vsources, int node, std::vector<int> &group);
 
 /**
  * @brief Identifies all sets of charge sharing objects
@@ -49,15 +49,15 @@ static void get_charge_sharing_set(SourceVector &vsources, int node, std::vector
  * charge constraint. This follows the voltage sources to identify which objects
  * must have a charge constraint.
  */
-static std::vector<std::vector<int>> get_charge_sharing_sets(SourceVector vsources, int num_objects);
+static std::vector<std::vector<int>> get_charge_sharing_sets(VSourceVector vsources, int num_objects);
 
 /*******************************************************************************
  * GLOBAL DEFINITIONS
  ******************************************************************************/
 
 Circuit::Circuit(const ObjectVector &object_vector,
-                 const SourceVector &vsources,
-                 const SourceVector &isources)
+                 const VSourceVector &vsources,
+                 const ISourceVector &isources)
                 :vsources(vsources), isources(isources){
 
     num_objects = object_vector.size();
@@ -65,18 +65,26 @@ Circuit::Circuit(const ObjectVector &object_vector,
 
 }
 
+std::ostream& operator<<(std::ostream& out, const VSource &s){
+    return out << "V_{" << s.node_a << ", " << s.node_b << "} = " << s.value;
+}
+
+std::ostream& operator<<(std::ostream& out, const ISource &s){
+    return out << "I_{" << s.node_a << ", " << s.node_b << "} = " << s.value;
+}
+
 /*******************************************************************************
  * LOCAL DEFINITIONS
  ******************************************************************************/
 
-static void get_charge_sharing_set(SourceVector &vsources, int node, std::vector<int> &group)
+static void get_charge_sharing_set(VSourceVector &vsources, int node, std::vector<int> &group)
 {
     group.emplace_back(node);
 
     std::size_t i = 0;
     while (i < vsources.size())
     {
-        Source vsource = vsources[i];
+        VSource vsource = vsources[i];
         if (vsource.node_a == node)
         {
             vsources.erase(vsources.begin() + i);
@@ -94,7 +102,7 @@ static void get_charge_sharing_set(SourceVector &vsources, int node, std::vector
     }
 }
 
-static std::vector<std::vector<int>> get_charge_sharing_sets(SourceVector vsources, int num_objects)
+static std::vector<std::vector<int>> get_charge_sharing_sets(VSourceVector vsources, int num_objects)
 {
     std::vector<int> nodes(num_objects);
     std::iota(std::begin(nodes), std::end(nodes), 0);

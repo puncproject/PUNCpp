@@ -207,8 +207,8 @@ void ObjectBC::update(const df::Function &phi)
 
 CircuitBC::CircuitBC(const df::FunctionSpace &V,
                      const ObjectVector &object_vector,
-                     const SourceVector &vsources,
-                     const SourceVector &isources,
+                     const VSourceVector &vsources,
+                     const ISourceVector &isources,
                      double dt, double eps0)
                      : Circuit(object_vector, vsources, isources),
                        V(V), dt(dt), eps0(eps0)

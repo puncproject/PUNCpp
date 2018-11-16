@@ -811,6 +811,61 @@ void Population<len>::load_file(const std::string &fname, bool binary)
     }
 }
 
+/**
+ * @brief Returns the minimum plasma period of all species
+ * @param   species     All species
+ * @param   eps0        The permittivity of vacuum
+ * @return              The minmium plasma period
+ *
+ * The plasma period of a species s is defined as
+ * \f[
+ *  T_{ps} = \frac{2\pi}{\omega_{ps}} = 2\pi\frac{\varepsilon_0 m_s}{q_s^2 n_s}
+ * \f]
+ */
+double min_plasma_period(const std::vector<Species> &species, double eps0);
+
+/**
+ * @brief Returns the minimum gyroperiod of all species
+ * @param   species     All species
+ * @param   B           The magnetic flux density vector
+ * @return              The minimum gyro period
+ *
+ * The gyro period of a species s is defined as
+ * \f[
+ *  T_{gs} = \frac{2\pi}{\omega_{gs}} = 2\pi\frac{m_s}{q_s B}
+ * \f]
+ */
+double min_gyro_period(const std::vector<Species> &species,
+                       const std::vector<double> &B);
+
+/**
+ * @brief Returns the maximum expected speed of any particle in the system
+ * @param   species     All species
+ * @param   k           Number of st. devs of velocity to account for
+ * @param   phi_min     The minimum expected potential in the domain
+ * @param   phi_max     The maximum expected potential in the domain
+ * @return              The maximum expected speed
+ *
+ * If neglecting particles in the tail of the velocity distributions above
+ * k standard deviations, the fastest particles entering the domain have a 
+ * speed of
+ *
+ * \f[
+ *  v_{0,s} = v_{D,s} + k*v_{th,s}
+ * \f]
+ *
+ * because the thermal velocity aligns with the drift velocity every now and
+ * then. In addition negative/positive charges may be accelerated towards 
+ * points of high/low potentials, typically an object with specified voltage.  
+ * This speed is computed from energy conservation:
+ *
+ * \f[
+ *  v_{1,s}^2 = v_{0,s} + \frac{2q_s \Delta\phi}{m_s}
+ * \f]
+ */
+double max_speed(const std::vector<Species> &species,
+                 double v_range, double phi_min, double phi_max);
+
 } // namespace punc
 
 #endif // POPULATION_H

@@ -72,8 +72,8 @@ public:
 
     CircuitCM(const df::FunctionSpace &V,
               ObjectVector &object_vector,
-              const std::vector<Source> &vsources,
-              const std::vector<Source> &isources,
+              const VSourceVector &vsources,
+              const ISourceVector &isources,
               Mesh &mesh,
               double dt, double eps0 = 1.0);
 

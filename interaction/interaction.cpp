@@ -100,46 +100,39 @@ int run(const Options &opt)
      * SETUP SPECIES
      **************************************************************************/
     cout << "Setup species" << endl;
-
     auto species = read_species(opt, mesh);
     create_flux(species, mesh.exterior_facets);
 
-    double dt;
-    string dt_suffix;
-    opt.get("dt", dt, {"periods", "s", ""}, dt_suffix);
-    if(dt_suffix=="periods"){
-        double wp0 = sqrt(pow(species[0].q,2)*species[0].n/(eps0*species[0].m));
-        dt /= wp0;
-    }
+    /***************************************************************************
+     * SETUP TIME-STEP
+     **************************************************************************/
+    cout << "Setup time-step" << endl;
+    double dt = read_timestep(opt, mesh, species, B, eps0);
 
     /***************************************************************************
      * SETUP CIRCUITRY
      **************************************************************************/
     cout << "Setup circuitry" << endl;
 
-    vector<Source> isources;
-    vector<Source> vsources;
+    ISourceVector isources;
+    VSourceVector vsources;
 
     vector<vector<double>> vsources_, isources_;
     opt.get_repeated_vector("objects.vsource", vsources_, 3, 0, true);
     opt.get_repeated_vector("objects.isource", isources_, 3, 0, true);
     
     for(auto &s : vsources_){
-        Source source(s[0], s[1], s[2]);
+        VSource source(s[0], s[1], s[2]);
         vsources.push_back(source);
     }
 
     for(auto &s : isources_){
-        Source source(s[0], s[1], s[2]);
+        ISource source(s[0], s[1], s[2]);
         isources.push_back(source);
     }
 
-    for(auto &s : vsources){
-        cout << "  V_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
-    }
-    for(auto &s : isources){
-        cout << "  I_{" << s.node_a << ", " << s.node_b << "} = " << s.value << endl;
-    }
+    for(auto &s : vsources) cout << "  " << s << endl;
+    for(auto &s : isources) cout << "  " << s << endl;
 
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
@@ -217,13 +210,19 @@ int run(const Options &opt)
     size_t n = 0;
     double t = 0;
 
+    bool prefill = true;
+    opt.get("prefill", prefill, true);
+
     if(continue_simulation){
         cout << "  Continuing previous simulation" << endl;
         state.load(n, t, objects);
         pop.load_file(fname_pop, binary_population);
     } else {
         cout << "  Starting new simulation" << endl;
-        load_particles(pop, species);
+        if(prefill){
+            cout << "  Initializing particles" << endl;
+            load_particles(pop, species);
+        }
     }
 
 
@@ -258,7 +257,14 @@ int run(const Options &opt)
     cout << "Setup time loop control" << endl;
 
     size_t steps;
-    opt.get("steps", steps);
+    double stop;
+    string stop_suffix;
+    opt.get("time.stop", stop, {"s", "steps", ""}, stop_suffix);
+    if(stop_suffix=="s"){
+        steps = (stop-t)/dt + n;
+    } else {
+        steps = stop;
+    }
 
 
     double KE               = 0;
@@ -365,22 +371,19 @@ int run(const Options &opt)
 
         // AVERAGING
         timer.tic("io");
-        if (fabs(relaxation_time)<tol)
+        if (fabs(relaxation_time)>tol)
         {
             density_cg1(V, pop, ne, ni, dv_inv);
             ema(ne, ne_ema, dt, relaxation_time);
             ema(ni, ni_ema, dt, relaxation_time);
-        }
-        // SAVE FIELDS
-        if(save_fields_n !=0 && n%save_fields_n == 0)
-        {
-            if (fabs(relaxation_time)<tol)
-            {
+            if(save_fields_n !=0 && n%save_fields_n == 0){
                 fields.save(phi, E, rho, ne_ema, ni_ema, t);
-            }else{
-                density_cg1(V, pop, ne, ni, dv_inv);
-                fields.save(phi, E, rho, ne, ni, t);
             }
+        }
+        else if (save_fields_n !=0 && n%save_fields_n == 0)
+        {
+            density_cg1(V, pop, ne, ni, dv_inv);
+            fields.save(phi, E, rho, ne, ni, t);
         } 
         // SAVE STATE AND BREAK LOOP
         if(exit_immediately || n==steps)
@@ -437,14 +440,24 @@ int main(int argc, char **argv){
 
     po::options_description desc("Options");
     desc.add_options()
-        ("help"  , "show help (this)")
-        ("input" , value(), "Input file (.ini)")
-        ("mesh"  , value(), "Mesh file (.xml or .hdf5)")
-        ("steps" , value(), "Number of timesteps")
-        ("dt"    , value(), "Timestep. Suffixes:\n"
-                          "  s - seconds (default)\n"
-                          "  periods - plasma periods of the 0th species")
-        ("B"     , value(), "Magnetic field [T] (default: zero)")
+        ("help"   , "show help (this)")
+        ("input"  , value(), "Input file (.ini)")
+        ("mesh"   , value(), "Mesh file (.xml or .hdf5)")
+        ("B"      , value(), "Magnetic field [T] (default: zero)")
+        ("prefill", value(), "Whether to initialize new simulation by prefilling the domain uniformly with particles. Options: true (default), false")
+
+        ("time.stop"     , value(), "When to stop simulation. Suffixes:\n"
+                                    "  s - seconds\n"
+                                    "  steps - timesteps (default)\n")
+        ("time.dt"       , value(), "Timestep. Suffixes:\n"
+                                    "  s - seconds (default)\n"
+                                    "  auto - fraction of automatically derived timestep")
+        ("time.dt_plasma", value(), "Max timestep in terms of plasma periods")
+        ("time.dt_gyro"  , value(), "Max timestep in terms of gyroperiods")
+        ("time.dt_cell"  , value(), "Max cells traveled per time-step")
+        ("time.sigma"    , value(), "Max fraction of thermal speed to account for when computing timestep based on particle speed")
+        ("time.phi_max"  , value(), "Max potential expected in the domain (for computing timestep)")
+        ("time.phi_min"  , value(), "Min potential expected in the domain (for computing timestep)")
 
         ("species.charge"       , value(), "Charge. Suffixes:\n"
                                          "  C - coulomb (default)\n"
