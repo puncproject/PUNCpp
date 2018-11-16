@@ -36,7 +36,7 @@ bool split_suffix(const string &in, string &body, string &suffix, const vector<s
     return false;
 }
 
-vector<Species> read_species(const Options &opt, const Mesh &mesh){
+vector<Species> read_species(const Options &opt, const Mesh &mesh, double eps0){
 
     PhysicalConstants constants;
 
@@ -120,7 +120,7 @@ vector<Species> read_species(const Options &opt, const Mesh &mesh){
         }
 
         species.emplace_back(charge[s], mass[s], density[s], amount[s],
-                             type, mesh, pdf, vdf);
+                             type, mesh, pdf, vdf, eps0);
     }
 
     return species;

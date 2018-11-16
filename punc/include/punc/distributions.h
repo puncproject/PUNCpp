@@ -170,12 +170,13 @@ public:
     /**
      * @brief The Debye length for the plasma species described by the VDF
      * @param[in]  m    - Species mass 
+     * @param[in]  q    - Species charge
      * @param[in]  n    - Number density
      * @param[in]  eps0 - Vacuum permittivity in simulation parameters
      *                    (depends on normalization scheme)
      * @return     the Debye length
      */
-    virtual double debye(double m, double n, double eps0) { return 0.0; };
+    virtual double debye(double m, double q, double n, double eps0) { return 0.0; };
 };
 
 /**
@@ -243,7 +244,7 @@ public:
     std::vector<double> icdf(const std::vector<double> &r);
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
-    double debye(double m, double n, double eps0);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -276,7 +277,7 @@ public:
     double max() { return factor; }
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
-    double debye(double m, double n, double eps0);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -309,7 +310,7 @@ public:
     double operator()(const std::vector<double> &v);
     double max();
     double flux_num_particles(const std::vector<double> &n, double S);
-    double debye(double m, double n, double eps0);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -345,7 +346,7 @@ public:
                 
     double operator()(const std::vector<double> &v);
     double max();
-    double debye(double m, double n, double eps0);
+    double debye(double m, double q, double n, double eps0);
 };
 
 } // namespace punc
