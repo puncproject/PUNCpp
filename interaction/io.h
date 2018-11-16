@@ -353,9 +353,10 @@ private:
  * @brief Reads all species from options
  * @param   options     Options from ini-file and CLI
  * @param   mesh        The mesh
+ * @param   eps0        The permittivity of vacuum
  * @return              Vector of all species
  */
-vector<Species> read_species(const Options &opt, const Mesh &mesh);
+vector<Species> read_species(const Options &opt, const Mesh &mesh, double eps0);
 
 /**
  * @brief Reads timestep from options

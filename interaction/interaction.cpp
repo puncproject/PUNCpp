@@ -100,7 +100,7 @@ int run(const Options &opt)
      * SETUP SPECIES
      **************************************************************************/
     cout << "Setup species" << endl;
-    auto species = read_species(opt, mesh);
+    auto species = read_species(opt, mesh, eps0);
     create_flux(species, mesh.exterior_facets);
 
     /***************************************************************************
