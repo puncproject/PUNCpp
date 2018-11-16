@@ -141,18 +141,16 @@ int run(const Options &opt)
     opt.get("objects.method", object_method, true);
 
     vector<double> object_charges(mesh.num_objects, 0);
-    opt.get_repeated("object.charge", object_charges, mesh.num_objects, true);
+    opt.get_repeated("objects.charge", object_charges, mesh.num_objects, true);
 
-    if (object_method == "BC")
-    {
+    if (object_method == "BC") {
         for(size_t i=0; i<mesh.num_objects; i++){
             objects.push_back(std::make_shared<ObjectBC>(V, mesh, i+2, eps0));
             objects[i]->charge = object_charges[i];
         }
-
         circuit = std::make_shared<CircuitBC>(V, objects, vsources, isources, dt, eps0);
-    } else if (object_method == "CM")
-    {
+
+    } else if (object_method == "CM") {
         for(size_t i=0; i<mesh.num_objects; i++){
             objects.push_back(std::make_shared<ObjectCM>(V, mesh, i+2));
             objects[i]->charge = object_charges[i];
