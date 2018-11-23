@@ -1,6 +1,12 @@
 #include <dolfin.h>
 #include <punc.h>
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <iomanip>
+
 using namespace punc;
 
 using std::cout;
@@ -96,11 +102,57 @@ class Gif
     }
 };
 
+template <typename PopulationType>
+void save_pop(PopulationType &pop, std::size_t n)
+{
+
+    std::string prefix_e("data/electron");
+    std::string prefix_p("data/proton");
+    std::string ext(".txt");
+
+    int n_digits = 5;
+    std::stringstream ss_e;
+    std::stringstream ss_p;
+    ss_e << prefix_e << std::setfill('0') << std::setw(n_digits) << n << ext;
+    ss_p << prefix_p << std::setfill('0') << std::setw(n_digits) << n << ext;
+
+    std::ofstream ofile_e(ss_e.str(), std::ofstream::out);
+    std::ofstream ofile_p(ss_p.str(), std::ofstream::out);
+
+    for (auto &cell : pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q < 0)
+            {
+                ofile_e << particle.x[0] << ",";
+                ofile_e << particle.x[1] << ",";
+                ofile_e << 0.0 << std::endl;
+            }
+        }
+    }
+
+    for (auto &cell : pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q > 0)
+            {
+                ofile_p << particle.x[0] << ",";
+                ofile_p << particle.x[1] << ",";
+                ofile_p << 0.0 << std::endl;
+            }
+        }
+    }
+    ofile_e.close();
+    ofile_p.close();
+}
+
 int main()
 {
     df::set_log_level(df::WARNING);
 
-    double dt = 0.1;
+    double dt_plasma = 0.01;
     std::size_t steps = 300;
 
     const char *fname_gif = "gif.xyz";
@@ -120,6 +172,7 @@ int main()
     auto W = CG1_vector_space(mesh);
 
     // The electric potential and electric field
+    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
     df::Function phi(std::make_shared<const df::FunctionSpace>(V));
     df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
@@ -132,40 +185,59 @@ int main()
     auto dv_inv = element_volume(V);
 
     double vth = 0.0;
-    int npc = 4;
-    double ne = 100;
+    // int npc = 4;
+    double amount = 50000;
+    double ne = 1e10;
 
-    CreateSpecies create_species(mesh, Ld[0]);
+
+    std::vector<Species> species;
+
+    ParticleAmountType type = ParticleAmountType::in_total;
+    type = ParticleAmountType::per_volume;
+
+    // CreateSpecies create_species(mesh, Ld[0]);
 
     double A = 0.5, mode = 1.0;
 
-    LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
-    UniformPosition pdfi(mesh);             // Ion position distribution
+    std::shared_ptr<Pdf> pdfi = std::make_shared<UniformPosition>(mesh);
+    std::shared_ptr<Pdf> pdfe = std::make_shared<LangmuirWave2D>(mesh, A, mode, Ld);
 
-    Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
-    Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
+    std::shared_ptr<Pdf> vdfi = std::make_shared<Maxwellian>(vth, vd);
+    std::shared_ptr<Pdf> vdfe = std::make_shared<Maxwellian>(vth, vd);
 
-    bool si_units = true;
-    if (!si_units)
-    {
-        create_species.create(-e, me, ne, pdfe, vdfe, npc);
-        create_species.create(e, mi, ne, pdfi, vdfi, npc);
-        eps0 = 1.0;
-    }
-    else
-    {
-        double wpe = sqrt(ne * e * e / (eps0 * me));
-        dt /= wpe;
-        create_species.T = 1;
-        create_species.Q = 1;
-        create_species.M = 1;
-        create_species.X = 1;
+    // LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
+    // UniformPosition pdfi(mesh);             // Ion position distribution
 
-        create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
-        create_species.create_raw(e, mi, ne, pdfi, vdfi, npc);
-    }
+    // Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
+    // Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
 
-    auto species = create_species.species;
+    // bool si_units = true;
+    // if (!si_units)
+    // {
+    //     create_species.create(-e, me, ne, pdfe, vdfe, npc);
+    //     create_species.create(e, mi, ne, pdfi, vdfi, npc);
+    //     eps0 = 1.0;
+    // }
+    // else
+    // {
+    //     double wpe = sqrt(ne * e * e / (eps0 * me));
+    //     dt /= wpe;
+    //     create_species.T = 1;
+    //     create_species.Q = 1;
+    //     create_species.M = 1;
+    //     create_species.X = 1;
+
+    //     create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
+    //     create_species.create_raw(e, mi, ne, pdfi, vdfi, npc);
+    // }
+
+    // auto species = create_species.species;
+
+    species.emplace_back(-e, me, ne, amount, type, mesh, pdfe, vdfe, eps0);
+    species.emplace_back(e, mi, ne, amount, type, mesh, pdfi, vdfi, eps0);
+
+    double Tp = min_plasma_period(species, eps0);
+    double dt = dt_plasma * Tp;
 
     Population<dim> pop(mesh);
     std::vector<std::shared_ptr<Object>> objects = {};
@@ -183,7 +255,9 @@ int main()
     std::cout << " total: " << num3 << '\n';
 
     Gif gif(fname_gif, num3);
-    gif.save(pop);
+    // gif.save(pop);
+
+    save_pop(pop, 0);
 
     std::vector<double> KE(steps-1);
     std::vector<double> PE(steps-1);
@@ -192,18 +266,23 @@ int main()
 
     std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "io"};
     Timer timer(tasks);
-
+    df::File ofiler("Fields/rho.pvd");
+    df::File ofilep("Fields/phi.pvd");
+    double t = 0;
     for (std::size_t i = 1; i < steps; ++i)
     {
         timer.progress(i, steps, 0, override_status_print);
 
         timer.tic("distributor");
-        auto rho = distribute_cg1(V, pop, dv_inv);
+        distribute_cg1(pop, rho, dv_inv);
         timer.toc();
 
         timer.tic("poisson");
         poisson.solve(phi, rho, objects);
         timer.toc();
+
+        ofiler.write(rho, t);
+        // ofilep.write(phi, t);
 
         timer.tic("efield");
         esolver.solve(E, phi);
@@ -226,10 +305,12 @@ int main()
         timer.toc();
 
         timer.tic("io");
-        gif.save(pop);
+        // gif.save(pop);
+        save_pop(pop, i);
         timer.toc();
 
-    }
+        t += dt;
+    }   
 
     if (override_status_print)
     {

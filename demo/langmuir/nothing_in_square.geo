@@ -1,5 +1,5 @@
 l = 1;
-res = l/10.;
+res = l/30.;
 
 // Exterior Boundary
 Point(1) = {0, 0, 0, res};
