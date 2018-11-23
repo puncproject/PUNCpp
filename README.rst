@@ -80,7 +80,7 @@ In addition we recommend the following tools for pre- and post-processing:
 
 Example - 2D Langmuir oscillations
 ----------------------------------
-![](https://drive.google.com/file/d/1TixIgo7LkE1c0osEki8jf_WN-ud-VE-0/view?usp=sharing)
+![](https://drive.google.com/uc?export=view&id=1TixIgo7LkE1c0osEki8jf_WN-ud-VE-0)
 
 The animation above shows a 2D simulation of Langmuir oscillations. Both ions (blue color)
 and electrons (red color) are cold, i.e., have zero thermal speed. While ions are uniformly 
