@@ -78,10 +78,12 @@ In addition we recommend the following tools for pre- and post-processing:
 .. _ParaView: https://www.paraview.org/
 
 
+<!--
 Example - 2D Langmuir oscillations
 ----------------------------------
 ![](https://drive.google.com/uc?export=view&id=1TixIgo7LkE1c0osEki8jf_WN-ud-VE-0)
 
 The animation above shows a 2D simulation of Langmuir oscillations. Both ions (blue color)
 and electrons (red color) are cold, i.e., have zero thermal speed. While ions are uniformly 
-distributed in the simulation domain, the electrons are distributed based on sinusoidal function.  
+distributed in the simulation domain, the electrons are distributed based on sinusoidal function. 
+--> 
