@@ -155,7 +155,7 @@ int main()
     double dt_plasma = 0.01;
     std::size_t steps = 300;
 
-    const char *fname_gif = "gif.xyz";
+    // const char *fname_gif = "gif.xyz";
     std::string fname{"nothing_in_square"};
     Mesh mesh(fname);
 
@@ -185,7 +185,6 @@ int main()
     auto dv_inv = element_volume(V);
 
     double vth = 0.0;
-    // int npc = 4;
     double amount = 50000;
     double ne = 1e10;
 
@@ -195,8 +194,6 @@ int main()
     ParticleAmountType type = ParticleAmountType::in_total;
     type = ParticleAmountType::per_volume;
 
-    // CreateSpecies create_species(mesh, Ld[0]);
-
     double A = 0.5, mode = 1.0;
 
     std::shared_ptr<Pdf> pdfi = std::make_shared<UniformPosition>(mesh);
@@ -204,34 +201,6 @@ int main()
 
     std::shared_ptr<Pdf> vdfi = std::make_shared<Maxwellian>(vth, vd);
     std::shared_ptr<Pdf> vdfe = std::make_shared<Maxwellian>(vth, vd);
-
-    // LangmuirWave2D pdfe(mesh, A, mode, Ld); // Electron position distribution
-    // UniformPosition pdfi(mesh);             // Ion position distribution
-
-    // Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
-    // Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
-
-    // bool si_units = true;
-    // if (!si_units)
-    // {
-    //     create_species.create(-e, me, ne, pdfe, vdfe, npc);
-    //     create_species.create(e, mi, ne, pdfi, vdfi, npc);
-    //     eps0 = 1.0;
-    // }
-    // else
-    // {
-    //     double wpe = sqrt(ne * e * e / (eps0 * me));
-    //     dt /= wpe;
-    //     create_species.T = 1;
-    //     create_species.Q = 1;
-    //     create_species.M = 1;
-    //     create_species.X = 1;
-
-    //     create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
-    //     create_species.create_raw(e, mi, ne, pdfi, vdfi, npc);
-    // }
-
-    // auto species = create_species.species;
 
     species.emplace_back(-e, me, ne, amount, type, mesh, pdfe, vdfe, eps0);
     species.emplace_back(e, mi, ne, amount, type, mesh, pdfi, vdfi, eps0);
@@ -254,7 +223,7 @@ int main()
     std::cout << ", num negatives: " << num2;
     std::cout << " total: " << num3 << '\n';
 
-    Gif gif(fname_gif, num3);
+    // Gif gif(fname_gif, num3);
     // gif.save(pop);
 
     save_pop(pop, 0);
@@ -266,8 +235,8 @@ int main()
 
     std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "io"};
     Timer timer(tasks);
-    df::File ofiler("Fields/rho.pvd");
-    df::File ofilep("Fields/phi.pvd");
+    // df::File ofiler("Fields/rho.pvd");
+    // df::File ofilep("Fields/phi.pvd");
     double t = 0;
     for (std::size_t i = 1; i < steps; ++i)
     {
@@ -281,7 +250,7 @@ int main()
         poisson.solve(phi, rho, objects);
         timer.toc();
 
-        ofiler.write(rho, t);
+        // ofiler.write(rho, t);
         // ofilep.write(phi, t);
 
         timer.tic("efield");
