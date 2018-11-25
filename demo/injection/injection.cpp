@@ -44,10 +44,10 @@ int main()
     type = ParticleAmountType::per_volume;
 
     std::shared_ptr<Pdf> pdf = std::make_shared<UniformPosition>(mesh); // Position distribution
-    // Maxwellian vdf(vthe, vd);  // Maxwellian velocity distribution
-    //Kappa vdf(vthe, vd, 3.0);  // Kappa velocity distribution
-    // Cairns vdf(vthe, vd, 0.2); // Cairns velocity distribution
-    std::shared_ptr<Pdf> vdf = std::make_shared<KappaCairns>(vthe, vd, 4.0, 0.2); // Kappa-Cairns velocity distribution
+    std::shared_ptr<Pdf> vdf = std::make_shared<Maxwellian>(vthe, vd);  // Maxwellian velocity distribution
+    // std::shared_ptr<Pdf> vdf = std::make_shared<Kappa>(vthe, vd, 3.0); // Kappa velocity distribution
+    // std::shared_ptr<Pdf> vdf = std::make_shared<Cairns>(vthe, vd, 0.2); // Cairns velocity distribution
+    // std::shared_ptr<Pdf> vdf = std::make_shared<KappaCairns>(vthe, vd, 4.0, 0.2); // Kappa-Cairns velocity distribution
 
     std::size_t steps = 100;
     double dt_plasma = 0.05;
@@ -56,23 +56,7 @@ int main()
 
     double Tp = min_plasma_period(species, eps0);
     double dt = dt_plasma * Tp;
-    
-    // CreateSpecies create_species(mesh);
 
-    // bool si_units = true;
-    // if (!si_units)
-    // {
-    //     create_species.X = Ld[0];
-    //     create_species.create(-e, me, ne, pdf, vdf, npc);
-    //     eps0 = 1.0;
-    // }
-    // else
-    // {
-    //     dt /= wpe;
-    //     create_species.create_raw(-e, me, ne, pdf, vdf, npc);
-    // }
-
-    // auto species = create_species.species;
     std::cout << "Create flux"<<'\n';
     create_flux(species, mesh.exterior_facets);
     std::cout << "flux is created" << '\n';
