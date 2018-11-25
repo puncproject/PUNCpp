@@ -38,11 +38,11 @@ int main()
 	/***************************************************************************
 	 * PART I: TWO GROUNDED OBJECTS. THE IMPOSED VOLTAGES ARE 1V AND 2V, RESPECTIVELY
 	 **************************************************************************/
-	vector<Source> isources_r;
-	vector<Source> vsources_r;
+	vector<ISource> isources_r;
+	vector<VSource> vsources_r;
 
-	vsources_r.push_back(Source{-1, 0, 1.0});
-	vsources_r.push_back(Source{-1, 1, 2.0});
+	vsources_r.push_back(VSource{-1, 0, 1.0});
+	vsources_r.push_back(VSource{-1, 1, 2.0});
 
 	auto V = CG1_space(mesh);
 	auto W = CG1_vector_space(mesh);
@@ -92,10 +92,10 @@ int main()
 	 **************************************************************************/
 	vector<double> charges = {objects_r[0]->charge, objects_r[1]->charge};
 
-	vector<Source> isources;
-	vector<Source> vsources;
+	vector<ISource> isources;
+	vector<VSource> vsources;
 
-	vsources.push_back(Source{0, 1, 1.0});
+	vsources.push_back(VSource{0, 1, 1.0});
 
 	vector<std::shared_ptr<Object>> objects;
 	std::shared_ptr<Circuit> circuit;
