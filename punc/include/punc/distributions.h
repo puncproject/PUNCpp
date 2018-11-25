@@ -82,7 +82,7 @@ public:
      * @return     the value of the PDF at x
      */
     virtual double
-    operator()(const std::vector<double> &x) = 0;
+    operator()(const double *x) = 0;
 
     /**
      * @brief The PDF of the flux for a given normal vector of a facet
@@ -91,7 +91,7 @@ public:
      * @return     the value of the flux PDF at x
      */
     virtual double 
-    operator()(const std::vector<double> &x, const std::vector<double> &n)
+    operator()(const double *x, const std::vector<double> &n)
     {
         double vn = 0.0;
         for (int i = 0; i < dim; ++i)
@@ -147,10 +147,11 @@ public:
 
     /**
      * @brief Analytical expression for the inverse of the CDF
-     * @param[in]  r  - a vector uniformly distributed random numbers
-     * @return     a vector of generated random velocities
+     * @param[in]  vs  - a vector uniformly distributed random numbers
+     * @param[out]  vs  - a vector velocities randomly generated from the Pdf
+     * @param[in]  N  - number of random velocities to be sampled 
      */
-    virtual std::vector<double> icdf(const std::vector<double> &r) { return {}; }
+    virtual void icdf(double *vs, std::size_t N) { }
 
     /**
      * @brief Number of particles for a given facet with normal vector n and area S
@@ -211,9 +212,9 @@ public:
      * @param[in]  x   - a vector representing a point in the domain
      * @return    1 if the point is within the domain, otherwise 0
      */
-    double operator()(const std::vector<double> &x)
+    double operator()(const double *x)
     {
-        return (locate(_mesh, x.data()) >= 0) * 1.0;
+        return (locate(_mesh, x) >= 0) * 1.0;
     };
 
     double max() { return 1.0; }; ///< Returns the maximum value of the PDF
@@ -239,9 +240,9 @@ public:
                 bool has_flux_num = true, bool has_flux_max = true,
                 double vdf_range = 5.0);
 
-    double operator()(const std::vector<double> &v);
+    double operator()(const double *v);
     double max() { return factor; };
-    std::vector<double> icdf(const std::vector<double> &r);
+    void icdf(double *vs, std::size_t N);
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
     double debye(double m, double q, double n, double eps0);
@@ -273,7 +274,7 @@ public:
           bool has_flux_num = true, bool has_flux_max = true,
           double vdf_range = 7.0);
 
-    double operator()(const std::vector<double> &v);
+    double operator()(const double *v);
     double max() { return factor; }
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
@@ -307,7 +308,7 @@ public:
             bool has_icdf = false, bool has_flux_num = true,
             bool has_flux_max = false, double vdf_range = 7.0);
 
-    double operator()(const std::vector<double> &v);
+    double operator()(const double *v);
     double max();
     double flux_num_particles(const std::vector<double> &n, double S);
     double debye(double m, double q, double n, double eps0);
@@ -344,7 +345,7 @@ public:
                 bool has_icdf = false, bool has_flux_num = false,
                 bool has_flux_max = false, double vdf_range = 15.0);
                 
-    double operator()(const std::vector<double> &v);
+    double operator()(const double *v);
     double max();
     double debye(double m, double q, double n, double eps0);
 };
