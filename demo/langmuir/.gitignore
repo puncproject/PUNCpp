@@ -9,6 +9,9 @@ scatter.py
 particles.txt
 profiling.txt
 *.xyz
+data
+*.gif
+*.ogv
 
 
 
