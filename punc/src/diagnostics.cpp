@@ -88,10 +88,12 @@ void State::save(std::size_t n, double t, const ObjectVector objects)
 }
 
 History::History(const std::string &fname,
-                 ObjectVector objects, 
+                 ObjectVector objects,
                  std::size_t dim,
-                 bool stats, 
-                 bool continue_simulation):dim(dim), stats(stats)
+                 bool stats,
+                 bool continue_simulation,
+                 bool hex_output) 
+                 : dim(dim), stats(stats), hex_output(hex_output)
 {
     if (continue_simulation)
     {

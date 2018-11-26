@@ -32,6 +32,7 @@
 #include <dolfin/fem/DofMap.h>
 
 #include <chrono>
+#include <iostream>
 #include <iomanip>
 
 namespace punc
@@ -114,6 +115,7 @@ class History
 public:
     std::size_t dim;
     bool stats;
+    bool hex_output;
     std::ofstream ofile; ///< std::string - name of the history file
 
     /**
@@ -126,7 +128,8 @@ public:
     History(const std::string &fname,
             ObjectVector objects, 
             std::size_t dim, bool stats,
-            bool continue_simulation = false);
+            bool continue_simulation = false,
+            bool hex_output = false);
 
     /**
      * @brief   History destructor - closes the file 
@@ -156,6 +159,20 @@ template <typename PopulationType>
 void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
                    double PE, ObjectVector objects, PopulationType &pop)
 {
+    /* This part only works with GCC 5.1.0 and above. 
+       Currently we are using GCC 4.8.5.
+       Once the GCC is updated uncomment lines 165-174 and remove lines 176-178   
+    */ 
+    // if (hex_output)
+    // {
+    //     ofile << std::hexfloat;
+    //     ofile << std::uppercase;
+    //     ofile << n << "\t";
+    // } else {
+    //     ofile << n << "\t";
+    //     ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    //     ofile << std::scientific;
+    // }
     ofile << n << "\t";
     ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
     ofile << std::scientific;

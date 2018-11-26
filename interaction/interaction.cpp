@@ -181,6 +181,9 @@ int run(const Options &opt)
     bool binary_population = true;
     opt.get("diagnostics.binary_population", binary_population, true);
 
+    bool hex_history = false;
+    opt.get("diagnostics.hex_history", hex_history, true);
+
     bool statistics_population = true;
     opt.get("diagnostics.statistics_population", statistics_population, true);
 
@@ -197,7 +200,7 @@ int run(const Options &opt)
     ifile_hist.close();
     ifile_pop.close();
 
-    History hist(fname_hist, objects, dim, statistics_population, continue_simulation);
+    History hist(fname_hist, objects, dim, statistics_population, continue_simulation, hex_history);
     State state(fname_state);
     FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
 
@@ -499,6 +502,7 @@ int main(int argc, char **argv){
         ("diagnostics.compute_potential_energy", value(), "Calculate potential energy. Options: true, false (default)")
         ("diagnostics.relaxation_time"         , value(), "Exponential moving average relaxation time for number densities [s]. Disable with 0 (default)")
         ("diagnostics.binary_population"       , value(), "Write population files in binary format. Options: true (default), false")
+        ("diagnostics.hex_history"             , value(), "Write history file in hexadecimal format. Options: false (default), true")
         ("diagnostics.statistics_population"   , value(), "Write population statistics to file. Options: true (default), false")
 
         ("poisson.method"        , value() , "Linear algebra solver. See FEniCS for options. Default depends on object method.")
