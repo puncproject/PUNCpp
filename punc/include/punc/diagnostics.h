@@ -112,6 +112,8 @@ public:
 class History
 {
 public:
+    std::size_t dim;
+    bool stats;
     std::ofstream ofile; ///< std::string - name of the history file
 
     /**
@@ -123,7 +125,8 @@ public:
      */
     History(const std::string &fname,
             ObjectVector objects, 
-            std::size_t dim, bool continue_simulation = false);
+            std::size_t dim, bool stats,
+            bool continue_simulation = false);
 
     /**
      * @brief   History destructor - closes the file 
@@ -140,10 +143,102 @@ public:
      * @param   PE  - total potential energy
      * @param   objects - a vector of objects
      */
+    template <typename PopulationType>
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
-              double PE, ObjectVector objects);
+              double PE, ObjectVector objects, PopulationType &pop);
 
+private:
+    std::size_t m;
+    double v, m_old, m_new, s_old, s_new;
 };
+
+template <typename PopulationType>
+void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
+                   double PE, ObjectVector objects, PopulationType &pop)
+{
+    ofile << n << "\t";
+    ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    ofile << std::scientific;
+    ofile << t << "\t";
+    ofile << num_e << "\t";
+    ofile << num_i << "\t";
+    ofile << KE << "\t";
+    ofile << PE;
+    for (auto o : objects)
+    {
+        ofile << "\t" << o->get_potential() << "\t";
+        ofile << o->current << "\t";
+        ofile << o->charge;
+    }
+    if (stats)
+    {
+        m = 0;
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q < 0)
+                {
+                    m++;
+                    v = 0;
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        v += particle.v[i] * particle.v[i];
+                    }
+                    v = sqrt(v);
+                    if (m == 1)
+                    {
+                        m_old = m_new = v;
+                        s_old = 0.0;
+                    }
+                    else
+                    {
+                        m_new = m_old + (v - m_old) / m;
+                        s_new = s_old + (v - m_old) * (v - m_new);
+
+                        m_old = m_new;
+                        s_old = s_new;
+                    }
+                }
+            }
+        }
+        ofile << "\t" << m_new ;
+        ofile << "\t" << sqrt(s_new / (m - 1.));
+        m = 0;
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q > 0)
+                {
+                    m++;
+                    v = 0;
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        v += particle.v[i] * particle.v[i];
+                    }
+                    v = sqrt(v);
+                    if (m == 1)
+                    {
+                        m_old = m_new = v;
+                        s_old = 0.0;
+                    }
+                    else
+                    {
+                        m_new = m_old + (v - m_old) / m;
+                        s_new = s_old + (v - m_old) * (v - m_new);
+
+                        m_old = m_new;
+                        s_old = s_new;
+                    }
+                }
+            }
+        }
+        ofile << "\t" << m_new;
+        ofile << "\t" << sqrt(s_new / (m - 1.));
+    }
+    ofile << std::endl;
+}
 
 /**
  * @brief Measures time for a given set of tasks
