@@ -403,7 +403,23 @@ class Population
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
-    void statistics(double *stats);         ///< Returns mean speed and standard deviation for each species
+
+    /**
+     * @brief Calculates mean speed and standard deviation for each species 
+     * @param   stats[in, out]   Array containing the mean speed and standard deviation
+     *
+     * Uses Welford's algorithm, see ref. "Note on a method for calculating 
+     * corrected sums of squares and products." Technometrics 4.3 (1962): 419-420,
+     * to calculate the mean speed and standard deviation for each species. The 
+     * elements of the array stats are organized as follows:
+     * 
+     *           stats[0]:  Mean speed for electrons
+     *           stats[1]: Standard deviation for electrons
+     *           stats[2]: Mean speed for ions
+     *           stats[3]: Standard deviation for ions
+     */
+    void statistics(double *stats);        
+    
     /**
      * @brief Save particles to file
      * @param   fname   File name

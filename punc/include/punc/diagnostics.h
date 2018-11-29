@@ -150,10 +150,6 @@ public:
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
               double PE, ObjectVector objects, PopulationType &pop);
 
-private:
-    std::size_t m;
-    double v, m_old, m_new, s_old, s_new;
-    double statistics[4];
 };
 
 template <typename PopulationType>
@@ -190,11 +186,17 @@ void History::save(std::size_t n, double t, double num_e, double num_i, double K
     }
     if (stats)
     {
-        pop.statistics(&statistics[0]);
-        ofile << "\t" << statistics[0];
-        ofile << "\t" << statistics[1];
-        ofile << "\t" << statistics[2];
-        ofile << "\t" << statistics[3];
+        double statistics[4];
+        /* statistics[0]:  Mean speed for electrons
+           statistics[1]: Standard deviation for electrons
+           statistics[2]: Mean speed for ions
+           statistics[3]: Standard deviation for ions
+        */
+        pop.statistics(statistics);
+        ofile << "\t" << statistics[0]; /* Mean speed for electrons*/
+        ofile << "\t" << statistics[1]; /* Standard deviation for electrons*/
+        ofile << "\t" << statistics[2]; /* Mean speed for ions*/
+        ofile << "\t" << statistics[3]; /* Standard deviation for ions*/
     }
     ofile << std::endl;
 }
