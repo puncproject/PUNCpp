@@ -28,7 +28,7 @@ Maxwellian::Maxwellian(double vth, std::vector<double> &vd, bool has_icdf,
     factor = (1.0 / (pow(sqrt(2. * M_PI * vth2), dim)));
 }
 
-double Maxwellian::operator()(const std::vector<double> &v)
+double Maxwellian::operator()(const double *v)
 {
     double v_sqrt = 0.0;
     for (int i = 0; i < dim; ++i)
@@ -38,18 +38,15 @@ double Maxwellian::operator()(const std::vector<double> &v)
     return factor * exp(-0.5 * v_sqrt / vth2);
 }
 
-std::vector<double> Maxwellian::icdf(const std::vector<double> &r)
+void Maxwellian::icdf(double *vs, std::size_t N)
 {
-    std::size_t N = r.size()/dim;
-    std::vector<double> vs(N * dim);
     for (auto j = 0; j < dim; ++j)
     {
         for (std::size_t i = 0; i < N; ++i)
         {
-            vs[i * dim + j] = _vd[j] - sqrt(2.0) * _vth * boost::math::erfc_inv(2 * r[i * dim + j]);
+            vs[i * dim + j] = _vd[j] - sqrt(2.0) * _vth * boost::math::erfc_inv(2 * vs[i * dim + j]);
         }
     }
-    return vs;
 }
 
 double Maxwellian::flux_num_particles(const std::vector<double> &n, double S)
@@ -66,7 +63,7 @@ double Maxwellian::flux_max(std::vector<double> &n)
 {
     auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
 
-    std::vector<double> tmp(dim);
+    double tmp[dim];
     for (auto i = 0; i < dim; ++i)
     {
         tmp[i] = _vd[i] - 0.5 * n[i] * vdn + 0.5 * n[i] * sqrt(4 * vth2 + vdn * vdn);
@@ -74,10 +71,9 @@ double Maxwellian::flux_max(std::vector<double> &n)
     return Pdf::operator()(tmp, n);
 }
 
-double Maxwellian::debye(double m, double n, double eps0)
+double Maxwellian::debye(double m, double q, double n, double eps0)
 {
-    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
-    return sqrt(eps0*m/(n*e*e))*_vth;
+    return sqrt(eps0*m/(n*q*q))*_vth;
 }
 
 Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_icdf,
@@ -101,7 +97,7 @@ Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_icdf,
              (tgamma(k + 1.0) / tgamma(k + ((2.0-dim)/2.0)));
 }
 
-double Kappa::operator()(const std::vector<double> &v)
+double Kappa::operator()(const double *v)
 {
     double v2 = 0.0;
     for (int i = 0; i < dim; ++i)
@@ -123,7 +119,7 @@ double Kappa::flux_num_particles(const std::vector<double> &n, double S)
 
 double Kappa::flux_max(std::vector<double> &n)
 {
-    std::vector<double> tmp(dim);
+    double tmp[dim];
     for (auto i = 0; i < dim; ++i)
     {
         tmp[i] = sqrt( (2.*k-dim)/(2.*k+1.0) )*n[i]*_vth;
@@ -131,11 +127,10 @@ double Kappa::flux_max(std::vector<double> &n)
     return Pdf::operator()(tmp, n);
 }
 
-double Kappa::debye(double m, double n, double eps0)
+double Kappa::debye(double m, double q, double n, double eps0)
 {
-    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
     double B = (k-0.5)/(k-1.5);
-    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
+    return sqrt(eps0 * m / (n * q * q * B)) * _vth;
 }
 
 Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_icdf,
@@ -147,7 +142,7 @@ Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_icdf,
     factor = (1.0 / (pow(sqrt(2 * M_PI * vth2), dim) * (1 + dim * (dim + 2) * alpha)));
 }
 
-double Cairns::operator()(const std::vector<double> &v)
+double Cairns::operator()(const double *v)
 {
     double v2 = 0.0;
     for (int i = 0; i < dim; ++i)
@@ -166,8 +161,11 @@ double Cairns::max()
     }
     else
     {
-        std::vector<double> v_max(dim);
-        v_max = _vd;
+        double v_max[dim];
+        for (int i = 0; i < dim; ++i)
+        {
+            v_max[i] = _vd[i];
+        }
         v_max[0] += _vth * sqrt(2.0 + sqrt(4.0 - 1.0 / alpha));
         double max = (*this)(v_max);
         max = factor > max ? factor : max;
@@ -188,11 +186,10 @@ double Cairns::flux_num_particles(const std::vector<double> &n, double S)
     return num_particles;
 }
 
-double Cairns::debye(double m, double n, double eps0)
+double Cairns::debye(double m, double q, double n, double eps0)
 {
-    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
     double B = (1. + 3. * alpha) / (1. + 15 * alpha);
-    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
+    return sqrt(eps0 * m / (n * q * q * B)) * _vth;
 }
 
 KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
@@ -209,7 +206,7 @@ KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
              (tgamma(k + 1.0) / tgamma(k + ((2.0 - dim) / 2.0)));
 }
 
-double KappaCairns::operator()(const std::vector<double> &v)
+double KappaCairns::operator()(const double *v)
 {
     double v2 = 0.0;
     for (int i = 0; i < dim; ++i)
@@ -223,9 +220,12 @@ double KappaCairns::operator()(const std::vector<double> &v)
 
 double KappaCairns::max()
 {
-    std::vector<double> v_max(dim, 0.0);
     double max;
-    v_max = _vd;
+    double v_max[dim];
+    for (int i = 0; i < dim; ++i)
+    {
+        v_max[i] = _vd[i];
+    }
     if (alpha >= (k - 1.) * (k + 1.) / ((2.*k - dim ) * (2.*k - dim )))
     {
         v_max[0] += _vth * sqrt(((2.0 * k - dim) / (k - 1.0)) +
@@ -238,11 +238,10 @@ double KappaCairns::max()
     return max;
 }
 
-double KappaCairns::debye(double m, double n, double eps0)
+double KappaCairns::debye(double m, double q, double n, double eps0)
 {
-    double e = boost::units::si::constants::codata::e / boost::units::si::coulomb;
     double B = ((k - 0.5) / (k - 1.5)) * ((1. + 3. * alpha * ((k - 1.5) / (k - 0.5))) / (1. + 15 * alpha * ((k - 1.5) / (k - 2.5))));
-    return sqrt(eps0 * m / (n * e * e * B)) * _vth;
+    return sqrt(eps0 * m / (n * q * q * B)) * _vth;
 }
 
 } // namespace punc

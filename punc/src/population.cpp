@@ -40,7 +40,7 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
 
 Species::Species(double charge, double mass, double density, double amount,
                  ParticleAmountType type, const Mesh &mesh,
-                 std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf)
+                 std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf, double eps0)
                 : pdf(pdf), vdf(vdf) {
 
     // NB: Deliberate fall-through
@@ -64,6 +64,8 @@ Species::Species(double charge, double mass, double density, double amount,
     n = density / amount;
 
     num = n * mesh.volume();
+
+    debye = vdf->debye(m, q, n, eps0);
 }
 
 double min_plasma_period(const std::vector<Species> &species, double eps0){

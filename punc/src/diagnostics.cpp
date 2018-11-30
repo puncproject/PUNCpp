@@ -32,26 +32,6 @@
 namespace punc
 {
 
-FieldWriter::FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                         const std::string &rho_fname, const std::string &ne_fname,
-                         const std::string &ni_fname) : ofile_phi(phi_fname),
-                         ofile_E(E_fname), ofile_rho(rho_fname), 
-                         ofile_ne(ne_fname), ofile_ni(ni_fname)
-{
-    // Do nothing
-}
-
-void FieldWriter::save(const df::Function &phi, const df::Function &E, 
-                       const df::Function &rho, const df::Function &ne, 
-                       const df::Function &ni, double t)
-{
-    ofile_phi.write(phi, t);
-    ofile_E.write(E, t);
-    ofile_rho.write(rho, t);
-    ofile_ne.write(ne, t);
-    ofile_ni.write(ni, t);
-}
-
 State::State(std::string fname) : fname(fname)
 {
     // Do nothing
@@ -88,8 +68,12 @@ void State::save(std::size_t n, double t, const ObjectVector objects)
 }
 
 History::History(const std::string &fname,
-                 ObjectVector objects, 
-                 std::size_t dim, bool continue_simulation)
+                 ObjectVector objects,
+                 std::size_t dim,
+                 bool stats,
+                 bool continue_simulation,
+                 bool hex_output) 
+                 : dim(dim), stats(stats), hex_output(hex_output)
 {
     if (continue_simulation)
     {
@@ -107,6 +91,10 @@ History::History(const std::string &fname,
             ofile << "\tI[" << i << "]";
             ofile << "\tQ[" << i << "]";
         }
+        if (stats)
+        {
+            ofile << "\tmean_e\tstdev_e\tmean_i\tstdev_i";
+        }
         ofile << "\n";
 
         ofile << "#:long\ttimestep\ttime\t\"number of electrons\"\t";
@@ -117,6 +105,13 @@ History::History(const std::string &fname,
             ofile << "\tvoltage";
             ofile << "\tcurrent";
             ofile << "\tcharge";
+        }
+        if (stats)
+        {
+            ofile << "\tmean velocity of electrons";
+            ofile << "\tstandard deviation of electron velocities";
+            ofile << "\tmean velocity of ions";
+            ofile << "\tstandard deviation of ion velocities";
         }
         ofile << "\n";
 
@@ -137,28 +132,15 @@ History::History(const std::string &fname,
             }
             ofile << "\tC";
         }
+        if (stats)
+        {
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+        }
         ofile << "\n";
     }
-}
-
-void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
-                   double PE, ObjectVector objects)
-{
-    ofile << n << "\t";
-    ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
-    ofile << std::scientific;
-    ofile << t << "\t";
-    ofile << num_e << "\t";
-    ofile << num_i << "\t";
-    ofile << KE << "\t";
-    ofile << PE;
-    for (auto o : objects)
-    {
-        ofile << "\t" << o->get_potential() << "\t";
-        ofile << o->current << "\t";
-        ofile << o->charge;
-    }
-    ofile << std::endl;
 }
 
 Timer::Timer(std::vector<std::string> tasks) 

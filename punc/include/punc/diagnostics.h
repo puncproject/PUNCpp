@@ -32,48 +32,13 @@
 #include <dolfin/fem/DofMap.h>
 
 #include <chrono>
+#include <iostream>
 #include <iomanip>
 
 namespace punc
 {
 
 namespace df = dolfin;
-
-/**
- * @brief Writes plasma fields to file
- */
-class FieldWriter
-{
-public:
-    df::File ofile_phi;   ///< df::File for electric potential
-    df::File ofile_E;     ///< df::File for electric field
-    df::File ofile_rho;   ///< df::File for total charge density
-    df::File ofile_ne;    ///< df::File for volumetric number density
-    df::File ofile_ni;   ///< df::File for volumetric number density
-
-    /**
-     * @brief   Constructor 
-     * @param   phi_fname - file name for phi
-     * @param   E_fname   - file name for E
-     * @param   rho_fname - file name for rho
-     * @param   ne_fname  - file name for ne
-     * @param   ni_fname  - file name for ni
-     */
-    FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                const std::string &rho_fname, const std::string &ne_fname,
-                const std::string &ni_fname);
-    /**
-     * @brief   Writes to file 
-     * @param   phi - electric potential
-     * @param   E   - electric field
-     * @param   rho - total charge density
-     * @param   ne  - volumetric electron number density
-     * @param   ni  - volumetric ion number density
-     */
-    void save(const df::Function &phi, const df::Function &E,
-              const df::Function &rho, const df::Function &ne,
-              const df::Function &ni, double t);
-};
 
 /**
  * @brief Saves and loads the state of simulation and objects
@@ -112,6 +77,9 @@ public:
 class History
 {
 public:
+    std::size_t dim;
+    bool stats;
+    bool hex_output;
     std::ofstream ofile; ///< std::string - name of the history file
 
     /**
@@ -123,7 +91,9 @@ public:
      */
     History(const std::string &fname,
             ObjectVector objects, 
-            std::size_t dim, bool continue_simulation = false);
+            std::size_t dim, bool stats,
+            bool continue_simulation = false,
+            bool hex_output = false);
 
     /**
      * @brief   History destructor - closes the file 
@@ -140,10 +110,60 @@ public:
      * @param   PE  - total potential energy
      * @param   objects - a vector of objects
      */
+    template <typename PopulationType>
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
-              double PE, ObjectVector objects);
+              double PE, ObjectVector objects, PopulationType &pop);
 
 };
+
+template <typename PopulationType>
+void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
+                   double PE, ObjectVector objects, PopulationType &pop)
+{
+    /* This part only works with GCC 5.1.0 and above. 
+       Currently we are using GCC 4.8.5.
+       Once the GCC is updated uncomment lines 165-174 and remove lines 176-178   
+    */ 
+    // if (hex_output)
+    // {
+    //     ofile << std::hexfloat;
+    //     ofile << std::uppercase;
+    //     ofile << n << "\t";
+    // } else {
+    //     ofile << n << "\t";
+    //     ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    //     ofile << std::scientific;
+    // }
+    ofile << n << "\t";
+    ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    ofile << std::scientific;
+    ofile << t << "\t";
+    ofile << num_e << "\t";
+    ofile << num_i << "\t";
+    ofile << KE << "\t";
+    ofile << PE;
+    for (auto o : objects)
+    {
+        ofile << "\t" << o->get_potential() << "\t";
+        ofile << o->current << "\t";
+        ofile << o->charge;
+    }
+    if (stats)
+    {
+        double statistics[4];
+        /* statistics[0]:  Mean speed for electrons
+           statistics[1]: Standard deviation for electrons
+           statistics[2]: Mean speed for ions
+           statistics[3]: Standard deviation for ions
+        */
+        pop.statistics(statistics);
+        ofile << "\t" << statistics[0]; /* Mean speed for electrons*/
+        ofile << "\t" << statistics[1]; /* Standard deviation for electrons*/
+        ofile << "\t" << statistics[2]; /* Mean speed for ions*/
+        ofile << "\t" << statistics[3]; /* Standard deviation for ions*/
+    }
+    ofile << std::endl;
+}
 
 /**
  * @brief Measures time for a given set of tasks

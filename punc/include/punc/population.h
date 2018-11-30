@@ -130,7 +130,7 @@ public:
     size_t num;                ///< Initial number of simulation particles
     std::shared_ptr<Pdf> pdf;  ///< Position distribution function (initially)
     std::shared_ptr<Pdf> vdf;  ///< Velocity distribution function (initially and at boundary)
-
+    double debye;              ///< The Debye length 
     /**
      * @brief Constructor
      * @param   charge  Charge of physical particle
@@ -144,7 +144,7 @@ public:
      */
     Species(double charge, double mass, double density, double amount,
             ParticleAmountType type, const Mesh &mesh,
-            std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf);
+            std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf, double eps0);
 };
 
 /**
@@ -404,6 +404,22 @@ class Population
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
 
+    /**
+     * @brief Calculates mean speed and standard deviation for each species 
+     * @param   stats[in, out]   Array containing the mean speed and standard deviation
+     *
+     * Uses Welford's algorithm, see ref. "Note on a method for calculating 
+     * corrected sums of squares and products." Technometrics 4.3 (1962): 419-420,
+     * to calculate the mean speed and standard deviation for each species. The 
+     * elements of the array stats are organized as follows:
+     * 
+     *           stats[0]:  Mean speed for electrons
+     *           stats[1]: Standard deviation for electrons
+     *           stats[2]: Mean speed for ions
+     *           stats[3]: Standard deviation for ions
+     */
+    void statistics(double *stats);        
+    
     /**
      * @brief Save particles to file
      * @param   fname   File name
@@ -732,6 +748,67 @@ std::size_t Population<len>::num_of_negatives()
         }
     }
     return num_negatives;
+}
+
+template <std::size_t len>
+void Population<len>::statistics(double *stats)
+{
+    std::size_t m = 0;
+    std::size_t n = 0;
+    double v;
+    double m_e_old = 0;
+    double m_i_old = 0;
+
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            v = 0;
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                v += particle.v[i] * particle.v[i];
+            }
+            v = sqrt(v);
+
+            if (particle.q < 0)
+            {
+                m++;
+                if (m == 1)
+                {
+                    m_e_old = v; 
+                    stats[0] = v;
+                    stats[1] = 0.0;
+                }
+                else
+                {
+                    stats[0] = m_e_old + (v - m_e_old) / m;
+                    stats[1] += (v - m_e_old) * (v - stats[0]);
+
+                    m_e_old = stats[0];
+                }
+            }
+            if (particle.q > 0)
+            {
+                n++;
+                if (n == 1)
+                {
+                    m_i_old = v; 
+                    stats[2] = v;
+                    stats[3] = 0.0;
+                }
+                else
+                {
+                    stats[2] = m_i_old + (v - m_i_old) / n;
+                    stats[3] += (v - m_i_old) * (v - stats[2]);
+
+                    m_i_old = stats[2];
+                }
+            }
+        }
+    }
+
+    if (m > 0) stats[1] = sqrt(stats[1] / (m - 1));
+    if (n > 0) stats[3] = sqrt(stats[3] / (n - 1));
 }
 
 template <std::size_t len>
