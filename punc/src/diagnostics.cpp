@@ -32,26 +32,6 @@
 namespace punc
 {
 
-FieldWriter::FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                         const std::string &rho_fname, const std::string &ne_fname,
-                         const std::string &ni_fname) : ofile_phi(phi_fname),
-                         ofile_E(E_fname), ofile_rho(rho_fname), 
-                         ofile_ne(ne_fname), ofile_ni(ni_fname)
-{
-    // Do nothing
-}
-
-void FieldWriter::save(const df::Function &phi, const df::Function &E, 
-                       const df::Function &rho, const df::Function &ne, 
-                       const df::Function &ni, double t)
-{
-    ofile_phi.write(phi, t);
-    ofile_E.write(E, t);
-    ofile_rho.write(rho, t);
-    ofile_ne.write(ne, t);
-    ofile_ni.write(ni, t);
-}
-
 State::State(std::string fname) : fname(fname)
 {
     // Do nothing

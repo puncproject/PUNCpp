@@ -42,7 +42,7 @@ const char* fname_hist  = "history.dat";
 const char* fname_state = "state.dat";
 const char* fname_pop   = "population.dat";
 const bool override_status_print = true;
-const double tol = 1e-10;
+const double tol = 1e-14;
 
 bool exit_immediately = true;
 void signal_handler(int signum){
@@ -54,6 +54,20 @@ void signal_handler(int signum){
         cout << "Press Ctrl+C again to force quit." << endl;
         exit_immediately = true;
     }
+}
+
+/**
+ * @brief Returns true in times being an integer multiple of a period
+ * @param   T   The period. Should be non-negative.
+ * @param   t   Time of the current time-step
+ * @param   dt  The timestep, or resolution of t
+ *
+ * The function takes into account that t occur with a finite resolution
+ * (time-step) dt. Always returns false for T=0.
+ */
+inline bool time_is_now(double T, double t, double dt){
+    t = fmod(t, T);
+    return T>tol && t>=0 && t<dt*(1+tol);
 }
 
 template <size_t dim>
@@ -80,15 +94,16 @@ int run(const Options &opt)
     auto dv_inv = element_volume(V);
 
     // The electric potential and electric field
-    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
     df::Function rho(std::make_shared<const df::FunctionSpace>(V));
     df::Function E(std::make_shared<const df::FunctionSpace>(W));
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function rho_ema(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E_ema(std::make_shared<const df::FunctionSpace>(W));
+    df::Function phi_ema(std::make_shared<const df::FunctionSpace>(V));
 
     // Electron and ion number densities
     df::Function ne(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni(std::make_shared<const df::FunctionSpace>(V));
-
-    // Exponential moving average of number densities
     df::Function ne_ema(std::make_shared<const df::FunctionSpace>(V));
     df::Function ni_ema(std::make_shared<const df::FunctionSpace>(V));
 
@@ -163,18 +178,6 @@ int run(const Options &opt)
      **************************************************************************/
     cout << "Setup diagnostics" << endl;
 
-    double relaxation_time = 0;
-    opt.get("diagnostics.relaxation_time", relaxation_time, true);
-
-    size_t save_fields_n = 0;
-    opt.get("diagnostics.save_fields_n", save_fields_n, true);
-
-    bool save_fields_end = true;
-    opt.get("diagnostics.save_fields_end", save_fields_end, true);
-
-    bool save_state_end = true;
-    opt.get("diagnostics.save_state_end", save_state_end, true);
-
     bool compute_potential_energy = false;
     opt.get("diagnostics.compute_potential_energy", compute_potential_energy, true);
 
@@ -184,8 +187,31 @@ int run(const Options &opt)
     bool hex_history = false;
     opt.get("diagnostics.hex_history", hex_history, true);
 
-    bool statistics_population = true;
+    bool statistics_population = false;
     opt.get("diagnostics.statistics_population", statistics_population, true);
+
+    bool save_state_on_exit = true;
+    opt.get("diagnostics.save_state_on_exit", save_state_on_exit, true);
+
+    bool save_fields_on_exit = true;
+    opt.get("diagnostics.save_fields_on_exit", save_fields_on_exit, true);
+
+    double period_n=0, period_rho=0, period_E=0, period_phi=0;
+    opt.get("diagnostics.period_n"  , period_n  , true);
+    opt.get("diagnostics.period_rho", period_rho, true);
+    opt.get("diagnostics.period_E"  , period_E  , true);
+    opt.get("diagnostics.period_phi", period_phi, true);
+
+    double tau_n=0, tau_rho=0, tau_E=0, tau_phi=0;
+    opt.get("diagnostics.tau_n"  , tau_n  , true);
+    opt.get("diagnostics.tau_rho", tau_rho, true);
+    opt.get("diagnostics.tau_E"  , tau_E  , true);
+    opt.get("diagnostics.tau_phi", tau_phi, true);
+
+    bool filter_n   = fabs(tau_n)>tol;
+    bool filter_rho = fabs(tau_rho)>tol;
+    bool filter_E   = fabs(tau_E)>tol;
+    bool filter_phi = fabs(tau_phi)>tol;
 
     ifstream ifile_state(fname_state);
     ifstream ifile_hist(fname_hist);
@@ -202,7 +228,17 @@ int run(const Options &opt)
 
     History hist(fname_hist, objects, dim, statistics_population, continue_simulation, hex_history);
     State state(fname_state);
-    FieldWriter fields("Fields/phi.pvd", "Fields/E.pvd", "Fields/rho.pvd", "Fields/ne.pvd", "Fields/ni.pvd");
+
+    df::File file_E      ("fields/E.pvd");
+    df::File file_phi    ("fields/phi.pvd");
+    df::File file_rho    ("fields/rho.pvd");
+    df::File file_ni     ("fields/ni.pvd");
+    df::File file_ne     ("fields/ne.pvd");
+    df::File file_E_ema  ("fields/E_ema.pvd");
+    df::File file_phi_ema("fields/phi_ema.pvd");
+    df::File file_rho_ema("fields/rho_ema.pvd");
+    df::File file_ni_ema ("fields/ni_ema.pvd");
+    df::File file_ne_ema ("fields/ne_ema.pvd");
 
     /***************************************************************************
      * SETUP PARTICLES
@@ -373,56 +409,64 @@ int run(const Options &opt)
         inject_particles(pop, species, mesh.exterior_facets, dt);
         timer.toc();
 
-        // AVERAGING
+        // AVERAGE AND SAVE FIELDS (rho, phi, E)
         timer.tic("io");
-        if (fabs(relaxation_time)>tol)
-        {
+
+        bool exit_now = exit_immediately || n==steps;
+        bool save_fields_now = exit_now && save_fields_on_exit;
+
+        if(filter_E)   ema(E, E_ema, dt, tau_E);
+        if(filter_rho) ema(rho, rho_ema, dt, tau_rho);
+        if(filter_phi) ema(phi, phi_ema, dt, tau_phi);
+
+        if(time_is_now(period_E, t, dt) || save_fields_now){
+            file_E.write(E, t);
+            if(filter_E) file_E_ema.write(E_ema, t);
+        }
+
+        if(time_is_now(period_rho, t, dt) || save_fields_now){
+            file_rho.write(rho, t);
+            if(filter_rho) file_rho_ema.write(rho_ema, t);
+        }
+
+        if(time_is_now(period_phi, t, dt) || save_fields_now){
+            file_phi.write(phi, t);
+            if(filter_phi) file_phi_ema.write(phi_ema, t);
+        }
+
+        // COMPUTE, AVERAGE AND SAVE DENSITIES (ne, ni)
+        bool save_n_now = time_is_now(period_n, t, dt) || save_fields_now;
+
+        if(filter_n || save_n_now){
             density_cg1(V, pop, ne, ni, dv_inv);
-            ema(ne, ne_ema, dt, relaxation_time);
-            ema(ni, ni_ema, dt, relaxation_time);
-            if(save_fields_n !=0 && n%save_fields_n == 0){
-                fields.save(phi, E, rho, ne_ema, ni_ema, t);
+        }
+
+        if(filter_n){
+            ema(ne, ne_ema, dt, tau_n);
+            ema(ni, ni_ema, dt, tau_n);
+        }
+
+        if(save_n_now){
+            file_ne.write(ne, t);
+            file_ni.write(ni, t);
+            if(filter_n){
+                file_ni_ema.write(ni_ema, t);
+                file_ne_ema.write(ne_ema, t);
             }
         }
-        else if (save_fields_n !=0 && n%save_fields_n == 0)
-        {
-            density_cg1(V, pop, ne, ni, dv_inv);
-            fields.save(phi, E, rho, ne, ni, t);
-        } 
-        // SAVE STATE AND BREAK LOOP
-        if(exit_immediately || n==steps)
-        {
-            // SAVE FIELDS
-            if (save_fields_end)
-            {
-                if (fabs(relaxation_time))
-                {
-                    fields.save(phi, E, rho, ne_ema, ni_ema, t);
-                }
-                else
-                {
-                    density_cg1(V, pop, ne, ni, dv_inv);
-                    fields.save(phi, E, rho, ne, ni, t);
-                }
-            }
-            // SAVE POPULATION AND STATE
-            if (save_state_end)
-            {
-                pop.save_file(fname_pop, binary_population);
-                state.save(n, t, objects);
-            }
-            break;
+
+        // SAVE STATE
+        if(exit_now && save_state_on_exit){
+            pop.save_file(fname_pop, binary_population);
+            state.save(n, t, objects);
         }
+
         timer.toc();
 
-        if (exit_immediately)
-        {
-            timer.summary();
-        }
+        if(exit_now) break;
     }
-    if(override_status_print) cout << endl;
 
-    // Print a summary of tasks
+    if(override_status_print) cout << endl;
     timer.summary();
     cout << "PUNC++ finished successfully!" << endl;
     return 0;
@@ -496,14 +540,20 @@ int main(int argc, char **argv){
         ("objects.vsource", value(), "Voltage source between objects a and b. Syntax: object_a object_b value [V]")
         ("objects.isource", value(), "Current source between objects a and b. Syntax: object_a object_b value [I]")
 
-        ("diagnostics.save_fields_n"           , value(), "Write fields to file every nth time-step. Disable with 0 (default)")
-        ("diagnostics.save_fields_end"         , value(), "Write fields to file after simulation. Options: true, false (default)")
-        ("diagnostics.save_state_end"          , value(), "Write population and state to file after simulation. Options: true (default), false")
+        ("diagnostics.period_n"                , value(), "Save number densities with a given physical period [s]. Disable with 0 (default)")
+        ("diagnostics.period_rho"              , value(), "Save charge density with a given physical period [s]. Disable with 0 (default)")
+        ("diagnostics.period_E"                , value(), "Save electric field with a given physical period [s]. Disable with 0 (default)")
+        ("diagnostics.period_phi"              , value(), "Save potential with a given physical period [s]. Disable with 0 (default)")
+        ("diagnostics.tau_n"                   , value(), "Filter number densities with given relaxation time [s]. Disable with 0 (default)")
+        ("diagnostics.tau_rho"                 , value(), "Filter charge density with given relaxation time [s]. Disable with 0 (default)")
+        ("diagnostics.tau_E"                   , value(), "Filter electric field with given relaxation time [s]. Disable with 0 (default)")
+        ("diagnostics.tau_phi"                 , value(), "Filter potential with given relaxation time [s]. Disable with 0 (default)")
+        ("diagnostics.save_fields_on_exit"     , value(), "Save fields after simulation. Options: true (default), false")
+        ("diagnostics.save_state_on_exit"      , value(), "Save state (needed for restart) after simulation. Options: true (default), false")
         ("diagnostics.compute_potential_energy", value(), "Calculate potential energy. Options: true, false (default)")
-        ("diagnostics.relaxation_time"         , value(), "Exponential moving average relaxation time for number densities [s]. Disable with 0 (default)")
         ("diagnostics.binary_population"       , value(), "Write population files in binary format. Options: true (default), false")
-        ("diagnostics.hex_history"             , value(), "Write history file in hexadecimal format. Options: false (default), true")
-        ("diagnostics.statistics_population"   , value(), "Write population statistics to file. Options: true (default), false")
+        ("diagnostics.hex_history"             , value(), "Write history file in hexadecimal format. Options: true, false (default)")
+        ("diagnostics.statistics_population"   , value(), "Write population statistics to file. Options: true, false (default)")
 
         ("poisson.method"        , value() , "Linear algebra solver. See FEniCS for options. Default depends on object method.")
         ("poisson.preconditioner", value() , "Linear algebra preconditioner. See FEniCS for options. Default depends on object method.")

@@ -41,42 +41,6 @@ namespace punc
 namespace df = dolfin;
 
 /**
- * @brief Writes plasma fields to file
- */
-class FieldWriter
-{
-public:
-    df::File ofile_phi;   ///< df::File for electric potential
-    df::File ofile_E;     ///< df::File for electric field
-    df::File ofile_rho;   ///< df::File for total charge density
-    df::File ofile_ne;    ///< df::File for volumetric number density
-    df::File ofile_ni;   ///< df::File for volumetric number density
-
-    /**
-     * @brief   Constructor 
-     * @param   phi_fname - file name for phi
-     * @param   E_fname   - file name for E
-     * @param   rho_fname - file name for rho
-     * @param   ne_fname  - file name for ne
-     * @param   ni_fname  - file name for ni
-     */
-    FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                const std::string &rho_fname, const std::string &ne_fname,
-                const std::string &ni_fname);
-    /**
-     * @brief   Writes to file 
-     * @param   phi - electric potential
-     * @param   E   - electric field
-     * @param   rho - total charge density
-     * @param   ne  - volumetric electron number density
-     * @param   ni  - volumetric ion number density
-     */
-    void save(const df::Function &phi, const df::Function &E,
-              const df::Function &rho, const df::Function &ne,
-              const df::Function &ni, double t);
-};
-
-/**
  * @brief Saves and loads the state of simulation and objects
  */
 class State 
