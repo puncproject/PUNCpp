@@ -414,22 +414,29 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
  * @brief                 Volumetric number density in DG0
  * @param[in]   Q         FunctionSpace DG0
  * @param       pop       Population
- * @param      ne, ni     Function - the volumetric number densities
+ * @param       species   a vector of species 
+ * @param       ne, ni    Function - the volumetric number densities
  * @see density_cg1
  * 
  * Calculates the volumetric number density in \f$\mathrm{DG}_0\f$ function 
  * space. The number density in each cell \f$T_k\f$, is simply calculated by 
- * adding together the number of particles of each species, s, inside the cell, 
- * and then dividing the total number inside the cell by the volume of the cell:
+ * adding together the number of physical particles \f$w_s\f$ of each species, s, 
+ * inside the cell, and then dividing the total number inside the cell by the 
+ * volume of the cell:
  * 
  * \f[
- *       n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} 1,
+ *       n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} w_s,
  * \f]
  */
 template <typename PopulationType>
 void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
+                 const std::vector<Species> &species,
                  df::Function &ne, df::Function &ni)
 {
+    // Statistical weight of electrons and ions (number of physical particles per simulation particle) 
+    auto weight_e = species[0].weight;
+    auto weight_i = species[1].weight;
+
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
 
@@ -445,9 +452,9 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
         for (auto &particle : cell.particles)
         {
             if (particle.q>0){
-                accum_i += 1;
+                accum_i += weight_i;
             }else{
-                accum_e += 1;
+                accum_e += weight_e;
             }
         }
         ne0[dof_id[0]] = accum_e / cell.volume();
@@ -461,30 +468,36 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
  * @brief                 Volumetric number density in CG1
  * @param[in]   V         FunctionSpace CG1
  * @param       pop       Population
- * @param       ne, ni     Function - the volumetric number densities
+ * @param       species   a vector of species
+ * @param       ne, ni    Function - the volumetric number densities
  * @param       dv_inv    Vector containing the volumes of each element (e.g. Voronoi cell)
  * @see density_dg0()
  * 
- * Calculates the volumetric number density in \f$\mathrm{CG}_1\f$ function 
- * space. The number density at each mesh vertex \f$\mathbf{x}_j\f$, is 
+ * Calculates the volumetric number density for each species in \f$\mathrm{CG}_1\f$ 
+ * function space. The number density at each mesh vertex \f$\mathbf{x}_j\f$, is 
  * calculated by interpolating the number of particles inside all the cells 
  * sharing vertex \f$\mathbf{x}_j\f$, i.e. the patch \f$\mathcal{M}_j\f$. The
  * interpolation is done by evaluating the \f$\mathrm{CG}_1\f$ basis 
  * function \f$\psi_j\f$, at the particle position \f$\mathbf{x}_{p}\f$. The 
  * interpolated number at each mesh vertex is divided by a proper volume 
- * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to obtain the 
- * volumetric number density for each species s: 
+ * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$ and multiplied by the 
+ * statistical weight \f$w_s\f$, to obtain the volumetric number density for species s: 
  * 
  * \f[
- *       n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}).
+ *       n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}) w_s.
  * \f]
  */
 
 template <typename PopulationType>
 void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
-                 df::Function &ne, df::Function &ni, 
+                 const std::vector<Species> &species,
+                 df::Function &ne, df::Function &ni,
                  const std::vector<double> &dv_inv)
 {
+    // Statistical weight of electrons and ions (number of physical particles per simulation particle)
+    auto weight_e = species[0].weight;
+    auto weight_i = species[1].weight;
+
     auto mesh = V.mesh();
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
@@ -531,8 +544,8 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
     }
     for (std::size_t i = 0; i < ne_vec->size(); ++i)
     {
-        ne0[i] *= dv_inv[i];
-        ni0[i] *= dv_inv[i];
+        ne0[i] *= dv_inv[i] * weight_e;
+        ni0[i] *= dv_inv[i] * weight_i;
     }
     ne.vector()->set_local(ne0);
     ni.vector()->set_local(ni0);

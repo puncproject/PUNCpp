@@ -130,7 +130,9 @@ public:
     size_t num;                ///< Initial number of simulation particles
     std::shared_ptr<Pdf> pdf;  ///< Position distribution function (initially)
     std::shared_ptr<Pdf> vdf;  ///< Velocity distribution function (initially and at boundary)
-    double debye;              ///< The Debye length 
+    double debye;              ///< The Debye length
+    double weight;             ///< Statistical weight (number of physical particles per simulation particle)
+    
     /**
      * @brief Constructor
      * @param   charge  Charge of physical particle
