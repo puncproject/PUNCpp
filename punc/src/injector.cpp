@@ -16,505 +16,34 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/injector.h"
-#include "../ufl/Number.h"
 
 namespace punc
 {
 
 typedef std::uniform_real_distribution<double> rand_uniform;
-typedef std::vector<std::uniform_real_distribution<double>> rand_uniform_vec;
 
-std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
-                                       std::size_t ext_bnd_id)
-{
-    auto mesh = boundaries.mesh();
-    auto g_dim = mesh->geometry().dim();
-    auto t_dim = mesh->topology().dim();
-    auto values = boundaries.values();
-    auto length = boundaries.size();
-    int num_facets = 0;
-    for (std::size_t i = 0; i < length; ++i)
-    {
-        if (ext_bnd_id == values[i])
-        {
-            num_facets += 1;
-        }
-    }
-    std::vector<Facet> ext_facets;
- 
-    double area = 0.0;
-    std::vector<double> normal(g_dim);
-    std::vector<double> vertices(g_dim * g_dim);
-    std::vector<double> basis(g_dim * g_dim);
-    std::vector<double> vertex(g_dim);
-    double norm;
-    int j;
-    mesh->init(t_dim - 1, t_dim);
-    df::SubsetIterator facet_iter(boundaries, ext_bnd_id);
-    for (; !facet_iter.end(); ++facet_iter)
-    {
-        df::Cell cell(*mesh, facet_iter->entities(t_dim)[0]);
-        auto cell_facet = cell.entities(t_dim - 1);
-        std::size_t num_facets = cell.num_entities(t_dim - 1);
-        for (std::size_t i = 0; i < num_facets; ++i)
-        {
-            if (cell_facet[i] == facet_iter->index())
-            {
-                area = cell.facet_area(i);
-                for (std::size_t j = 0; j < g_dim; ++j)
-                {
-                    normal[j] = -1 * cell.normal(i, j);
-                    basis[j * g_dim] = normal[j];
-                }
-            }
-        }
-        assert(area != 0.0 && "The facet area cannot be zero!");
-
-        j = 0;
-        for (df::VertexIterator v(*facet_iter); !v.end(); ++v)
-        {
-            for (std::size_t i = 0; i < g_dim; ++i)
-            {
-                vertices[j * g_dim + i] = v->x(i);
-            }
-            j += 1;
-        }
-        norm = 0.0;
-        for (std::size_t i = 0; i < g_dim; ++i)
-        {
-            vertex[i] = vertices[i] - vertices[g_dim + i];
-            norm += vertex[i] * vertex[i];
-        }
-        for (std::size_t i = 0; i < g_dim; ++i)
-        {
-            vertex[i] /= sqrt(norm);
-            basis[i * g_dim + 1] = vertex[i];
-        }
-
-        if (g_dim == 3)
-        {
-            basis[2] = normal[1] * vertex[2] - normal[2] * vertex[1];
-            basis[5] = normal[2] * vertex[0] - normal[0] * vertex[2];
-            basis[8] = normal[0] * vertex[1] - normal[1] * vertex[0];
-        }
-        ext_facets.push_back(Facet{area, vertices, normal, basis});
-    }
-    return ext_facets;
-}
-
-Maxwellian::Maxwellian(double vth, std::vector<double> &vd, bool has_cdf,
-                       bool has_flux_num, bool has_flux_max, double vdf_range) 
-                       : _vth(vth), _vd(vd), _dim(vd.size()), _has_cdf(has_cdf),
-                       _has_flux_number(has_flux_num), _has_flux_max(has_flux_max)
-{
-    if (_vth == 0.0)
-    {
-        _vth = std::numeric_limits<double>::epsilon();
-        vdf_range = 1.0;
-    }
-    _domain.resize(2 * _dim);
-    _n.resize(_dim);
-    for (int i = 0; i < _dim; ++i)
-    {
-        _domain[i]        = _vd[i] - vdf_range * _vth;
-        _domain[i + _dim] = _vd[i] + vdf_range * _vth;
-        _n[i] = 1.0;
-    }
-    vth2 = _vth * _vth;
-    factor = (1.0 / (pow(sqrt(2. * M_PI * vth2), _dim)));
-}
-
-double Maxwellian::operator()(const std::vector<double> &v)
-{
-    double v_sqrt = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v_sqrt += (v[i] - _vd[i]) * (v[i] - _vd[i]);
-    }
-    return factor * exp(-0.5 * v_sqrt / vth2);
-}
-
-double Maxwellian::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
-}
-
-std::vector<double> Maxwellian::cdf(const std::size_t N)
-{
-    std::mt19937_64 rng(random_seed_seq::get_instance());
-    rand_uniform rand(0.0, 1.0);
-
-    double r;
-    std::vector<double> vs(N * _dim);
-    for (auto j = 0; j < _dim; ++j)
-    {
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            r = rand(rng);
-            vs[i * _dim + j] = _vd[j] - sqrt(2.0) * _vth * boost::math::erfc_inv(2 * r);
-        }
-    }
-    return vs;
-}
-
-void Maxwellian::eval(df::Array<double> &values, const df::Array<double> &x) const
-{
-    double vn, v_sqrt = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v_sqrt += (x[i] - _vd[i]) * (x[i] - _vd[i]);
-    }
-    if (has_flux)
-    {
-        vn = 0.0;
-        for (int i = 0; i < _dim; ++i)
-        {
-            vn += x[i] * _n[i];
-        }
-    }else{
-        vn = 1.0;
-    }
-    values[0] = vn * factor * exp(-0.5 * v_sqrt / vth2)*(vn>0);
-}
-
-double Maxwellian::flux_num_particles(const std::vector<double> &n, double S)
-{
-    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
-
-    auto num_particles = S * (_vth / (sqrt(2 * M_PI)) *
-                                  exp(-0.5 * (vdn / _vth) * (vdn / _vth)) +
-                              0.5 * vdn * (1. + erf(vdn / (sqrt(2) * _vth))));
-    return num_particles;
-}
-
-double Maxwellian::flux_max(std::vector<double> &n)
-{
-    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
-
-    std::vector<double> tmp(_dim);
-    for (auto i = 0; i < _dim; ++i)
-    {
-        tmp[i] = _vd[i] - 0.5 * n[i] * vdn + 0.5 * n[i] * sqrt(4 * vth2 + vdn * vdn);
-    }
-    return this->operator()(tmp, n);
-}
-
-Kappa::Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf,
-             bool has_flux_num, bool has_flux_max, double vdf_range)
-    : _vth(vth), _vd(vd), k(k), _dim(vd.size()), _has_cdf(has_cdf),
-      _has_flux_number(has_flux_num), _has_flux_max(has_flux_max)
-{
-    assert(k > 1.5 && "kappa must be bigger than 3/2");
-    if (_vth == 0.0)
-    {
-        _vth = std::numeric_limits<double>::epsilon();
-        vdf_range = 1.0;
-    }
-
-    auto sum_vd = std::accumulate(vd.begin(), vd.end(), 0);
-    if (sum_vd == 0)
-    {
-        _has_flux_number = true;
-    }
-    else
-    {
-        _has_flux_number = false;
-    }
-
-    _domain.resize(2 * _dim);
-    for (int i = 0; i < _dim; ++i)
-    {
-        _domain[i]        = _vd[i] - vdf_range * _vth;
-        _domain[i + _dim] = _vd[i] + vdf_range * _vth;
-    }
-    vth2 = _vth * _vth;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - _dim) * vth2), _dim)) *
-             (tgamma(k + 1.0) / tgamma(k + ((2.0-_dim)/2.0)));
-}
-
-double Kappa::operator()(const std::vector<double> &v)
-{
-    double v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
-    }
-    return factor * pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
-}
-
-double Kappa::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
-}
-
-void Kappa::eval(df::Array<double> &values, const df::Array<double> &x) const
-{
-    double vn, v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
-    }
-    if (has_flux)
-    {
-        vn = 0.0;
-        for (int i = 0; i < _dim; ++i)
-        {
-            vn += x[i] * _n[i];
-        }
-    }
-    else
-    {
-        vn = 1.0;
-    }
-    values[0] = vn * (vn > 0) * factor *
-                pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
-}
-
-/* Number of particles for the case without any drift. */
-double Kappa::flux_num_particles(const std::vector<double> &n, double S)
-{
-    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) *
-                              (1.0/sqrt(k - _dim/2.0)) * 
-                              (tgamma(k - ((_dim-1.0)/2.0) ) / 
-                               tgamma(k - _dim/2.0)));
-    return num_particles;
-}
-
-double Kappa::flux_max(std::vector<double> &n)
-{
-    std::vector<double> tmp(_dim);
-    for (auto i = 0; i < _dim; ++i)
-    {
-        tmp[i] = sqrt( (2.*k-_dim)/(2.*k+1.0) )*n[i]*_vth;
-    }
-    return this->operator()(tmp, n);
-}
-
-Cairns::Cairns(double vth, std::vector<double> &vd, double alpha, bool has_cdf, 
-               bool has_flux_num, bool has_flux_max, double vdf_range)
-    : _vth(vth), _vd(vd), alpha(alpha), _dim(vd.size()), _has_cdf(has_cdf),
-      _has_flux_number(has_flux_num), _has_flux_max(has_flux_max)
-{
-    if (_vth == 0.0)
-    {
-        _vth = std::numeric_limits<double>::epsilon();
-        vdf_range = 1.0;
-    }
-    _dim = vd.size();
-    _domain.resize(2 * _dim);
-    for (int i = 0; i < _dim; ++i)
-    {
-        _domain[i] = _vd[i] - vdf_range * _vth;
-        _domain[i + _dim] = _vd[i] + vdf_range * _vth;
-    }
-    vth2 = _vth * _vth;
-    factor = (1.0 / (pow(sqrt(2 * M_PI * vth2), _dim) * (1 + _dim * (_dim + 2) * alpha)));
-}
-
-double Cairns::operator()(const std::vector<double> &v)
-{
-    double v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
-    }
-    double v4 = v2 * v2;
-    return factor * (1 + alpha * v4 / pow(vth2, 2)) * exp(-0.5 * v2 / vth2);
-}
-
-double Cairns::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
-}
-
-double Cairns::max()
-{
-    if (alpha < 0.25)
-    {
-        return factor;
-    }
-    else
-    {
-        std::vector<double> v_max(_dim);
-        v_max = _vd;
-        v_max[0] += _vth * sqrt(2.0 + sqrt(4.0 - 1.0 / alpha));
-        double max = (*this)(v_max);
-        max = factor > max ? factor : max;
-        return max;
-    }
-}
-
-void Cairns::eval(df::Array<double> &values, const df::Array<double> &x) const
-{
-    double v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
-    }
-    double v4 = v2 * v2;
-
-    double vn;
-    if (has_flux)
-    {
-        vn = 0.0;
-        for (int i = 0; i < _dim; ++i)
-        {
-            vn += x[i] * _n[i];
-        }
-    }
-    else
-    {
-        vn = 1.0;
-    }
-    values[0] = vn * (vn > 0) * factor *
-                (1 + alpha * v4 / pow(vth2, 2)) * exp(-0.5 * v2 / vth2);
-}
-
-double Cairns::flux_num_particles(const std::vector<double> &n, double S)
-{
-    auto vdn = std::inner_product(n.begin(), n.end(), _vd.begin(), 0.0);
-
-    auto num_particles = S * ((_vth / (sqrt(2 * M_PI))) *
-                                  exp(-0.5 * (vdn / _vth) * (vdn / _vth)) *
-                                  (1 + (_dim + 1) * (_dim + 3) * alpha +
-                                   (vdn / _vth) * (vdn / _vth) * alpha) /
-                                  (1 + _dim * (_dim + 2) * alpha) +
-                              0.5 * vdn * (1. + erf(vdn / (sqrt(2) * _vth))));
-    return num_particles;
-}
-
-KappaCairns::KappaCairns(double vth, std::vector<double> &vd, double k,
-                         double alpha, bool has_cdf, bool has_flux_num, 
-                         bool has_flux_max, double vdf_range)
-                        : _vth(vth), _vd(vd), k(k), alpha(alpha), 
-                        _dim(vd.size()), _has_cdf(has_cdf),
-                        _has_flux_number(has_flux_num), 
-                        _has_flux_max(has_flux_max)
-{
-    if (_vth == 0.0)
-    {
-        _vth = std::numeric_limits<double>::epsilon();
-        vdf_range = 1.0;
-    }
-    _dim = vd.size();
-    _domain.resize(2 * _dim);
-    for (int i = 0; i < _dim; ++i)
-    {
-        _domain[i] = _vd[i] - vdf_range * _vth;
-        _domain[i + _dim] = _vd[i] + vdf_range * _vth;
-    }
-    vth2 = _vth * _vth;
-    factor = (1.0 / pow(sqrt(M_PI * (2 * k - _dim) * vth2), _dim)) *
-             (1.0 / (1.0 + _dim * (_dim + 2.0) * alpha * ((k - _dim/2.0) / (k - (_dim+2)/2.0)))) *
-             (tgamma(k + 1.0) / tgamma(k + ((2.0 - _dim) / 2.0)));
-}
-
-double KappaCairns::operator()(const std::vector<double> &v)
-{
-    double v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (v[i] - _vd[i]) * (v[i] - _vd[i]);
-    }
-    double v4 = v2 * v2;
-    double vth4 = vth2 * vth2;
-    return factor * (1.0 + alpha * v4 / vth4) *
-           pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
-}
-
-double KappaCairns::operator()(const std::vector<double> &v, const std::vector<double> &n)
-{
-    double vn = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        vn += v[i] * n[i];
-    }
-    return (vn > 0.0) * vn * this->operator()(v);
-}
-
-double KappaCairns::max()
-{
-    std::vector<double> v_max(_dim, 0.0);
-    v_max = _vd;
-    v_max[0] += _vth * sqrt(((2.0 * k - _dim) / (k - 1.0)) +
-                            sqrt(alpha * alpha * (2 * k - _dim) * (2 * k - _dim) - 
-                                 alpha * (k - 1.0) * (k + 1.0)) /
-                                  (alpha * (k - 1.0)));
-    double max = this->operator()(v_max);
-    max = factor > max ? factor : max;
-    return max;
-}
-
-void KappaCairns::eval(df::Array<double> &values, const df::Array<double> &x) const
-{
-    double v2 = 0.0;
-    for (int i = 0; i < _dim; ++i)
-    {
-        v2 += (x[i] - _vd[i]) * (x[i] - _vd[i]);
-    }
-    double v4 = v2 * v2;
-    double vth4 = vth2 * vth2;
-    double vn;
-    if (has_flux)
-    {
-        vn = 0.0;
-        for (int i = 0; i < _dim; ++i)
-        {
-            vn += x[i] * _n[i];
-        }
-    }
-    else
-    {
-        vn = 1.0;
-    }
-    values[0] = vn * (vn > 0) * factor *
-                (1.0 + alpha * v4 / vth4) *
-                pow(1.0 + v2 / ((2 * k - _dim) * vth2), -(k + 1.0));
-}
-
-std::vector<double> rejection_sampler(const std::size_t N,
+std::vector<double> rejection_sampler(std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
                                       double pdf_max, int dim,
-                                      const std::vector<double> &domain)
+                                      const std::vector<double> &domain,
+                                      rand_uniform &rand,
+                                      std::mt19937_64 &rng)
 {
-    rand_uniform rand(0.0, pdf_max);
-    rand_uniform_vec rand_vec(dim);
-
-    for (int i = 0; i < dim; ++i)
-    {
-        rand_vec[i] = rand_uniform(domain[i], domain[i + dim]);
-    }
-
-    std::mt19937_64 rng(random_seed_seq::get_instance());
-
     std::vector<double> xs(N * dim), tmp(dim);
     std::size_t n = 0;
     while (n < N)
     {
         for (int i = 0; i < dim; ++i)
         {
-            tmp[i] = rand_vec[i](rng);
+            double lower = domain[i];
+            double upper = domain[i+dim];
+            tmp[i] = lower + (upper-lower)*rand(rng);
         }
-        if (rand(rng) < pdf(tmp))
+        if (rand(rng)*pdf_max < pdf(tmp))
         {
-            for (std::size_t i = n * dim; i < (n + 1) * dim; ++i)
+            for(int i = 0; i < dim; ++i)
             {
-                xs[i] = tmp[i % dim];
+                xs[n*dim+i] = tmp[i];
             }
             n += 1;
         }
@@ -522,20 +51,18 @@ std::vector<double> rejection_sampler(const std::size_t N,
     return xs;
 }
 
-std::vector<double> random_facet_points(const std::size_t N, 
-                                        const std::vector<double> &vertices)
+std::vector<double> random_facet_points(std::size_t N, 
+                                        const std::vector<double> &vertices,
+                                        rand_uniform &rand,
+                                        std::mt19937_64 &rng)
 {
     auto size = vertices.size();
     auto g_dim = sqrt(size);
     std::vector<double> xs(N * g_dim);
 
-    std::mt19937_64 rng{random_seed_seq::get_instance()};
-    rand_uniform rand(0.0, 1.0);
-
-    double r;
     for (std::size_t i = 0; i < N; ++i)
     {
-        r = rand(rng);
+        double r = rand(rng);
         for (int j = 0; j < g_dim; ++j)
         {
             xs[i*g_dim + j] = (1.0 - r) * vertices[j] + r * vertices[j + g_dim];
@@ -552,89 +79,10 @@ std::vector<double> random_facet_points(const std::size_t N,
     return xs;
 }
 
-void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets)
-{
-    auto num_species = species.size();
-    auto num_facets = facets.size();
-    std::vector<int> nsp = {60, 60, 60};
-
-    for (std::size_t i = 0; i < num_species; ++i)
-    {
-        auto dim = species[i].vdf.dim();
-        auto domain = species[i].vdf.domain();
-        df::Point p0, p1;
-        for (int i = 0; i < dim; ++i)
-        {
-            p0[i] = domain[i];
-            p1[i] = domain[i + dim];
-        }
-
-        std::shared_ptr<const df::Mesh> mesh;
-        if (dim == 1)
-        {
-            df::IntervalMesh interval(nsp[0], domain[0], domain[1]);
-            mesh = std::make_shared<const df::Mesh>(interval);
-        }
-        else if (dim == 2)
-        {
-            df::RectangleMesh rectangle(p0, p1, nsp[0], nsp[1]);
-            mesh = std::make_shared<const df::Mesh>(rectangle);
-        }
-        else if (dim == 3)
-        {
-            df::BoxMesh box(p0, p1, nsp[0], nsp[1], nsp[2]);
-            mesh = std::make_shared<const df::Mesh>(box);
-        }
-
-        auto V = Number::CoefficientSpace_w0(mesh);
-        for (std::size_t j = 0; j < num_facets; ++j)
-        {
-            species[i].vdf.set_flux_normal(facets[j].normal);
-            
-            df::Function vdf_func(std::make_shared<df::FunctionSpace>(V));
-            vdf_func.interpolate(species[i].vdf);
-            auto vdf_vector = vdf_func.vector();
-            
-            if (species[i].vdf.has_flux_number())
-            {
-                auto num = species[i].vdf.flux_num_particles(facets[j].normal, facets[j].area);
-                species[i].vdf.num_particles.push_back(num);
-            }
-            else
-            {
-                std::shared_ptr<df::Form> form;
-                auto vdf_func_ptr = std::make_shared<df::Function>(vdf_func);
-                if (dim == 1)
-                {
-                    form = std::make_shared<Number::Form_0>(mesh, vdf_func_ptr);
-                }
-                else if (dim == 2)
-                {
-                    form = std::make_shared<Number::Form_1>(mesh, vdf_func_ptr);
-                }
-                else if (dim == 3)
-                {
-                    form = std::make_shared<Number::Form_2>(mesh, vdf_func_ptr);
-                }
-                species[i].vdf.num_particles.push_back(df::assemble(*form));
-            }
-
-            if (species[i].vdf.has_flux_max())
-            {
-                species[i].vdf.pdf_max.push_back(species[i].vdf.flux_max(facets[j].normal));
-            }
-            else
-            {
-                species[i].vdf.pdf_max.push_back(vdf_vector->max());
-            }
-        }
-    }
-}
-
-void create_flux(std::vector<Species> &species, std::vector<Facet> &facets)
+void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &facets)
 {
     rand_uniform rand(0.0, 1.0);
-    std::mt19937_64 rng(random_seed_seq::get_instance());
+    std::mt19937_64 rng(RandomSeed::get_instance());
 
     auto num_species = species.size();
     auto num_facets = facets.size();

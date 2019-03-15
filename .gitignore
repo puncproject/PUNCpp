@@ -1,11 +1,15 @@
 punc/doc.html
+punc/install
+punc/html
+punc/latex
 **/build
 **/mesh
-**/Results
 **.swp
 **.pvd
 **.vtu
 **.dat
+**.xml
+**.msh
 .vscode
 
 # This part should perhaps be cleaned up

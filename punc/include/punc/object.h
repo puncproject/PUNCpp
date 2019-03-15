@@ -15,6 +15,13 @@
 // You should have received a copy of the GNU General Public License along with
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * @file		object.h
+ * @brief		Objects and circuitry
+ *
+ * Functions and classes to handle objects and circuitry. 
+ */
+
 #ifndef OBJECT_H
 #define OBJECT_H
 
@@ -126,7 +133,7 @@ class ObjectBC: public ConstantBC
 {
 public:
     double charge = 0.0;
-    double collected_current = 0.0;
+    double current = 0.0;
     double potential = 0.0;
     std::size_t id;
     df::MeshFunction<std::size_t> bnd;
@@ -136,8 +143,12 @@ public:
              std::size_t bnd_id,
              double eps0=1,
              std::string method = "topological");
-    double update_charge(df::Function &phi);
-    double update_potential(df::Function &phi);
+    void update_charge(df::Function &phi);
+    void update_potential(df::Function &phi);
+    void update_current(double dt);
+
+private:
+    double old_charge = 0.0;
 };
 
 class Circuit
@@ -177,6 +188,6 @@ public:
 };
 
 
-}
+} // namespace punc
 
-#endif
+#endif // OBJECT_H

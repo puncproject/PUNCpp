@@ -86,7 +86,7 @@ int main()
     {
         std::cout << "step: " << i << '\n';
         KE = boris(pop, ef, bf, (1.0-.5*(i==1))*dt);
-        move_periodic_new(pop, dt, Ld);
+        move_periodic(pop, dt, Ld);
         pop.update();
         
         for (std::size_t cell_id = 0; cell_id < num_cells; ++cell_id)

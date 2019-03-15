@@ -1,0 +1,25 @@
+
+PUNC++ started!
+Create flux
+Loading particles
+Starting new simulation
+^[jimposed_current: -99.2126
+imposed_voltage: 4523.78
+Num positives:  5e+06, num negatives: 5e+06 total: 1e+07
+Step 46859 of 50000
+Step 50000 of 50000
+----------------Measured time for each task----------------
+        Task          Time     Percentage 
+inject:              9885.36    4.85498
+update:              75646.9    37.1523
+poisson:             41185    20.2271
+efield:              24540.3    12.0524
+accel:               18123    8.90072
+potential energy:    12584.1    6.18043
+Distribution:        9900.43    4.86238
+counting particles:  7486.62    3.67689
+move:                4259.34    2.09188
+write history:       1.76455    0.000866621
+Total time:          203613    100
+PUNC++ finished successfully!
+./interaction paper.ini  208104,41s user 25535,77s system 113% cpu 57:04:50,88 total

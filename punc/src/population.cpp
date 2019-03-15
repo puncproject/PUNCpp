@@ -37,12 +37,11 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
     }
 }
 
-CreateSpecies::CreateSpecies(std::shared_ptr<const df::Mesh> &mesh, double X)
-                             : X(X)
+CreateSpecies::CreateSpecies(const Mesh &mesh, double X) : X(X)
 {
-    g_dim = mesh->geometry().dim();
-    volume = punc::volume(mesh);
-    num_cells = mesh->num_cells();
+    g_dim = mesh.dim;
+    volume = mesh.volume();
+    num_cells = mesh.mesh->num_cells();
 }
 
 void CreateSpecies::create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, 

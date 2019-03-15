@@ -27,8 +27,6 @@
 
 #include <dolfin.h>
 #include "population.h"
-#include <boost/math/special_functions/erf.hpp>
-#include <chrono>
 #include <random>
 
 namespace punc
@@ -36,268 +34,107 @@ namespace punc
 
 namespace df = dolfin;
 
-class Timer
+/**
+ * @brief Generates random numbers to seed std::mt19937_64, i.e., the Mersenne 
+ * Twister pseudo-random generator of 64-bit numbers
+ */
+class RandomSeed
 {
-  public:
-    Timer() : beg_(clock_::now()) {}
-    void reset() { beg_ = clock_::now(); }
-    double elapsed() const
-    {
-        return std::chrono::duration_cast<second_>(clock_::now() - beg_).count();
-    }
-
-  private:
-    typedef std::chrono::high_resolution_clock clock_;
-    typedef std::chrono::duration<double, std::ratio<1>> second_;
-    std::chrono::time_point<clock_> beg_;
-};
-
-struct random_seed_seq
-{
-    template <typename It>
-    void generate(It begin, It end)
+public:
+    /**
+     * @brief generates a sequence of random numbers using std::random_device
+     */
+    template <typename T>
+    void generate(T begin, T end)
     {
         for (; begin != end; ++begin)
         {
             *begin = device();
         }
     }
-
-    static random_seed_seq &get_instance()
+    /**
+     * @brief Used to initialize std::mt19937_64
+     */
+    static RandomSeed &get_instance()
     {
-        static thread_local random_seed_seq result;
-        return result;
+        static thread_local RandomSeed seed;
+        return seed;
     }
 
-  private:
-    std::random_device device;
-};
-
-struct Facet
-{
-    double area;
-    std::vector<double> vertices;
-    std::vector<double> normal;
-    std::vector<double> basis;
-};
-
-std::vector<Facet> exterior_boundaries(df::MeshFunction<std::size_t> &boundaries,
-                                       std::size_t ext_bnd_id);
-
-class UniformPosition : public Pdf
-{
 private:
-    std::shared_ptr<const df::Mesh> mesh;
-    int _dim;
-    std::vector<double> _domain;
-public:
-    UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
-    {
-        _dim = mesh->geometry().dim();
-        auto coordinates = mesh->coordinates();
-        auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
-        auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-        _domain.resize(2 * _dim);
-        for (int i = 0; i < _dim; ++i)
-        {
-            _domain[i] = Ld_min;
-            _domain[i + _dim] = Ld_max;
-        }
-    }
-    double operator()(const std::vector<double> &x) 
-    { 
-        return (locate(mesh, x.data()) >= 0) * 1.0; 
-    };
-    double max() { return 1.0;};
-    int dim() { return _dim; };
-    std::vector<double> domain() { return _domain; };
+    std::random_device device; ///< The random device to seed std::mt19937_64
 };
 
-class Maxwellian : public Pdf
-{
-private:
-    double _vth;
-    std::vector<double> _vd;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
+/**
+ * @brief Creates flux needed for injecting particles through exterior boundary facets
+ * @param  species[in] - A vector containing all the plasma species
+ * @param  facets[in] - A vector containing all the exterior facets
+ * 
+ * For each species and for each exterior boundary facet, calculates the number 
+ * of particles to be injected through the facet. In addition, for each facet
+ * finds the maximum value of the flux probability distribution function by 
+ * using Monte Carlo integration. This value is needed in the rejection sampler.
+ */
+void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &facets);
 
-public:
-   
-    std::vector<double> pdf_max, num_particles;
-    
-    Maxwellian(double vth, std::vector<double> &vd, bool has_cdf = true, 
-               bool has_flux_num=true, bool has_flux_max=true, 
-               double vdf_range = 5.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
-    double max() { return factor; };
-    std::vector<double> domain() { return _domain; };
-    double vth() { return _vth; };
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; };
-    void set_vd(std::vector<double> &v) { _vd = v; };
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    std::vector<double> cdf(const std::size_t N);
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
-    double flux_num_particles(const std::vector<double> &n, double S);
-    double flux_max(std::vector<double> &n);
-};
-
-class Kappa : public Pdf
-{
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    double k;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
-
-  public:
-    std::vector<double> pdf_max, num_particles;
-    Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf = false,
-          bool has_flux_num = true, bool has_flux_max = true, 
-          double vdf_range = 7.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
-    double max() { return factor; }
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
-    double flux_num_particles(const std::vector<double> &n, double S);
-    double flux_max(std::vector<double> &n);
-};
-
-class Cairns : public Pdf
-{
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    double alpha;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
-
-  public:
-    std::vector<double> pdf_max, num_particles;
-    Cairns(double vth, std::vector<double> &vd, double alpha, 
-           bool has_cdf = false, bool has_flux_num = true, 
-           bool has_flux_max = false, double vdf_range = 7.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
-    double max();
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
-    double flux_num_particles(const std::vector<double> &n, double S);
-};
-
-class KappaCairns : public Pdf
-{
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    double k;
-    double alpha;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
-
-  public:
-    std::vector<double> pdf_max, num_particles;
-    KappaCairns(double vth, std::vector<double> &vd, double k, double alpha,
-                bool has_cdf = false, bool has_flux_num = false,
-                bool has_flux_max = false, double vdf_range = 35.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
-    double max();
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
-};
-
-void create_flux_FEM(std::vector<Species> &species, std::vector<Facet> &facets);
-
-void create_flux(std::vector<Species> &species, std::vector<Facet> &facets);
-
-std::vector<double> rejection_sampler(const std::size_t N,
+/**
+ * @brief Standard rejection sampler
+ * @param N[in] - number of random numbers to be generated
+ * @param pdf[in] - a probability distribution function to sample from
+ * @param pdf_max[in] - maximum value of pdf
+ * @param dim[in] - the dimension of the space pdf is defined on
+ * @param domain[in] - the domian in which the random numbers are constrained to
+ * @param rand[in] - the uniform distribution function
+ * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
+ * @return A vector of random numbers from pdf 
+ * 
+ * Standard rejection sampler uses a simpler proposal distribution, which in 
+ * this case is a uniform distribution function, U, to generate random samples. 
+ * A sample is then accepted with probability pdf(v)/ U(v), or discarded 
+ * otherwise. This process is repeated until a sample is accepted.
+ */
+std::vector<double> rejection_sampler(std::size_t N,
                                       std::function<double(std::vector<double> &)> pdf,
                                       double pdf_max, int dim,
-                                      const std::vector<double> &domain);
+                                      const std::vector<double> &domain,
+                                      std::uniform_real_distribution<double> &rand,
+                                      std::mt19937_64 &rng);
 
-std::vector<double> random_facet_points(const std::size_t N, 
-                                        const std::vector<double> &vertices);
+/**
+ * @brief Generates uniformly distributed random particle positions on a given exterior facet
+ * @param N[in] - number of random particle positions to be generated
+ * @param vertices[in] - a vector containing all the vertices of the facet
+ * @param rand[in] - the uniform distribution function
+ * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
+ * @return A vector of random numbers from pdf 
+ * 
+ * In 1D, a facet is a single point. Hence, there is no point in generating 
+ * uniformly distributed random particle positions on a point. Therefore, this 
+ * function is only valid for 2D and 3D. In 2D, the facet is a straight line, 
+ * and in 3D the facet is triangle. Random positions are generated within the 
+ * facet depending on the geometrical dimension. 
+ */
+std::vector<double> random_facet_points(std::size_t N, 
+                                        const std::vector<double> &vertices,
+                                        std::uniform_real_distribution<double> &rand,
+                                        std::mt19937_64 &rng);
 
+/**
+ * @brief Injects particles through the exterior boundary facets
+ * @param pop[in] - the plasma particle population
+ * @param species[in] - a vector containing all the plasma species
+ * @param facets[in] - a vector containing all the exterior facets
+ * @param dt[in] - duration of a time-step 
+ * 
+ * Generates random particle velocities and positions for each species from each
+ * exterior boundary facet, and adds the newly created particles to plasma 
+ * population. 
+ */
 template <typename PopulationType>
 void inject_particles(PopulationType &pop, std::vector<Species> &species,
-                      std::vector<Facet> &facets, const double dt)
+                      std::vector<ExteriorFacet> &facets, double dt)
 {
-    std::mt19937_64 rng{random_seed_seq::get_instance()};
+    std::mt19937_64 rng{RandomSeed::get_instance()};
     std::uniform_real_distribution<double> rand(0.0, 1.0);
 
     auto g_dim = pop.g_dim;
@@ -326,10 +163,13 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
             while (count < N)
             {
                 auto n = N - count;
-                auto xs_new = random_facet_points(n, facets[j].vertices);
+                auto xs_new = random_facet_points(n, facets[j].vertices,
+                                                  rand, rng);
+
                 auto vs_new = rejection_sampler(n, vdf, pdf_max,
                                                 species[i].vdf.dim(),
-                                                species[i].vdf.domain());
+                                                species[i].vdf.domain(),
+                                                rand, rng);
 
                 for (auto k = 0; k < n; ++k)
                 {
@@ -354,25 +194,49 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
     }
 }
 
+/**
+ * @brief Generates particle velocities and positions for each species, and populates the simultion domain
+ * @param pop[in] - the plasma particle population
+ * @param species[in] - a vector containing all the plasma species
+ * 
+ * Generates random particle velocities based on the prespecified velocity
+ * distribution function for each species, and populates the simulation domain
+ * by generating uniformly distributed random positions in the entire domain.
+ * The newly created particles are then added to the plasma population.
+ */
 template <typename PopulationType>
 void load_particles(PopulationType &pop, std::vector<Species> &species)
 {
+    std::mt19937_64 rng{RandomSeed::get_instance()};
+    std::uniform_real_distribution<double> rand(0.0, 1.0);
+
     auto num_species = species.size();
     std::vector<double> xs, vs;
     for (std::size_t i = 0; i < num_species; ++i)
     {
         auto s = species[i];
+        auto dim = s.vdf.dim();
         auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
         auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
 
-        xs = rejection_sampler(s.num, pdf, s.pdf.max(), s.pdf.dim(), s.pdf.domain());
+        xs = rejection_sampler(s.num, pdf, s.pdf.max(), dim, s.pdf.domain(),
+                               rand, rng);
         if (s.vdf.has_cdf())
         {
-            vs = s.vdf.cdf(s.num);
+            std::vector<double> rand_tmp(s.num * dim, 0.0);
+            for (auto j = 0; j < dim; ++j)
+            {
+                for (auto k = 0; k < s.num; ++k)
+                {
+                    rand_tmp[k * dim + j] = rand(rng);
+                }
+            }
+            vs = s.vdf.cdf(rand_tmp);
         }
         else
         {
-            vs = rejection_sampler(s.num, vdf, s.vdf.max(), s.vdf.dim(), s.vdf.domain());
+            vs = rejection_sampler(s.num, vdf, s.vdf.max(), dim, s.vdf.domain(),
+                                   rand, rng);
         }
         pop.add_particles(xs, vs, s.q, s.m);
     }

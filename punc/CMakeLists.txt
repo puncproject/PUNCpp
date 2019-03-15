@@ -1,25 +1,26 @@
 cmake_minimum_required(VERSION 3.5)
-
 project(punc)
-set(CMAKE_BUILD_TYPE Release)
 
-# Use C++11
-set(CMAKE_CXX_STANDARD 11)
+# Default to Release build
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif(NOT CMAKE_BUILD_TYPE)
 
-# Require C++11
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Compile options
+add_compile_options(-Wall)
+#add_compile_options(-Wextra)
 
-set(CMAKE_CXX_FLAGS "-Wall -O3 ${CMAKE_CXX_FLAGS}")
+# Source code
+include_directories(ufl, include)
+file(GLOB SOURCE_FILES "src/*.cpp")
+file(GLOB HEADER_FILES_MAIN "include/*.h")
+file(GLOB HEADER_FILES_SECONDARY "include/punc/*.h")
 
-include_directories(ufl,include)
-
-file(GLOB SOURCES "src/*.cpp")
-
-# dolfin
+# Find Dolfin
 find_package(DOLFIN REQUIRED)
 include(${DOLFIN_USE_FILE})
 
-# Doxygen documentation
+# Find Doxygen
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
     configure_file(
@@ -29,14 +30,24 @@ if(DOXYGEN_FOUND)
     add_custom_target(doc ${DOXYGEN_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/..
-        COMMENT "Generating API documentation with Doxygen" VERBATIM
+        COMMENT "Generating documentation using Doxygen" VERBATIM
     )
 endif(DOXYGEN_FOUND)
 
-# Generate the shared library from the sources
-add_library(punc SHARED ${SOURCES})
-
-# Link punc to dolfin and its 3rd party libraries
+# Add target library (punc.so), include headers and link with libraries
+add_library(punc SHARED ${SOURCE_FILES})
 target_link_libraries(punc ${DOLFIN_LIBRARIES} ${DOLFIN_3RD_PARTY_LIBRARIES})
+set_target_properties(PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 
-install(TARGETS punc DESTINATION /usr/lib)
+# Install target
+install(TARGETS punc
+        PUBLIC_HEADER DESTINATION include/punc   # .h files
+        LIBRARY DESTINATION lib                  # .so files
+        ARCHIVE DESTINATION lib                  # .a files
+        RUNTIME DESTINATION bin)                 # executables
+
+# For some reason the above doesn't install header files. Do it manually.
+install(FILES ${HEADER_FILES_MAIN}
+        DESTINATION include)
+install(FILES ${HEADER_FILES_SECONDARY}
+        DESTINATION include/punc)
