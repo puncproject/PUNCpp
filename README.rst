@@ -9,7 +9,7 @@ PUNC++
 
 A user guide is available online on ReadTheDocs_, whereas for developers, the code is documented using Doxygen. See the installation section for building Doxygen code documentation. 
 
-.. image:: docs/punc++.gif
+.. image:: punc++.gif
 
 .. _FEniCS: https://fenicsproject.org
 .. _ReadTheDocs: http://punc.readthedocs.io
