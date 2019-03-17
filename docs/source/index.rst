@@ -14,7 +14,7 @@ PUNC++ user guide!
 
    installation
    tutorial_basic/tutorial_basic
-   tutorial_accuracy
+.. tutorial_accuracy
 .. TBD:Add another tutorial on magnetized dust?
 
 Indices and tables

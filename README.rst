@@ -7,7 +7,7 @@ PUNC++
 
 *Particles-in-UNstructured-Cells, C++ version* (PUNC++) is an open source scientific program for simulating plasmas using the *Particle-In-Cell* (PIC) method on an unstructured mesh. The field quantities are solved using the *Finite Element Method* (FEM) through the third party finite element environment FEniCS_. The focus is on plasma-object interaction, typically for space applications.
 
-A user guide is available online on ReadTheDocs_, whereas for developers, the code is documented using Doxygen. See the installation section for building Doxygen code documentation. 
+A user guide is available online on ReadTheDocs_, whereas for developers, the code is documented using Doxygen. See the installation section for building developer's documentation. 
 
 .. image:: punc++.gif
 
