@@ -329,7 +329,7 @@ void CircuitBC::apply(df::PETScMatrix &A)
         PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
         if (ierr != 0)
         {
-            std::cout << "Error in PETSc MatDuplicate." << '\n';
+            std::cout << "Error in PETSc MatDuplicate: " << ierr << '\n';
         }
     }
 
@@ -359,15 +359,17 @@ void CircuitBC::apply(df::PETScMatrix &A)
         PetscErrorCode ierr = MatDuplicate(A_tmp.mat(), MAT_COPY_VALUES, &Amat);
         if (ierr != 0)
         {
-            std::cout << "Error in PETSc MatDuplicate." << '\n';
+            std::cout << "Error in PETSc MatDuplicate: " << ierr << '\n';
         }
     }
 
+    MatSetOption(A.mat(), MAT_NEW_NONZERO_LOCATIONS, PETSC_TRUE); 
     PetscErrorCode ierr = MatCopy(A_tmp.mat(), A.mat(), DIFFERENT_NONZERO_PATTERN);
     if (ierr != 0)
     {
-        std::cout << "Error in PETSc MatCopy." << '\n';
+        std::cout << "Error in PETSc MatCopy: " << ierr << '\n';
     }
+    MatSetOption(A.mat(), MAT_NEW_NONZERO_LOCATIONS, PETSC_FALSE); 
 }
 
 void CircuitBC::apply_vsources_to_vector(df::GenericVector &b)
