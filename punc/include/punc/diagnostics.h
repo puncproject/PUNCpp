@@ -27,49 +27,18 @@
 #define DIAGNOSTICS_H
 
 #include "population.h"
+
+#include <dolfin/io/File.h>
+#include <dolfin/fem/DofMap.h>
+
 #include <chrono>
+#include <iostream>
 #include <iomanip>
 
 namespace punc
 {
 
 namespace df = dolfin;
-
-/**
- * @brief Writes plasma fields to file
- */
-class FieldWriter
-{
-public:
-    df::File ofile_phi;   ///< df::File for electric potential
-    df::File ofile_E;     ///< df::File for electric field
-    df::File ofile_rho;   ///< df::File for total charge density
-    df::File ofile_ne;    ///< df::File for volumetric number density
-    df::File ofile_ni;   ///< df::File for volumetric number density
-
-    /**
-       * @brief   Constructor 
-       * @param   phi_fname - file name for phi
-       * @param   E_fname   - file name for E
-       * @param   rho_fname - file name for rho
-       * @param   ne_fname  - file name for ne
-       * @param   ni_fname  - file name for ni
-       */
-    FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                const std::string &rho_fname, const std::string &ne_fname,
-                const std::string &ni_fname);
-    /**
-       * @brief   Writes to file 
-       * @param   phi - electric potential
-       * @param   E   - electric field
-       * @param   rho - total charge density
-       * @param   ne  - volumetric electron number density
-       * @param   ni  - volumetric ion number density
-       */
-    void save(const df::Function &phi, const df::Function &E,
-              const df::Function &rho, const df::Function &ne,
-              const df::Function &ni, double t);
-};
 
 /**
  * @brief Saves and loads the state of simulation and objects
@@ -79,24 +48,26 @@ class State
 public:
     std::string fname; ///< std::string - name of the state file
     /**
-       * @brief   State constructor 
-       * @param   fname - a string representing the name of the file
-       */
+     * @brief   State constructor 
+     * @param   fname - a string representing the name of the file
+     */
     State(std::string fname);
     /**
-       * @brief   Loads the state of the simulation and objects 
-       * @param   n - time-steps from previous simulation
-       * @param   t - simulated time of previous simulation
-       * @param   objects - a vector of objects 
-       */
-    void load(std::size_t &n, double &t, std::vector<ObjectBC> &objects);
+     * @brief   Loads the state of the simulation and objects 
+     * @param   n - time-steps from previous simulation
+     * @param   t - simulated time of previous simulation
+     * @param   objects - a vector of objects 
+     */
+    void load(std::size_t &n, double &t,
+              ObjectVector objects);
     /**
-       * @brief   Saves the state of the simulation and objects 
-       * @param   n - number of time-steps of current simulation
-       * @param   t - current simulated total time 
-       * @param   objects - a vector of objects 
-       */
-    void save(std::size_t n, double t, std::vector<ObjectBC> &objects);
+     * @brief   Saves the state of the simulation and objects 
+     * @param   n - number of time-steps of current simulation
+     * @param   t - current simulated total time 
+     * @param   objects - a vector of objects 
+     */
+    void save(std::size_t n, double t,
+              const ObjectVector objects);
 };
 
 /**
@@ -106,37 +77,93 @@ public:
 class History
 {
 public:
+    std::size_t dim;
+    bool stats;
+    bool hex_output;
     std::ofstream ofile; ///< std::string - name of the history file
 
     /**
-         * @brief   History constructor 
-         * @param   fname - a string representing the name of the file
-         * @param   objects - a vector of objects
-         * @param   dim  - geometrical dimension
-         * @param   continue_simulation  boolean - if false creates a preamble for history file
-         */
-    History(const std::string &fname, std::vector<ObjectBC> &objects, 
-            std::size_t dim, bool continue_simulation = false);
+     * @brief   History constructor 
+     * @param   fname - a string representing the name of the file
+     * @param   objects - a vector of objects
+     * @param   dim  - geometrical dimension
+     * @param   continue_simulation  boolean - if false creates a preamble for history file
+     */
+    History(const std::string &fname,
+            ObjectVector objects, 
+            std::size_t dim, bool stats,
+            bool continue_simulation = false,
+            bool hex_output = false);
 
     /**
-         * @brief   History destructor - closes the file 
-         */
+     * @brief   History destructor - closes the file 
+     */
     ~History() { ofile.close(); };
 
     /**
-         * @brief   Saves the history
-         * @param   n - time-step
-         * @param   t - simulated time
-         * @param   num_e - number of electrons in the simulation domain
-         * @param   num_i - number of ions in the simulation domain
-         * @param   KE  - total kinetic energy
-         * @param   PE  - total potential energy
-         * @param   objects - a vector of objects
-         */
+     * @brief   Saves the history
+     * @param   n - time-step
+     * @param   t - simulated time
+     * @param   num_e - number of electrons in the simulation domain
+     * @param   num_i - number of ions in the simulation domain
+     * @param   KE  - total kinetic energy
+     * @param   PE  - total potential energy
+     * @param   objects - a vector of objects
+     */
+    template <typename PopulationType>
     void save(std::size_t n, double t, double num_e, double num_i, double KE,
-              double PE, std::vector<ObjectBC> &objects);
+              double PE, ObjectVector objects, PopulationType &pop);
 
 };
+
+template <typename PopulationType>
+void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
+                   double PE, ObjectVector objects, PopulationType &pop)
+{
+    /* This part only works with GCC 5.1.0 and above. 
+       Currently we are using GCC 4.8.5.
+       Once the GCC is updated uncomment lines 165-174 and remove lines 176-178   
+    */ 
+    // if (hex_output)
+    // {
+    //     ofile << std::hexfloat;
+    //     ofile << std::uppercase;
+    //     ofile << n << "\t";
+    // } else {
+    //     ofile << n << "\t";
+    //     ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    //     ofile << std::scientific;
+    // }
+    ofile << n << "\t";
+    ofile << std::setprecision(std::numeric_limits<double>::digits10 + 1);
+    ofile << std::scientific;
+    ofile << t << "\t";
+    ofile << num_e << "\t";
+    ofile << num_i << "\t";
+    ofile << KE << "\t";
+    ofile << PE;
+    for (auto o : objects)
+    {
+        ofile << "\t" << o->get_potential() << "\t";
+        ofile << o->current << "\t";
+        ofile << o->charge;
+    }
+    if (stats)
+    {
+        double statistics[4];
+        /* statistics[0]:  Mean speed for electrons
+           statistics[1]: Standard deviation for electrons
+           statistics[2]: Mean speed for ions
+           statistics[3]: Standard deviation for ions
+        */
+        pop.statistics(statistics);
+        ofile << "\t" << statistics[0]; /* Mean speed for electrons*/
+        ofile << "\t" << statistics[1]; /* Standard deviation for electrons*/
+        ofile << "\t" << statistics[2]; /* Mean speed for ions*/
+        ofile << "\t" << statistics[3]; /* Standard deviation for ions*/
+    }
+    ofile << std::endl;
+}
 
 /**
  * @brief Measures time for a given set of tasks
@@ -387,22 +414,29 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
  * @brief                 Volumetric number density in DG0
  * @param[in]   Q         FunctionSpace DG0
  * @param       pop       Population
- * @param      ne, ni     Function - the volumetric number densities
+ * @param       species   a vector of species 
+ * @param       ne, ni    Function - the volumetric number densities
  * @see density_cg1
  * 
  * Calculates the volumetric number density in \f$\mathrm{DG}_0\f$ function 
  * space. The number density in each cell \f$T_k\f$, is simply calculated by 
- * adding together the number of particles of each species, s, inside the cell, 
- * and then dividing the total number inside the cell by the volume of the cell:
+ * adding together the number of physical particles \f$w_s\f$ of each species, s, 
+ * inside the cell, and then dividing the total number inside the cell by the 
+ * volume of the cell:
  * 
  * \f[
- *       n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} 1,
+ *       n_{s,k} = \frac{1}{\mathrm{Vol}(T_k)}\sum_{p, q_p=q_s} w_s,
  * \f]
  */
 template <typename PopulationType>
 void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
+                 const std::vector<Species> &species,
                  df::Function &ne, df::Function &ni)
 {
+    // Statistical weight of electrons and ions (number of physical particles per simulation particle) 
+    auto weight_e = species[0].weight;
+    auto weight_i = species[1].weight;
+
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
 
@@ -418,9 +452,9 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
         for (auto &particle : cell.particles)
         {
             if (particle.q>0){
-                accum_i += 1;
+                accum_i += weight_i;
             }else{
-                accum_e += 1;
+                accum_e += weight_e;
             }
         }
         ne0[dof_id[0]] = accum_e / cell.volume();
@@ -434,38 +468,42 @@ void density_dg0(const df::FunctionSpace &Q, PopulationType &pop,
  * @brief                 Volumetric number density in CG1
  * @param[in]   V         FunctionSpace CG1
  * @param       pop       Population
- * @param       ne, ni     Function - the volumetric number densities
+ * @param       species   a vector of species
+ * @param       ne, ni    Function - the volumetric number densities
  * @param       dv_inv    Vector containing the volumes of each element (e.g. Voronoi cell)
  * @see density_dg0()
  * 
- * Calculates the volumetric number density in \f$\mathrm{CG}_1\f$ function 
- * space. The number density at each mesh vertex \f$\mathbf{x}_j\f$, is 
+ * Calculates the volumetric number density for each species in \f$\mathrm{CG}_1\f$ 
+ * function space. The number density at each mesh vertex \f$\mathbf{x}_j\f$, is 
  * calculated by interpolating the number of particles inside all the cells 
  * sharing vertex \f$\mathbf{x}_j\f$, i.e. the patch \f$\mathcal{M}_j\f$. The
  * interpolation is done by evaluating the \f$\mathrm{CG}_1\f$ basis 
  * function \f$\psi_j\f$, at the particle position \f$\mathbf{x}_{p}\f$. The 
  * interpolated number at each mesh vertex is divided by a proper volume 
- * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$, to obtain the 
- * volumetric number density for each species s: 
+ * \f$\mathcal{V}_j\f$ associated with \f$\mathbf{x}_j\f$ and multiplied by the 
+ * statistical weight \f$w_s\f$, to obtain the volumetric number density for species s: 
  * 
  * \f[
- *       n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}).
+ *       n_{s,j} = \frac{1}{\mathcal{V}_j}\sum_{p, q_p=q_s}\psi_j(\mathbf{x}_{p}) w_s.
  * \f]
  */
 
 template <typename PopulationType>
 void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
-                 df::Function &ne, df::Function &ni, 
+                 const std::vector<Species> &species,
+                 df::Function &ne, df::Function &ni,
                  const std::vector<double> &dv_inv)
 {
+    // Statistical weight of electrons and ions (number of physical particles per simulation particle)
+    auto weight_e = species[0].weight;
+    auto weight_i = species[1].weight;
+
     auto mesh = V.mesh();
     auto ne_vec = ne.vector();
     auto ni_vec = ni.vector();
 
-    std::vector<double> ne0(ne_vec->size());
-    std::vector<double> ni0(ni_vec->size());
-    ne_vec->get_local(ne0);
-    ni_vec->get_local(ni0);
+    std::vector<double> ne0(ne_vec->size(), 0.0);
+    std::vector<double> ni0(ni_vec->size(), 0.0);
 
     auto element = V.element();
     auto s_dim = element->space_dimension();
@@ -506,11 +544,13 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
     }
     for (std::size_t i = 0; i < ne_vec->size(); ++i)
     {
-        ne0[i] *= dv_inv[i];
-        ni0[i] *= dv_inv[i];
+        ne0[i] *= dv_inv[i] * weight_e;
+        ni0[i] *= dv_inv[i] * weight_i;
     }
     ne.vector()->set_local(ne0);
     ni.vector()->set_local(ni0);
+    ne.vector()->apply("insert");
+    ni.vector()->apply("insert");
 }
 
 /**

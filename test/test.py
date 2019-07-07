@@ -7,7 +7,7 @@ I = []
 with open('history.dat') as file:
     for line in file:
         if not line.startswith("#"):
-            I.append(float(line.split()[-2]))
+            I.append(float(line.split()[7]))
 
 I_mean = np.average(I[500:])
 rel_err = (I_true-I_mean)/I_mean

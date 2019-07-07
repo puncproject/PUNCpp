@@ -29,6 +29,13 @@
 #include "mesh.h"
 #include "poisson.h"
 #include "distributions.h"
+
+#include <dolfin/mesh/Facet.h>
+#include <dolfin/mesh/Vertex.h>
+#include <dolfin/mesh/Cell.h>
+#include <dolfin/mesh/MeshEntityIterator.h>
+#include <dolfin/fem/UFC.h>
+
 #include <fstream>
 #include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
 #include <boost/units/systems/si/codata/electron_constants.hpp>
@@ -39,6 +46,13 @@ namespace punc
 {
 
 namespace df = dolfin;
+
+enum class ParticleAmountType {
+    in_total,       ///< Total number of simulation particles
+    per_cell,       ///< Simulation particles per cell
+    per_volume,     ///< Simulation particles per volume (number density)
+    phys_per_sim    ///< Physical particles per simulation particle
+};
 
 /**
  * @brief Generic matrix-vector product
@@ -74,9 +88,9 @@ struct PhysicalConstants
     double m_e = boost::units::si::constants::codata::m_e / boost::units::si::kilograms;                              ///< Electron mass
     double ratio = boost::units::si::constants::codata::m_e_over_m_p / boost::units::si::dimensionless();             ///< Electron to proton mass ratio
     double m_i = m_e / ratio;                                                                                         ///< Proton mass
-
     double k_B = boost::units::si::constants::codata::k_B * boost::units::si::kelvin / boost::units::si::joules;      ///< Boltzmann constant
     double eps0 = boost::units::si::constants::codata::epsilon_0 * boost::units::si::meter / boost::units::si::farad; ///< Electric constant
+    double amu = boost::units::si::constants::codata::m_u / boost::units::si::kilograms;                              ///< Atomic mass constant
 };
 
 /**
@@ -110,15 +124,29 @@ Particle<len>::Particle(const double *x, const double *v,
 class Species 
 {
 public:
-    double q; ///< Charge
-    double m; ///< Mass
-    double n; ///< Density
-    int num;  ///< Initial number of particles
-    Pdf &pdf; ///< Position distribution function (initially)
-    Pdf &vdf; ///< Velocity distribution function (initially and at boundary)
-
-    Species(double q, double m, double n, int num, Pdf &pdf, Pdf &vdf) :
-            q(q), m(m), n(n), num(num), pdf(pdf), vdf(vdf) {}
+    double q;                  ///< Charge of simulation particle
+    double m;                  ///< Mass of simulation particle
+    double n;                  ///< Density of simulation particles
+    size_t num;                ///< Initial number of simulation particles
+    std::shared_ptr<Pdf> pdf;  ///< Position distribution function (initially)
+    std::shared_ptr<Pdf> vdf;  ///< Velocity distribution function (initially and at boundary)
+    double debye;              ///< The Debye length
+    double weight;             ///< Statistical weight (number of physical particles per simulation particle)
+    
+    /**
+     * @brief Constructor
+     * @param   charge  Charge of physical particle
+     * @param   mass    Mass of physical particle
+     * @param   density Density of physical particles
+     * @param   amount  Amount of simulation particles
+     * @param   type    How the amount of simulation particles are specified
+     * @param   mesh    The mesh
+     * @param   pdf     Position distribution function
+     * @param   vdf     Velocity distribution function
+     */
+    Species(double charge, double mass, double density, double amount,
+            ParticleAmountType type, const Mesh &mesh,
+            std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf, double eps0);
 };
 
 /**
@@ -372,12 +400,30 @@ class Population
     void add_particles(const std::vector<Particle<len>> &ps);
     signed long int locate(const double *p);
     signed long int relocate(const double *p, signed long int cell_id);
+    signed long int relocate_stat(const double *p, signed long int cell_id, int &crossings);
     signed long int relocate_fast(const double *p, signed long int cell_id);
-    void update(std::vector<ObjectBC>& objects);
+    void update(ObjectVector objects, double dt);
+    void update_stat(ObjectVector objects, double dt, double &mean_crossings);
     std::size_t num_of_particles();         ///< Returns number of particles
     std::size_t num_of_positives();         ///< Returns number of positively charged particles
     std::size_t num_of_negatives();         ///< Returns number of negatively charged particles
 
+    /**
+     * @brief Calculates mean speed and standard deviation for each species 
+     * @param   stats[in, out]   Array containing the mean speed and standard deviation
+     *
+     * Uses Welford's algorithm, see ref. "Note on a method for calculating 
+     * corrected sums of squares and products." Technometrics 4.3 (1962): 419-420,
+     * to calculate the mean speed and standard deviation for each species. The 
+     * elements of the array stats are organized as follows:
+     * 
+     *           stats[0]:  Mean speed for electrons
+     *           stats[1]: Standard deviation for electrons
+     *           stats[2]: Mean speed for ions
+     *           stats[3]: Standard deviation for ions
+     */
+    void statistics(double *stats);        
+    
     /**
      * @brief Save particles to file
      * @param   fname   File name
@@ -572,6 +618,51 @@ signed long int Population<len>::relocate(const double *p, signed long int cell_
     }
 }
 
+// This is not meant to be used regularly.
+// It is just to find out some statistics for the revised PUNC paper,
+// namely the number of cell crossing on average for a simulation.
+template <std::size_t len>
+signed long int Population<len>::relocate_stat(const double *p, signed long int cell_id, int &crossings)
+{
+    // One element for each facet.
+    // For 1D and 2D all aren't used, but slightly faster than vector.
+    double proj[4];
+    double *coeffs = cells[cell_id].facet_plane_coeffs.data();
+
+    for (std::size_t i = 0; i < g_dim + 1; ++i)
+    {
+        proj[i] = *coeffs++;
+        for (std::size_t j=0; j < g_dim; j++){
+            proj[i] += *coeffs++ * p[j];
+        }
+    }
+
+    double proj_max = proj[0];
+    std::size_t proj_argmax = 0;
+    for(std::size_t i = 1; i < g_dim + 1; i++){
+        if(proj[i] > proj_max){
+            proj_max = proj[i];
+            proj_argmax = i;
+        }
+    }
+
+    if(proj_max < 0){
+        return cell_id;
+    } else {
+
+        crossings++;
+
+        auto new_cell_id = cells[cell_id].facet_adjacents[proj_argmax];
+
+        // negative new_cell_id indicate that the particle hit a boundary with
+        // id (-new_cell_id).
+        if(new_cell_id >= 0){
+            return relocate_stat(p, new_cell_id, crossings);
+        } else {
+            return new_cell_id;
+        }
+    }
+}
 template <std::size_t len>
 signed long int Population<len>::relocate_fast(const double *p, signed long int cell_id)
 {
@@ -604,9 +695,84 @@ signed long int Population<len>::relocate_fast(const double *p, signed long int 
 
 }
 
+
+// Not to be used permanently. Only to gather statistics for PUNC paper.
 template <std::size_t len>
-void Population<len>::update(std::vector<ObjectBC> &objects)
+void Population<len>::update_stat(ObjectVector objects, double dt, double &mean_crossings)
 {
+
+    int crossings = 0;
+
+    for(auto object : objects){
+        object->current = 0;
+    }
+
+    // FIXME: Consider a different mechanism for boundaries than using negative
+    // numbers, or at least circumvent the problem of casting num_cells to
+    // signed. Not good practice. size_t may overflow to negative numbers upon
+    // truncation for large numbers.
+    signed long int new_cell_id;
+    for (signed long int cell_id = 0; cell_id < (signed long int)num_cells; ++cell_id)
+    {
+        std::vector<std::size_t> to_delete;
+        std::size_t num_particles = cells[cell_id].particles.size();
+        for (std::size_t p_id = 0; p_id < num_particles; ++p_id)
+        {
+            auto particle = cells[cell_id].particles[p_id];
+
+            //new_cell_id = relocate_fast(particle.x, cell_id);
+
+            // STATISTICS ON CROSSINGS
+            new_cell_id = relocate_stat(particle.x, cell_id, crossings);
+
+            if (new_cell_id != cell_id)
+            {
+                to_delete.push_back(p_id);
+                if (new_cell_id >= 0)
+                {
+                    // Particle will actually be checked again if
+                    // new_cell_id>cell_id. Probably not worth avoiding.
+                    cells[new_cell_id].particles.push_back(particle);
+                }
+                else
+                {
+                    // FIXME:
+                    // Standard numbering scheme on objects and exterior
+                    // boundary would eliminate this loop.
+                    for(auto object : objects){
+                        if ((std::size_t)(-new_cell_id) == object->bnd_id)
+                        {
+                            object->current += particle.q;
+                        }
+                    }
+                }
+            }
+        }
+        std::size_t size_to_delete = to_delete.size();
+        for (std::size_t it = size_to_delete; it-- > 0;)
+        {
+            auto p_id = to_delete[it];
+            cells[cell_id].particles[p_id] = cells[cell_id].particles.back();
+            cells[cell_id].particles.pop_back();
+        }
+    }
+
+    for(auto object : objects){
+        object->charge += object->current;
+        object->current /= dt;
+    }
+
+    mean_crossings = (double)crossings / num_of_particles();
+}
+
+template <std::size_t len>
+void Population<len>::update(ObjectVector objects, double dt)
+{
+
+    for(auto object : objects){
+        object->current = 0;
+    }
+
     // FIXME: Consider a different mechanism for boundaries than using negative
     // numbers, or at least circumvent the problem of casting num_cells to
     // signed. Not good practice. size_t may overflow to negative numbers upon
@@ -620,6 +786,7 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
         {
             auto particle = cells[cell_id].particles[p_id];
             new_cell_id = relocate_fast(particle.x, cell_id);
+
             if (new_cell_id != cell_id)
             {
                 to_delete.push_back(p_id);
@@ -631,12 +798,13 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
                 }
                 else
                 {
+                    // FIXME:
                     // Standard numbering scheme on objects and exterior
                     // boundary would eliminate this loop.
-                    for(auto &object : objects){
-                        if ((std::size_t)(-new_cell_id) == object.id)
+                    for(auto object : objects){
+                        if ((std::size_t)(-new_cell_id) == object->bnd_id)
                         {
-                            object.charge += particle.q;
+                            object->current += particle.q;
                         }
                     }
                 }
@@ -649,7 +817,11 @@ void Population<len>::update(std::vector<ObjectBC> &objects)
             cells[cell_id].particles[p_id] = cells[cell_id].particles.back();
             cells[cell_id].particles.pop_back();
         }
+    }
 
+    for(auto object : objects){
+        object->charge += object->current;
+        object->current /= dt;
     }
 }
 
@@ -696,6 +868,67 @@ std::size_t Population<len>::num_of_negatives()
         }
     }
     return num_negatives;
+}
+
+template <std::size_t len>
+void Population<len>::statistics(double *stats)
+{
+    std::size_t m = 0;
+    std::size_t n = 0;
+    double v;
+    double m_e_old = 0;
+    double m_i_old = 0;
+
+    for (auto &cell : cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            v = 0;
+            for (std::size_t i = 0; i < g_dim; ++i)
+            {
+                v += particle.v[i] * particle.v[i];
+            }
+            v = sqrt(v);
+
+            if (particle.q < 0)
+            {
+                m++;
+                if (m == 1)
+                {
+                    m_e_old = v; 
+                    stats[0] = v;
+                    stats[1] = 0.0;
+                }
+                else
+                {
+                    stats[0] = m_e_old + (v - m_e_old) / m;
+                    stats[1] += (v - m_e_old) * (v - stats[0]);
+
+                    m_e_old = stats[0];
+                }
+            }
+            if (particle.q > 0)
+            {
+                n++;
+                if (n == 1)
+                {
+                    m_i_old = v; 
+                    stats[2] = v;
+                    stats[3] = 0.0;
+                }
+                else
+                {
+                    stats[2] = m_i_old + (v - m_i_old) / n;
+                    stats[3] += (v - m_i_old) * (v - stats[2]);
+
+                    m_i_old = stats[2];
+                }
+            }
+        }
+    }
+
+    if (m > 0) stats[1] = sqrt(stats[1] / (m - 1));
+    if (n > 0) stats[3] = sqrt(stats[3] / (n - 1));
 }
 
 template <std::size_t len>
@@ -774,6 +1007,61 @@ void Population<len>::load_file(const std::string &fname, bool binary)
         }
     }
 }
+
+/**
+ * @brief Returns the minimum plasma period of all species
+ * @param   species     All species
+ * @param   eps0        The permittivity of vacuum
+ * @return              The minmium plasma period
+ *
+ * The plasma period of a species s is defined as
+ * \f[
+ *  T_{ps} = \frac{2\pi}{\omega_{ps}} = 2\pi\frac{\varepsilon_0 m_s}{q_s^2 n_s}
+ * \f]
+ */
+double min_plasma_period(const std::vector<Species> &species, double eps0);
+
+/**
+ * @brief Returns the minimum gyroperiod of all species
+ * @param   species     All species
+ * @param   B           The magnetic flux density vector
+ * @return              The minimum gyro period
+ *
+ * The gyro period of a species s is defined as
+ * \f[
+ *  T_{gs} = \frac{2\pi}{\omega_{gs}} = 2\pi\frac{m_s}{q_s B}
+ * \f]
+ */
+double min_gyro_period(const std::vector<Species> &species,
+                       const std::vector<double> &B);
+
+/**
+ * @brief Returns the maximum expected speed of any particle in the system
+ * @param   species     All species
+ * @param   k           Number of st. devs of velocity to account for
+ * @param   phi_min     The minimum expected potential in the domain
+ * @param   phi_max     The maximum expected potential in the domain
+ * @return              The maximum expected speed
+ *
+ * If neglecting particles in the tail of the velocity distributions above
+ * k standard deviations, the fastest particles entering the domain have a 
+ * speed of
+ *
+ * \f[
+ *  v_{0,s} = v_{D,s} + k*v_{th,s}
+ * \f]
+ *
+ * because the thermal velocity aligns with the drift velocity every now and
+ * then. In addition negative/positive charges may be accelerated towards 
+ * points of high/low potentials, typically an object with specified voltage.  
+ * This speed is computed from energy conservation:
+ *
+ * \f[
+ *  v_{1,s}^2 = v_{0,s} + \frac{2q_s \Delta\phi}{m_s}
+ * \f]
+ */
+double max_speed(const std::vector<Species> &species,
+                 double v_range, double phi_min, double phi_max);
 
 } // namespace punc
 

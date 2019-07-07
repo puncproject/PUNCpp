@@ -25,7 +25,6 @@
 #ifndef INJECTOR_H
 #define INJECTOR_H
 
-#include <dolfin.h>
 #include "population.h"
 #include <random>
 
@@ -66,6 +65,73 @@ private:
 };
 
 /**
+ * @brief Standard rejection sampler
+ * @param vs[in, out] - array of generated random samples
+ * @param N[in] - number of random numbers to be generated
+ * @param pdf[in] - a probability distribution function to sample from
+ * @param pdf_max[in] - maximum value of pdf
+ * @param dim[in] - the dimension of the space pdf is defined on
+ * @param domain[in] - the domian in which the random numbers are constrained to
+ * @param rand[in] - the uniform distribution function
+ * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
+ * 
+ * Standard rejection sampler uses a simpler proposal distribution, which in 
+ * this case is a uniform distribution function, U, to generate random samples. 
+ * A sample is then accepted with probability pdf(v)/ U(v), or discarded 
+ * otherwise. This process is repeated until a sample is accepted.
+ */
+void rejection_sampler(double *vs, std::size_t N,
+                       std::shared_ptr<Pdf> pdf,
+                       double pdf_max, int dim,
+                       const std::vector<double> &domain,
+                       std::uniform_real_distribution<double> &rand,
+                       std::mt19937_64 &rng);
+
+/**
+ * @brief Standard rejection sampler
+ * @param vs[in, out] - array of generated random samples
+ * @param N[in] - number of random numbers to be generated
+ * @param n_vec[in] - normal vector to an exterior facet
+ * @param pdf[in] - a probability distribution function to sample from
+ * @param pdf_max[in] - maximum value of pdf
+ * @param dim[in] - the dimension of the space pdf is defined on
+ * @param domain[in] - the domian in which the random numbers are constrained to
+ * @param rand[in] - the uniform distribution function
+ * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
+ * 
+ * Standard rejection sampler uses a simpler proposal distribution, which in 
+ * this case is a uniform distribution function, U, to generate random samples. 
+ * A sample is then accepted with probability pdf(v)/ U(v), or discarded 
+ * otherwise. This process is repeated until a sample is accepted.
+ */
+void rejection_sampler(double *vs, std::size_t N,
+                       const std::vector<double> &n_vec,
+                       std::shared_ptr<Pdf> pdf,
+                       double pdf_max, int dim,
+                       const std::vector<double> &domain,
+                       std::uniform_real_distribution<double> &rand,
+                       std::mt19937_64 &rng);
+
+/**
+ * @brief Generates uniformly distributed random particle positions on a given exterior facet
+ * @param xs[in, out] - a vector of sampled random positions on a given exterior facet
+ * @param N[in] - number of random particle positions to be generated
+ * @param vertices[in] - a vector containing all the vertices of the facet
+ * @param rand[in] - the uniform distribution function
+ * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
+ * 
+ * In 1D, a facet is a single point. Hence, there is no point in generating 
+ * uniformly distributed random particle positions on a point. Therefore, this 
+ * function is only valid for 2D and 3D. In 2D, the facet is a straight line, 
+ * and in 3D the facet is triangle. Random positions are generated within the 
+ * facet depending on the geometrical dimension. 
+ */
+void random_facet_points(double *xs, std::size_t N,
+                            const std::vector<double> &vertices,
+                            std::uniform_real_distribution<double> &rand,
+                            std::mt19937_64 &rng);
+
+/**
  * @brief Creates flux needed for injecting particles through exterior boundary facets
  * @param  species[in] - A vector containing all the plasma species
  * @param  facets[in] - A vector containing all the exterior facets
@@ -78,50 +144,8 @@ private:
 void create_flux(std::vector<Species> &species, std::vector<ExteriorFacet> &facets);
 
 /**
- * @brief Standard rejection sampler
- * @param N[in] - number of random numbers to be generated
- * @param pdf[in] - a probability distribution function to sample from
- * @param pdf_max[in] - maximum value of pdf
- * @param dim[in] - the dimension of the space pdf is defined on
- * @param domain[in] - the domian in which the random numbers are constrained to
- * @param rand[in] - the uniform distribution function
- * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
- * @return A vector of random numbers from pdf 
- * 
- * Standard rejection sampler uses a simpler proposal distribution, which in 
- * this case is a uniform distribution function, U, to generate random samples. 
- * A sample is then accepted with probability pdf(v)/ U(v), or discarded 
- * otherwise. This process is repeated until a sample is accepted.
- */
-std::vector<double> rejection_sampler(std::size_t N,
-                                      std::function<double(std::vector<double> &)> pdf,
-                                      double pdf_max, int dim,
-                                      const std::vector<double> &domain,
-                                      std::uniform_real_distribution<double> &rand,
-                                      std::mt19937_64 &rng);
-
-/**
- * @brief Generates uniformly distributed random particle positions on a given exterior facet
- * @param N[in] - number of random particle positions to be generated
- * @param vertices[in] - a vector containing all the vertices of the facet
- * @param rand[in] - the uniform distribution function
- * @param rng[in] - The Mersenne Twister pseudo-random generator of 64-bit numbers
- * @return A vector of random numbers from pdf 
- * 
- * In 1D, a facet is a single point. Hence, there is no point in generating 
- * uniformly distributed random particle positions on a point. Therefore, this 
- * function is only valid for 2D and 3D. In 2D, the facet is a straight line, 
- * and in 3D the facet is triangle. Random positions are generated within the 
- * facet depending on the geometrical dimension. 
- */
-std::vector<double> random_facet_points(std::size_t N, 
-                                        const std::vector<double> &vertices,
-                                        std::uniform_real_distribution<double> &rand,
-                                        std::mt19937_64 &rng);
-
-/**
  * @brief Injects particles through the exterior boundary facets
- * @param pop[in] - the plasma particle population
+ * @param pop[in, out] - the plasma particle population
  * @param species[in] - a vector containing all the plasma species
  * @param facets[in] - a vector containing all the exterior facets
  * @param dt[in] - duration of a time-step 
@@ -137,66 +161,79 @@ void inject_particles(PopulationType &pop, std::vector<Species> &species,
     std::mt19937_64 rng{RandomSeed::get_instance()};
     std::uniform_real_distribution<double> rand(0.0, 1.0);
 
-    auto g_dim = pop.g_dim;
+    auto dim = pop.g_dim;
     auto num_species = species.size();
     auto num_facets = facets.size();
-    double xs_tmp[g_dim];
 
     for (std::size_t i = 0; i < num_species; ++i)
     {
-        std::vector<double> xs, vs;
+        auto num = species[i].vdf->num_particles;
+
+        for (auto &num_i : num)
+        {
+            num_i *= species[i].n * dt;
+        }
+        std::vector<std::size_t> num_particles(num.begin(), num.end());
+        std::size_t tot_num = std::accumulate(num_particles.begin(), num_particles.end(), 0);
+        tot_num += num.size();
+        std::vector<double> xs(tot_num * dim), vs(tot_num * dim);
+        double *xs_ptr = xs.data();
+        double *vs_ptr = vs.data();
+        std::size_t tot_N = 0;
         for (std::size_t j = 0; j < num_facets; ++j)
         {
             auto normal_i = facets[j].normal;
-            auto N_float = species[i].n * dt * species[i].vdf.num_particles[j];
-            int N = int(N_float);
+            auto N_float = num[j];
+            auto N = static_cast<std::size_t>(N_float);
             if (rand(rng) < (N_float - N))
             {
                 N += 1;
             }
-            auto vdf = [i, &normal_i, &species](std::vector<double> &v) -> double {
-                return species[i].vdf(v, normal_i);
-            };
-    
-            auto pdf_max = species[i].vdf.pdf_max[j];
-            auto count = 0;
-            while (count < N)
+
+            auto pdf_max = species[i].vdf->pdf_max[j];
+
+            random_facet_points(xs_ptr, N, facets[j].vertices, rand, rng);
+            rejection_sampler(vs_ptr, N, normal_i, species[i].vdf, pdf_max, species[i].vdf->dim,
+                              species[i].vdf->domain, rand, rng);
+
+            if (j < num_facets - 1)
             {
-                auto n = N - count;
-                auto xs_new = random_facet_points(n, facets[j].vertices,
-                                                  rand, rng);
+                vs_ptr += N * dim;
+                xs_ptr += N * dim;
+            }
+            tot_N += N;
+        }
+        xs_ptr = &xs[0];
+        vs_ptr = &vs[0];
 
-                auto vs_new = rejection_sampler(n, vdf, pdf_max,
-                                                species[i].vdf.dim(),
-                                                species[i].vdf.domain(),
-                                                rand, rng);
-
-                for (auto k = 0; k < n; ++k)
+        std::size_t num_inside = 0;
+        for (std::size_t k = 0; k < tot_N; ++k)
+        {
+            auto r = rand(rng);
+            for (std::size_t l = 0; l < dim; ++l)
+            {
+                xs_ptr[l] = xs[k * dim + l] + r * dt * vs[k * dim + l];
+                vs_ptr[l] = vs[k * dim + l];
+            }
+            if (pop.locate(&xs[num_inside * dim]) >= 0)
+            {
+                if (k < tot_N - 1)
                 {
-                    auto r = rand(rng);
-                    for (std::size_t l = 0; l < g_dim; ++l)
-                    {
-                        xs_tmp[l] = xs_new[k * g_dim + l] + dt * r * vs_new[k * g_dim + l];
-                    }
-                    if (pop.locate(xs_tmp) >= 0)
-                    {
-                        for (std::size_t l = 0; l < g_dim; ++l)
-                        {
-                            xs.push_back(xs_tmp[l]);
-                            vs.push_back(vs_new[k * g_dim + l]);
-                        }
-                    }
-                    count += 1;
+                    xs_ptr += dim;
+                    vs_ptr += dim;
                 }
+                num_inside++;
             }
         }
+        xs.resize(num_inside * dim);
+        vs.resize(num_inside * dim);
         pop.add_particles(xs, vs, species[i].q, species[i].m);
     }
 }
 
 /**
  * @brief Generates particle velocities and positions for each species, and populates the simultion domain
- * @param pop[in] - the plasma particle population
+ * @param pop[in, out] - the plasma particle population
  * @param species[in] - a vector containing all the plasma species
  * 
  * Generates random particle velocities based on the prespecified velocity
@@ -215,29 +252,27 @@ void load_particles(PopulationType &pop, std::vector<Species> &species)
     for (std::size_t i = 0; i < num_species; ++i)
     {
         auto s = species[i];
-        auto dim = s.vdf.dim();
-        auto pdf = [&s](std::vector<double> &x) -> double { return s.pdf(x); };
-        auto vdf = [&s](std::vector<double> &v) -> double { return s.vdf(v); };
+        auto dim = s.vdf->dim;
+        auto N = s.num;
+        std::vector<double> xs(N * dim, 0.0), vs(N * dim, 0.0);
 
-        xs = rejection_sampler(s.num, pdf, s.pdf.max(), dim, s.pdf.domain(),
-                               rand, rng);
-        if (s.vdf.has_cdf())
+        rejection_sampler(xs.data(), N, s.pdf, s.pdf->max(), dim, s.pdf->domain, rand, rng);
+        if (s.vdf->has_icdf)
         {
-            std::vector<double> rand_tmp(s.num * dim, 0.0);
             for (auto j = 0; j < dim; ++j)
             {
                 for (auto k = 0; k < s.num; ++k)
                 {
-                    rand_tmp[k * dim + j] = rand(rng);
+                    vs[k * dim + j] = rand(rng);
                 }
             }
-            vs = s.vdf.cdf(rand_tmp);
+            s.vdf->icdf(vs.data(), N);
         }
         else
         {
-            vs = rejection_sampler(s.num, vdf, s.vdf.max(), dim, s.vdf.domain(),
-                                   rand, rng);
+            rejection_sampler(vs.data(), N, s.vdf, s.vdf->max(), dim, s.vdf->domain, rand, rng);
         }
+
         pop.add_particles(xs, vs, s.q, s.m);
     }
 }

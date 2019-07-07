@@ -1,6 +1,12 @@
 #include <dolfin.h>
 #include <punc.h>
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <iomanip>
+
 using namespace punc;
 
 using std::cout;
@@ -11,54 +17,146 @@ const bool override_status_print = true;
 class LangmuirWave2D : public Pdf
 {
   private:
-    std::shared_ptr<const df::Mesh> mesh;
+    std::shared_ptr<const df::Mesh> _mesh;
     double amplitude, mode;
     const std::vector<double> Ld;
-    int dim_;
-    std::vector<double> domain_;
 
   public:
-    LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+    LangmuirWave2D(const Mesh &mesh,
                    double amplitude, double mode,
                    const std::vector<double> &Ld);
 
     double operator()(const std::vector<double> &x);
     double max() { return 1.0 + amplitude; }
-    int dim() { return dim_; }
-    std::vector<double> domain() { return domain_; }
 };
 
-LangmuirWave2D::LangmuirWave2D(std::shared_ptr<const df::Mesh> mesh,
+LangmuirWave2D::LangmuirWave2D(const Mesh &mesh,
                                double amplitude, double mode,
                                const std::vector<double> &Ld)
-    : mesh(mesh), amplitude(amplitude), mode(mode),
-      Ld(Ld)
+    : _mesh(mesh.mesh), amplitude(amplitude),
+      mode(mode), Ld(Ld)
 {
-    dim_ = mesh->geometry().dim();
-    auto coordinates = mesh->coordinates();
+    dim = mesh.dim;
+    auto coordinates = _mesh->coordinates();
     auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
     auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-    domain_.resize(2 * dim_);
-    for (int i = 0; i < dim_; ++i)
+    domain.resize(2 * dim);
+    for (int i = 0; i < dim; ++i)
     {
-        domain_[i] = Ld_min;
-        domain_[i + dim_] = Ld_max;
+        domain[i] = Ld_min;
+        domain[i + dim] = Ld_max;
     }
 }
 
 double LangmuirWave2D::operator()(const std::vector<double> &x)
 {
-    return (locate(mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+    return (locate(_mesh, x.data()) >= 0) * (1.0 + amplitude * sin(2 * mode * M_PI * x[0] / Ld[0]));
+}
+
+class Gif
+{
+  public:
+    std::size_t num;
+    std::ofstream ofile;
+
+    Gif(const std::string &fname, std::size_t num) : num(num)
+    {
+        ofile.open(fname, std::ofstream::out);
+    }
+
+    ~Gif() { ofile.close(); };
+
+    template <typename PopulationType>
+    void save(PopulationType &pop)
+    {
+        ofile << num << std::endl;
+        ofile << "Langmuir simulations " << std::endl;
+
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q < 0)
+                {
+                    ofile << 'O' << "\t";
+                    ofile << particle.x[0] << "\t";
+                    ofile << particle.x[1] << "\t";
+                    ofile << 0.0 << std::endl;
+                }
+            }
+        }
+
+        for (auto &cell : pop.cells)
+        {
+            for (auto &particle : cell.particles)
+            {
+                if (particle.q > 0)
+                {
+                    ofile << 'C' << "\t";
+                    ofile << particle.x[0] << "\t";
+                    ofile << particle.x[1] << "\t";
+                    ofile << 0.0 << std::endl;
+                }
+            }
+        }
+    }
+};
+
+template <typename PopulationType>
+void save_pop(PopulationType &pop, std::size_t n)
+{
+
+    std::string prefix_e("data/electron");
+    std::string prefix_p("data/proton");
+    std::string ext(".txt");
+
+    int n_digits = 5;
+    std::stringstream ss_e;
+    std::stringstream ss_p;
+    ss_e << prefix_e << std::setfill('0') << std::setw(n_digits) << n << ext;
+    ss_p << prefix_p << std::setfill('0') << std::setw(n_digits) << n << ext;
+
+    std::ofstream ofile_e(ss_e.str(), std::ofstream::out);
+    std::ofstream ofile_p(ss_p.str(), std::ofstream::out);
+
+    for (auto &cell : pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q < 0)
+            {
+                ofile_e << particle.x[0] << ",";
+                ofile_e << particle.x[1] << ",";
+                ofile_e << 0.0 << std::endl;
+            }
+        }
+    }
+
+    for (auto &cell : pop.cells)
+    {
+        for (auto &particle : cell.particles)
+        {
+            if (particle.q > 0)
+            {
+                ofile_p << particle.x[0] << ",";
+                ofile_p << particle.x[1] << ",";
+                ofile_p << 0.0 << std::endl;
+            }
+        }
+    }
+    ofile_e.close();
+    ofile_p.close();
 }
 
 int main()
 {
     df::set_log_level(df::WARNING);
 
-    double dt = 0.1;
-    std::size_t steps = 30;
+    double dt_plasma = 0.01;
+    std::size_t steps = 300;
 
-    std::string fname{"../../mesh/2D/nothing_in_square"};
+    // const char *fname_gif = "gif.xyz";
+    std::string fname{"nothing_in_square"};
     Mesh mesh(fname);
 
     const std::size_t dim = 2;
@@ -70,7 +168,13 @@ int main()
 
     auto constr = std::make_shared<PeriodicBoundary>(Ld, periodic);
 
-    auto V = function_space(mesh.mesh, constr);
+    auto V = CG1_space(mesh, constr);
+    auto W = CG1_vector_space(mesh);
+
+    // The electric potential and electric field
+    df::Function rho(std::make_shared<const df::FunctionSpace>(V));
+    df::Function phi(std::make_shared<const df::FunctionSpace>(V));
+    df::Function E(std::make_shared<const df::FunctionSpace>(W));
 
     PhysicalConstants constants;
     double e = constants.e;
@@ -81,45 +185,34 @@ int main()
     auto dv_inv = element_volume(V);
 
     double vth = 0.0;
-    int npc = 64;
-    double ne = 100;
+    double amount = 50000;
+    double ne = 1e10;
 
-    CreateSpecies create_species(mesh, Ld[0]);
+
+    std::vector<Species> species;
+
+    ParticleAmountType type = ParticleAmountType::in_total;
+    type = ParticleAmountType::per_volume;
 
     double A = 0.5, mode = 1.0;
 
-    LangmuirWave2D pdfe(mesh.mesh, A, mode, Ld); // Electron position distribution
-    UniformPosition pdfi(mesh.mesh);             // Ion position distribution
+    std::shared_ptr<Pdf> pdfi = std::make_shared<UniformPosition>(mesh);
+    std::shared_ptr<Pdf> pdfe = std::make_shared<LangmuirWave2D>(mesh, A, mode, Ld);
 
-    Maxwellian vdfe(vth, vd);             // Velocity distribution for electrons
-    Maxwellian vdfi(vth, vd);             // Velocity distribution for ions
+    std::shared_ptr<Pdf> vdfi = std::make_shared<Maxwellian>(vth, vd);
+    std::shared_ptr<Pdf> vdfe = std::make_shared<Maxwellian>(vth, vd);
 
-    bool si_units = true;
-    if (!si_units)
-    {
-        create_species.create(-e, me, ne, pdfe, vdfe, npc);
-        create_species.create(e, mi, ne, pdfi, vdfi, npc);
-        eps0 = 1.0;
-    }
-    else
-    {
-        double wpe = sqrt(ne * e * e / (eps0 * me));
-        dt /= wpe;
-        create_species.T = 1;
-        create_species.Q = 1;
-        create_species.M = 1;
-        create_species.X = 1;
+    species.emplace_back(-e, me, ne, amount, type, mesh, pdfe, vdfe, eps0);
+    species.emplace_back(e, mi, ne, amount, type, mesh, pdfi, vdfi, eps0);
 
-        create_species.create_raw(-e, me, ne, pdfe, vdfe, npc);
-        create_species.create_raw(e, mi, ne, pdfi, vdfi, npc);
-    }
-
-    auto species = create_species.species;
+    double Tp = min_plasma_period(species, eps0);
+    double dt = dt_plasma * Tp;
 
     Population<dim> pop(mesh);
+    std::vector<std::shared_ptr<Object>> objects = {};
 
-    PoissonSolver poisson(V, boost::none, boost::none, eps0, remove_null_space);
-    ESolver esolver(V);
+    PoissonSolver poisson(V, objects, boost::none, nullptr, eps0, remove_null_space);
+    ESolver esolver(W);
 
     load_particles(pop, species);
 
@@ -130,29 +223,38 @@ int main()
     std::cout << ", num negatives: " << num2;
     std::cout << " total: " << num3 << '\n';
 
+    // Gif gif(fname_gif, num3);
+    // gif.save(pop);
+
+    save_pop(pop, 0);
+
     std::vector<double> KE(steps-1);
     std::vector<double> PE(steps-1);
     std::vector<double> TE(steps-1);
     double KE0 = kinetic_energy(pop);
 
-    std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move"};
+    std::vector<std::string> tasks{"distributor", "poisson", "efield", "update", "PE", "accelerator", "move", "io"};
     Timer timer(tasks);
-
-    std::vector<ObjectBC> objects{};
+    // df::File ofiler("Fields/rho.pvd");
+    // df::File ofilep("Fields/phi.pvd");
+    double t = 0;
     for (std::size_t i = 1; i < steps; ++i)
     {
         timer.progress(i, steps, 0, override_status_print);
 
         timer.tic("distributor");
-        auto rho = distribute_cg1(V, pop, dv_inv);
+        distribute_cg1(pop, rho, dv_inv);
         timer.toc();
 
         timer.tic("poisson");
-        auto phi = poisson.solve(rho);
+        poisson.solve(phi, rho, objects);
         timer.toc();
 
+        // ofiler.write(rho, t);
+        // ofilep.write(phi, t);
+
         timer.tic("efield");
-        auto E = esolver.solve(phi);
+        esolver.solve(E, phi);
         timer.toc();
 
         timer.tic("PE");
@@ -168,9 +270,16 @@ int main()
         timer.toc();
 
         timer.tic("update");
-        pop.update(objects);
+        pop.update(objects, dt);
         timer.toc();
-    }
+
+        timer.tic("io");
+        // gif.save(pop);
+        save_pop(pop, i);
+        timer.toc();
+
+        t += dt;
+    }   
 
     if (override_status_print)
     {

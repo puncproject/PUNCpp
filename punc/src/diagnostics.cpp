@@ -24,36 +24,20 @@
 
 #include "../include/punc/diagnostics.h"
 #include "../ufl/Energy.h"
+#include <dolfin/fem/assemble.h>
+#include <dolfin/fem/Form.h>
+
+#include <iostream>
 
 namespace punc
 {
-
-FieldWriter::FieldWriter(const std::string &phi_fname, const std::string &E_fname,
-                         const std::string &rho_fname, const std::string &ne_fname,
-                         const std::string &ni_fname) : ofile_phi(phi_fname),
-                         ofile_E(E_fname), ofile_rho(rho_fname), 
-                         ofile_ne(ne_fname), ofile_ni(ni_fname)
-{
-    // Do nothing
-}
-
-void FieldWriter::save(const df::Function &phi, const df::Function &E, 
-                       const df::Function &rho, const df::Function &ne, 
-                       const df::Function &ni, double t)
-{
-    ofile_phi.write(phi, t);
-    ofile_E.write(E, t);
-    ofile_rho.write(rho, t);
-    ofile_ne.write(ne, t);
-    ofile_ni.write(ni, t);
-}
 
 State::State(std::string fname) : fname(fname)
 {
     // Do nothing
 }
 
-void State::load(std::size_t &n, double &t, std::vector<ObjectBC> &objects)
+void State::load(std::size_t &n, double &t, ObjectVector objects)
 {
     std::ifstream ifile(fname);
 
@@ -63,28 +47,33 @@ void State::load(std::size_t &n, double &t, std::vector<ObjectBC> &objects)
     char *s = (char *)line.c_str();
     n = strtol(s, &s, 10);
     t = strtod(s, &s);
-    for (auto &o : objects)
+    for (auto o : objects)
     {
-        o.charge = strtod(s, &s);
-        o.current = strtod(s, &s);
+        o->charge = strtod(s, &s);
+        o->current = strtod(s, &s);
     }
     ifile.close();
 }
-void State::save(std::size_t n, double t, std::vector<ObjectBC> &objects)
+void State::save(std::size_t n, double t, const ObjectVector objects)
 {
     std::ofstream ofile;
     ofile.open(fname, std::ofstream::out);
     ofile << n + 1 << "\t" << t << "\t";
-    for (auto &o : objects)
+    for (auto o : objects)
     {
-        ofile << o.charge << "\t";
-        ofile << o.current << "\n";
+        ofile << o->charge << "\t";
+        ofile << o->current << "\n";
     }
     ofile.close();
 }
 
-History::History(const std::string &fname, std::vector<ObjectBC> &objects, 
-                 std::size_t dim, bool continue_simulation)
+History::History(const std::string &fname,
+                 ObjectVector objects,
+                 std::size_t dim,
+                 bool stats,
+                 bool continue_simulation,
+                 bool hex_output) 
+                 : dim(dim), stats(stats), hex_output(hex_output)
 {
     if (continue_simulation)
     {
@@ -102,6 +91,10 @@ History::History(const std::string &fname, std::vector<ObjectBC> &objects,
             ofile << "\tI[" << i << "]";
             ofile << "\tQ[" << i << "]";
         }
+        if (stats)
+        {
+            ofile << "\tmean_e\tstdev_e\tmean_i\tstdev_i";
+        }
         ofile << "\n";
 
         ofile << "#:long\ttimestep\ttime\t\"number of electrons\"\t";
@@ -113,6 +106,13 @@ History::History(const std::string &fname, std::vector<ObjectBC> &objects,
             ofile << "\tcurrent";
             ofile << "\tcharge";
         }
+        if (stats)
+        {
+            ofile << "\tmean velocity of electrons";
+            ofile << "\tstandard deviation of electron velocities";
+            ofile << "\tmean velocity of ions";
+            ofile << "\tstandard deviation of ion velocities";
+        }
         ofile << "\n";
 
         ofile << "#:units\t1\ts\tm**(-3)\tm**(-3)\tJ\tJ";
@@ -122,36 +122,25 @@ History::History(const std::string &fname, std::vector<ObjectBC> &objects,
             ofile << "\tV";
             if (dim == 1)
             {
-                ofile << "\tA";
+                ofile << "\tA/m**2";
             }else if (dim == 2)
             {
                 ofile << "\tA/m";
             }else if (dim == 3)
             {
-                ofile << "\tA/m**2";
+                ofile << "\tA";
             }
             ofile << "\tC";
         }
+        if (stats)
+        {
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+            ofile << "\tm/s";
+        }
         ofile << "\n";
     }
-}
-
-void History::save(std::size_t n, double t, double num_e, double num_i, double KE,
-                   double PE, std::vector<ObjectBC> &objects)
-{
-    ofile << n << "\t";
-    ofile << t << "\t";
-    ofile << num_e << "\t";
-    ofile << num_i << "\t";
-    ofile << KE << "\t";
-    ofile << PE;
-    for (auto &o : objects)
-    {
-        ofile << "\t" << o.potential << "\t";
-        ofile << o.current << "\t";
-        ofile << o.charge;
-    }
-    ofile << std::endl;
 }
 
 Timer::Timer(std::vector<std::string> tasks) 

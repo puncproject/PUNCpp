@@ -15,25 +15,6 @@
 # You should have received a copy of the GNU General Public License along with
 # PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
-# from ufl import *
-# set_level(DEBUG)
-# UFL input for formulation of Object charge
-#
-# For 1D problems cell must be an interval
-# For 2D problems cell must be a triangle and
-# for 3D problems it must be tetrahedron
-
-# cell = interval    # for 1D problems
-#cell = triangle    # for 2D problems
-#cell = tetrahedron # for 3D problems
-
-#family = "Lagrange" # or "CG"
-#degree = 1
-#CG = FiniteElement(family, cell, degree)
-#n = FacetNormal(cell)
-#uh = Coefficient(CG)
-#charge = dot(grad(uh), n) * ds(9999)
-#forms = [charge]
 
 cells = [interval, triangle, tetrahedron] 
 family = "Lagrange" # or "CG"
@@ -46,5 +27,3 @@ for cell in cells:
     n = FacetNormal(cell)
     eps0 = Constant(cell)
     forms.append(eps0*dot(grad(Coefficient(element)), n)*ds(9999))
-    # phi = TrialFunction(element)
-    # forms.append(eps0*dot(grad(phi), n)*ds(9999))

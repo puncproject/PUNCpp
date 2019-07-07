@@ -16,9 +16,10 @@
 // PUNC++. If not, see <http://www.gnu.org/licenses/>.
 
 #include "../include/punc/population.h"
+#include <dolfin/geometry/Point.h>
+#include <dolfin/geometry/BoundingBoxTree.h>
 
-namespace punc
-{
+namespace punc {
 
 signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
 {
@@ -37,67 +38,84 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x)
     }
 }
 
-CreateSpecies::CreateSpecies(const Mesh &mesh, double X) : X(X)
-{
-    g_dim = mesh.dim;
-    volume = mesh.volume();
-    num_cells = mesh.mesh->num_cells();
+Species::Species(double charge, double mass, double density, double amount,
+                 ParticleAmountType type, const Mesh &mesh,
+                 std::shared_ptr<Pdf> pdf, std::shared_ptr<Pdf> vdf, double eps0)
+                : pdf(pdf), vdf(vdf) {
+
+    // NB: Deliberate fall-through
+    switch(type){
+    case ParticleAmountType::per_cell:
+        amount *= mesh.mesh->num_cells();
+    case ParticleAmountType::in_total:
+        amount /= mesh.volume();
+    case ParticleAmountType::per_volume:
+        amount = density / amount;
+    case ParticleAmountType::phys_per_sim:
+        break;
+    default:
+        std::cerr << "Invalid ParticleAmountType";
+        exit(1);
+    }
+
+    // Amount is now the number of physical particles per simulation particle
+    weight = amount;
+    q = charge  * amount;
+    m = mass    * amount;
+    n = density / amount;
+
+    num = n * mesh.volume();
+
+    debye = vdf->debye(m, q, n, eps0);
 }
 
-void CreateSpecies::create_raw(double q, double m, double n, Pdf &pdf, Pdf &vdf, 
-                               int npc, int num)
-{
-    if (num==0)
-    {
-        num = npc * num_cells;
-    }
-    double w = (n / num) * volume;
-    q *= w;
-    m *= w;
-    n /= w;
+double min_plasma_period(const std::vector<Species> &species, double eps0){
 
-    Species s(q, m, n, num, pdf, vdf);
-    species.emplace_back(s);
+    double wp_max = 0;
+    for(auto &s : species){
+        double wp = sqrt(pow(s.q,2)*s.n/(eps0*s.m));
+        if(wp > wp_max) wp_max = wp;
+    }
+    return 2*M_PI/wp_max;
 }
 
-void CreateSpecies::create(double q, double m, double n, Pdf &pdf, Pdf &vdf,
-                           int npc, int num)
-{
-    if (std::isnan(T))
-    {
-        double wp = sqrt((n * q * q) / (epsilon_0 * m));
-        T = 1.0 / wp;
+double min_gyro_period(const std::vector<Species> &species,
+                       const std::vector<double> &B){
+
+    double B_norm = std::accumulate(B.begin(), B.end(), 0.0);
+    double wc_max = 0;
+    for(auto &s : species){
+        double wc = s.q*B_norm/s.m;
+        if(wc > wc_max) wc_max = wc;
     }
-    if (std::isnan(M))
-    {
-        if (num==0)
-        {
-            num = npc * num_cells;
+    return 2*M_PI/wc_max;
+}
+
+double max_speed(const std::vector<Species> &species,
+                 double k, double phi_min, double phi_max){
+
+    double v_max = 0;
+    for(auto &s : species){
+        std::vector<double> vd_vec = s.vdf->vd();
+        double vd = sqrt(std::accumulate(vd_vec.begin(), vd_vec.end(), 0.0));
+        double vth = s.vdf->vth();
+
+        // Maximum and minimum phi on boundary. Not implemented to take into
+        // account B-field which may cause it to be non-zero.
+        const double phi_bnd_min = 0;
+        const double phi_bnd_max = 0;
+
+        double dphi = 0;
+        if(s.q<0){
+            dphi = phi_max-phi_bnd_min;
+        } else {
+            dphi = phi_min-phi_bnd_max;
         }
-        double w =  (n / num) * volume;
-        Q *= w;
         
-        M = (T * T * Q * Q) /
-                  (epsilon_0 * pow(X, g_dim));
+        double v_max_s = sqrt(pow(vd+k*vth,2)-2*s.q*dphi/s.m);
+        if(v_max_s > v_max) v_max = v_max_s;
     }
-
-    q /= Q;
-    m /= M;
-    n *= pow(X, g_dim);
-
-    vdf.set_vth(vdf.vth()/(X / T));
-
-    std::vector<double> tmp_v(g_dim);
-    auto tmp_vd = vdf.vd();
-
-    for (int i = 0; i < g_dim; ++i)
-    {
- 
-        tmp_v[i] = tmp_vd[i] / (X/T);
-    }
-    vdf.set_vd(tmp_v);
-
-    create_raw(q, m, n, pdf, vdf, npc, num);
+    return v_max;
 }
 
-}
+} // namespace punc

@@ -25,8 +25,13 @@
 #ifndef DISTRIBUTIONS_H
 #define DISTRIBUTIONS_H
 
-#include <dolfin.h>
+#include "mesh.h"
+
 #include <boost/math/special_functions/erf.hpp>
+#include <boost/units/systems/si/codata/electromagnetic_constants.hpp>
+#include <boost/units/systems/si/codata/electron_constants.hpp>
+#include <boost/units/systems/si/codata/physico-chemical_constants.hpp>
+#include <boost/units/systems/si/codata/universal_constants.hpp>
 
 namespace punc
 {
@@ -44,73 +49,135 @@ signed long int locate(std::shared_ptr<const df::Mesh> mesh, const double *x);
 /**
  * @brief Generic class for probability distribution functions, PDF
  */
-class Pdf : public df::Expression
+class Pdf
 {
-private:
-  double _vth;             ///< Thermal velocity
-  std::vector<double> _vd; ///< Drift velocity
-  bool _has_cdf;           ///< Whether or not analytical expression for CDF exists 
-  bool _has_flux_number;   ///< Whether or not analytical expression for the number of paraticles through a surface exists
-  bool _has_flux_max;      ///< Whether or not analytical expression for the maximum value of flux PDF exists
-
+protected:
+    double _vth;             ///< Thermal velocity
+    std::vector<double> _vd; ///< Drift velocity
 public:
-  std::vector<double> pdf_max, num_particles; ///< Vectors containing the maximum value of PDF and the number particles for each facet
+    int dim;                    ///< Dimension of configuration or velocity space
+    bool has_icdf;              ///< Whether or not analytical expression for the inverse of CDF exists
+    bool has_flux_number;       ///< Whether or not analytical expression for the number of paraticles through a surface exists
+    bool has_flux_max;          ///< Whether or not analytical expression for the maximum value of flux PDF exists
+    double vdf_range;           ///< The range of PDF
+    std::vector<double> domain; ///< Vector containing the range of either configuration or velocity space in each dimension
 
-  /**
+    std::vector<double> pdf_max, num_particles; ///< Vectors containing the maximum value of PDF and the number particles for each facet
+
+    Pdf() {}
+
+    Pdf(double vth, std::vector<double> &vd, bool has_icdf, bool has_flux_num,
+        bool has_flux_max, double vdf_range) : _vth(vth), _vd(vd), dim(vd.size()),
+                                                has_icdf(has_icdf),
+                                                has_flux_number(has_flux_num),
+                                                has_flux_max(has_flux_max), vdf_range(vdf_range)
+    {
+        domain.resize(2 * dim);
+        update_domain();
+    }
+
+    /**
      * @brief The PDF it self represented by a mathematical expression
      * @param[in]  x  - a vector representing either a point in configuration or velocity space
      * @return     the value of the PDF at x
      */
-  virtual double operator()(const std::vector<double> &x) = 0;
+    virtual double
+    operator()(const double *x) = 0;
 
-  /**
+    /**
      * @brief The PDF of the flux for a given normal vector of a facet
      * @param[in]  x  - a vector representing a point in the velocity space
      * @param[in]  n  - the normal vector representing a facet
      * @return     the value of the flux PDF at x
      */
-  virtual double operator()(const std::vector<double> &x, const std::vector<double> &n)
-  {
-    double vn = 0.0;
-    for (int i = 0; i < dim(); ++i)
+    virtual double 
+    operator()(const double *x, const std::vector<double> &n)
     {
-      vn += x[i] * n[i];
+        double vn = 0.0;
+        for (int i = 0; i < dim; ++i)
+        {
+            vn += x[i] * n[i];
+        }
+        return (vn > 0.0) * vn * this->operator()(x);
     }
-    return (vn > 0.0) * vn * this->operator()(x);
-  }
 
-  virtual int dim() = 0;    ///< The dimension of either configuration or velocity space 
-  virtual double max() = 0; ///< Maximum value of the PDF
-  virtual std::vector<double> domain() = 0; ///< Vector containing the range of either configuration or velocity space in each dimension
-  virtual double vth() { return _vth; }     ///< Returns the thermal velocity
-  virtual std::vector<double> vd() { return _vd; } ///< Returns the drift velocity
-  virtual void set_vth(double v) { _vth = v; }     ///< Sets the normalized thermal velocity
-  virtual void set_vd(std::vector<double> &v) { _vd = v; } ///< Sets the normalized drift velocity
-  virtual bool has_cdf() { return _has_cdf; }              ///< Returns true if PDF has an analytical expression for the CDF
-  virtual bool has_flux_max() { return _has_flux_max; }    ///< Returns true if the maximum value of the flux PDF is available
-  virtual bool has_flux_number() { return _has_flux_number; } ///< Returns true if analytical expression for the flux particle number is available
-  /**
-     * @brief Analytical expression for the inverse of the CDF
-     * @param[in]  r  - a vector uniformly distributed random numbers
-     * @return     a vector of generated random velocities
+    virtual double max() = 0;                        ///< Maximum value of the PDF
+    virtual double vth() { return _vth; }            ///< Returns the thermal velocity
+    virtual std::vector<double> vd() { return _vd; } ///< Returns the drift velocity
+
+    /**
+     * @brief Sets a new thermal velocity. Used for normalization.
+     * @param[in]  v  - the (normalized) thermal velocity
+     * 
+     * If thermal velocity is 0, changes the range of VDF accordingly.
      */
-  virtual std::vector<double> cdf(const std::vector<double> &r) { return {}; }
-  virtual void set_flux_normal(std::vector<double> &n) {} ///< Sets the normal vector for the flux PDF
+    virtual void set_vth(double v)
+    {
+        _vth = v;
+        if (_vth == 0.0)
+        {
+            _vth = std::numeric_limits<double>::epsilon();
+            vdf_range = 1.0;
+        }
+    }
 
-  /**
+    /**
+     * @brief Sets a new drift velocity. Used for normalization.
+     * @param[in]  v  - the (normalized) drift velocity
+     * 
+     * Updates the PDF domain, after the new drift velocity has been set. 
+     */
+    virtual void set_vd(std::vector<double> &v)
+    {
+        _vd = v;
+        update_domain();
+    }
+
+    /**
+     * @brief Updates the PDF domain
+     */
+    virtual void update_domain()
+    {
+        for (int i = 0; i < dim; ++i)
+        {
+            domain[i] = _vd[i] - vdf_range * _vth;
+            domain[i + dim] = _vd[i] + vdf_range * _vth;
+        }
+    }
+
+    /**
+     * @brief Analytical expression for the inverse of the CDF
+     * @param[in]  vs  - a vector uniformly distributed random numbers
+     * @param[out]  vs  - a vector velocities randomly generated from the Pdf
+     * @param[in]  N  - number of random velocities to be sampled 
+     */
+    virtual void icdf(double *vs, std::size_t N) { }
+
+    /**
      * @brief Number of particles for a given facet with normal vector n and area S
      * @param[in]  n  - the normal vector representing a facet
      * @param[in]  S  - the area of the facet
      * @return     number of particles to be injected through the facet
      */
-  virtual double flux_num_particles(const std::vector<double> &n, double S) { return 0.0; }
-  
-  /**
+    virtual double flux_num_particles(const std::vector<double> &n, double S) { return 0.0; }
+
+    /**
      * @brief The maximum value of the flux PDF
      * @param[in]  n  - the normal vector representing a facet
      * @return     the maximum value of the flux PDF
      */
-  virtual double flux_max(std::vector<double> &n) { return 0.0; };
+    virtual double flux_max(std::vector<double> &n) { return 0.0; };
+
+    /**
+     * @brief The Debye length for the plasma species described by the VDF
+     * @param[in]  m    - Species mass 
+     * @param[in]  q    - Species charge
+     * @param[in]  n    - Number density
+     * @param[in]  eps0 - Vacuum permittivity in simulation parameters
+     *                    (depends on normalization scheme)
+     * @return     the Debye length
+     */
+    virtual double debye(double m, double q, double n, double eps0) { return 0.0; };
 };
 
 /**
@@ -118,27 +185,25 @@ public:
  */
 class UniformPosition : public Pdf
 {
-  private:
-    std::shared_ptr<const df::Mesh> mesh; ///< df::Mesh of the simulation domain
-    int _dim;                             ///< The geometrical dimension of the domain
-    std::vector<double> _domain;          ///< The range of the domain in each dimension
+private:
+    std::shared_ptr<const df::Mesh> _mesh; ///< df::Mesh of the simulation domain
 
-  public:
+public:
     /**
      * @brief Constructor
      * @param[in]  df::Mesh  
      */
-    UniformPosition(std::shared_ptr<const df::Mesh> mesh) : mesh(mesh)
+    UniformPosition(const Mesh &mesh) : _mesh(mesh.mesh)
     {
-        _dim = mesh->geometry().dim();
-        auto coordinates = mesh->coordinates();
+        dim = mesh.dim;
+        auto coordinates = _mesh->coordinates();
         auto Ld_min = *std::min_element(coordinates.begin(), coordinates.end());
         auto Ld_max = *std::max_element(coordinates.begin(), coordinates.end());
-        _domain.resize(2 * _dim);
-        for (int i = 0; i < _dim; ++i)
+        domain.resize(2 * dim);
+        for (int i = 0; i < dim; ++i)
         {
-            _domain[i] = Ld_min;
-            _domain[i + _dim] = Ld_max;
+            domain[i] = Ld_min;
+            domain[i + dim] = Ld_max;
         }
     }
 
@@ -147,14 +212,12 @@ class UniformPosition : public Pdf
      * @param[in]  x   - a vector representing a point in the domain
      * @return    1 if the point is within the domain, otherwise 0
      */
-    double operator()(const std::vector<double> &x)
+    double operator()(const double *x)
     {
-        return (locate(mesh, x.data()) >= 0) * 1.0;
+        return (locate(_mesh, x) >= 0) * 1.0;
     };
 
-    double max() { return 1.0; };                     ///< Returns the maximum value of the PDF
-    int dim() { return _dim; };                       ///< Returns the geometrical dimension of the domain
-    std::vector<double> domain() { return _domain; }; ///< Returns the range of the domain in each dimension
+    double max() { return 1.0; }; ///< Returns the maximum value of the PDF
 };
 
 /**
@@ -169,45 +232,20 @@ class UniformPosition : public Pdf
  */
 class Maxwellian : public Pdf
 {
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
+private:
     double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
 
-  public:
-    std::vector<double> pdf_max, num_particles;
+public:
+    Maxwellian(double vth, std::vector<double> &vd, bool has_icdf = true,
+                bool has_flux_num = true, bool has_flux_max = true,
+                double vdf_range = 5.0);
 
-    Maxwellian(double vth, std::vector<double> &vd, bool has_cdf = true,
-               bool has_flux_num = true, bool has_flux_max = true,
-               double vdf_range = 5.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
+    double operator()(const double *v);
     double max() { return factor; };
-    std::vector<double> domain() { return _domain; };
-    double vth() { return _vth; };
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; };
-    void set_vd(std::vector<double> &v) { _vd = v; };
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    std::vector<double> cdf(const std::vector<double> &r);
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
+    void icdf(double *vs, std::size_t N);
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -226,44 +264,21 @@ class Maxwellian : public Pdf
  */
 class Kappa : public Pdf
 {
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    double k;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
+private:
     double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
 
-  public:
-    std::vector<double> pdf_max, num_particles;
-    Kappa(double vth, std::vector<double> &vd, double k, bool has_cdf = false,
+public:
+    double k; /// < Spectral index kappa
+
+    Kappa(double vth, std::vector<double> &vd, double k, bool has_icdf = false,
           bool has_flux_num = true, bool has_flux_max = true,
           double vdf_range = 7.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
+
+    double operator()(const double *v);
     double max() { return factor; }
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
     double flux_num_particles(const std::vector<double> &n, double S);
     double flux_max(std::vector<double> &n);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -283,43 +298,20 @@ class Kappa : public Pdf
  */
 class Cairns : public Pdf
 {
-  private:
-    double _vth;
-    std::vector<double> _vd;
-    double alpha;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
+private:
+    double vth2, vth4, factor;
 
-  public:
-    std::vector<double> pdf_max, num_particles;
+public:
+    double alpha; /// < Spectral index alpha
+
     Cairns(double vth, std::vector<double> &vd, double alpha,
-           bool has_cdf = false, bool has_flux_num = true,
-           bool has_flux_max = false, double vdf_range = 7.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
+            bool has_icdf = false, bool has_flux_num = true,
+            bool has_flux_max = false, double vdf_range = 7.0);
+
+    double operator()(const double *v);
     double max();
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
     double flux_num_particles(const std::vector<double> &n, double S);
+    double debye(double m, double q, double n, double eps0);
 };
 
 /**
@@ -342,43 +334,20 @@ class Cairns : public Pdf
  */
 class KappaCairns : public Pdf
 {
-  private:
-    double _vth;
-    std::vector<double> _vd;
+private:
+    double vth2, vth4, factor;
+
+public:
     double k;
     double alpha;
-    int _dim;
-    bool _has_cdf;
-    bool _has_flux_number;
-    bool _has_flux_max;
-    std::vector<double> _domain;
-    double vth2, factor;
-    std::vector<double> _n;
-    bool has_flux = false;
 
-  public:
-    std::vector<double> pdf_max, num_particles;
     KappaCairns(double vth, std::vector<double> &vd, double k, double alpha,
-                bool has_cdf = false, bool has_flux_num = false,
+                bool has_icdf = false, bool has_flux_num = false,
                 bool has_flux_max = false, double vdf_range = 15.0);
-    double operator()(const std::vector<double> &v);
-    double operator()(const std::vector<double> &v, const std::vector<double> &n);
-    int dim() { return _dim; }
+                
+    double operator()(const double *v);
     double max();
-    std::vector<double> domain() { return _domain; }
-    double vth() { return _vth; }
-    std::vector<double> vd() { return _vd; };
-    void set_vth(double v) { _vth = v; }
-    void set_vd(std::vector<double> &v) { _vd = v; }
-    bool has_cdf() { return _has_cdf; };
-    bool has_flux_max() { return _has_flux_max; };
-    bool has_flux_number() { return _has_flux_number; };
-    void eval(df::Array<double> &values, const df::Array<double> &x) const;
-    void set_flux_normal(std::vector<double> &n)
-    {
-        has_flux = true;
-        _n = n;
-    }
+    double debye(double m, double q, double n, double eps0);
 };
 
 } // namespace punc
