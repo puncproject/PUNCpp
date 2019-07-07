@@ -19,6 +19,7 @@ dependencies:
   - matplotlib
   - scipy
   - doxygen
+  - conda-forge::mshr
   - conda-forge::fenics=2019.1
   - pip
   - pip:
