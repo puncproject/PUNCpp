@@ -313,6 +313,8 @@ int run(const Options &opt)
     double num_i            = pop.num_of_positives();
     double num_tot          = pop.num_of_particles();
 
+    double tot_mean_crossings=0;
+
     cout << "  Num positives:  " << num_i;
     cout << ", num negatives: " << num_e;
     cout << " total: " << num_tot << endl;
@@ -404,6 +406,14 @@ int run(const Options &opt)
         pop.update(objects, dt);
         timer.toc();
 
+        /* // UPDATE PARTICLE POSITIONS (WITH CROSSING STATISTICS) */
+        /* timer.tic("update"); */
+        /* double mean_crossings = 0; */
+        /* pop.update_stat(objects, dt, mean_crossings); */
+        /* cout << " Crossings per particle: " << mean_crossings << endl; */
+        /* tot_mean_crossings += mean_crossings; */
+        /* timer.toc(); */
+
         // INJECT PARTICLES
         timer.tic("injector");
         inject_particles(pop, species, mesh.exterior_facets, dt);
@@ -468,6 +478,7 @@ int run(const Options &opt)
 
     if(override_status_print) cout << endl;
     timer.summary();
+    printf("Crossings per particle per timestep: %.5f\n", tot_mean_crossings/steps);
     cout << "PUNC++ finished successfully!" << endl;
     return 0;
 }
