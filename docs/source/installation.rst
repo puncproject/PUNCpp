@@ -34,7 +34,6 @@ If you do not want to use the above-mentioned Anaconda-environment, you may inst
 - FEniCS_ 2019.1.0
 - CMake_
 - Doxygen_
-- Git_
 
 In addition, FEniCS must be compiled with *at least* the following optional dependencies:
 

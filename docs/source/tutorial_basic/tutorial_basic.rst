@@ -24,8 +24,8 @@ We start by making a new directory for the project, and make a symbolic link to 
 
 If using a system-wide installation of PUNC++, you can omit creating a symbolic link.
 
-Mesh generation
----------------
+1. Mesh generation
+------------------
 Let's start by creating a mesh.
 For a 2D simulation of a cylindrical probe the probe is represented by a circular, interior boundary.
 We shall also use a circlular exterior boundary.
@@ -83,8 +83,8 @@ To convert the Gmsh mesh, use FEniCS's own conversion tool::
 
 You should now have the files ``cylinder.xml``, ``cylinder_facet_region.xml`` and possibly also ``cylinder_physical_region.xml``. The first file is the mesh itself, whereas the latter two contain the physical groups for the boundaries and the domain, respectively.
 
-Running the simulation
-----------------------
+2. Running the simulation
+-------------------------
 The ``interaction`` executable loads simulation settings from an ``ini`` file which we shall call ``setup.ini`` and put in the same folder as the mesh:
 
 .. literalinclude:: ../../../tutorials/basic/setup.ini
@@ -120,8 +120,8 @@ It is also possible to override a setting in an ``ini`` file by command line arg
 
     $ ./interaction --help
 
-Inspecting the results
-----------------------
+3. Inspecting the results
+-------------------------
 
 Time-series are stored in a tabulated ASCII file ``history.dat``. The first few lines for our simulation is demonstrated below:
 
