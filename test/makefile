@@ -3,3 +3,6 @@ sphere.xml: sphere.msh
 
 sphere.msh: sphere.geo
 	gmsh -3 sphere.geo
+
+clean:
+	rm -f sphere.msh sphere*.xml
