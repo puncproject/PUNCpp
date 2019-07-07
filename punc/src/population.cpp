@@ -59,6 +59,7 @@ Species::Species(double charge, double mass, double density, double amount,
     }
 
     // Amount is now the number of physical particles per simulation particle
+    weight = amount;
     q = charge  * amount;
     m = mass    * amount;
     n = density / amount;

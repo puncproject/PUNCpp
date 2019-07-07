@@ -448,7 +448,7 @@ int run(const Options &opt)
         bool save_n_now = time_is_now(period_n, t, dt) || save_fields_now;
 
         if(filter_n || save_n_now){
-            density_cg1(V, pop, ne, ni, dv_inv);
+            density_cg1(V, pop, species, ne, ni, dv_inv);
         }
 
         if(filter_n){
