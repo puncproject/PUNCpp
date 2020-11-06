@@ -309,6 +309,11 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
     
     df::assemble(A, *a);
     
+    for (std::size_t i = 0; i < num_bcs; ++i)
+    {
+        ext_bc.get()[i].apply(A);
+    }
+
     for (auto &bc : objects)
     {
         bc->apply(A);
@@ -316,11 +321,6 @@ PoissonSolver::PoissonSolver(const df::FunctionSpace &V,
 
     if(circuit){
         circuit->apply(A);
-    }
-
-    for (std::size_t i = 0; i < num_bcs; ++i)
-    {
-        ext_bc.get()[i].apply(A);
     }
 
     solver->parameters["absolute_tolerance"] = 1e-14;

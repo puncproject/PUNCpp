@@ -193,7 +193,7 @@ public:
      * This method is run prior to solving the Poisson equation to perform any
      * preparations necessary, such as resetting the objects.
      */
-    virtual void pre_solve(){};
+    virtual void pre_solve() = 0;
 
     /**
      * @brief post-solver updates
@@ -205,7 +205,7 @@ public:
      * correction_required. The correction is applied by solving the Poisson
      * equation again.
      */
-    virtual void post_solve(const df::Function &phi, Mesh &mesh){};
+    virtual void post_solve(const df::Function &phi, Mesh &mesh) = 0;
 
     //! Number of objects
     std::size_t num_objects;
