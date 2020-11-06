@@ -152,7 +152,7 @@ int run(const Options &opt)
     vector<std::shared_ptr<Object>> objects;
     std::shared_ptr<Circuit> circuit;
 
-    string object_method = "BC";
+    string object_method = "CM";
     opt.get("objects.method", object_method, true);
 
     vector<double> object_charges(mesh.num_objects, 0);
@@ -171,6 +171,9 @@ int run(const Options &opt)
             objects[i]->charge = object_charges[i];
         }
         circuit = std::make_shared<CircuitCM>(V, objects, vsources, isources, mesh, dt, eps0);
+    } else {
+        cerr << "objects.method must be CM or BC." << endl;
+        return 1;
     }
 
     /***************************************************************************
