@@ -394,6 +394,7 @@ class Population
 
     Population(const Mesh &mesh);
     void init_localizer(const df::MeshFunction<std::size_t> &bnd);
+    void save_localizer(const std::string &fname);
     void add_particles(const std::vector<double> &xs,
                        const std::vector<double> &vs,
                        double q, double m);
@@ -487,6 +488,7 @@ Population<len>::Population(const Mesh &mesh_)
     }
 
     init_localizer(mesh_.bnd);
+    save_localizer("localizer.dat");
 }
 
 template <std::size_t len>
@@ -533,6 +535,26 @@ void Population<len>::init_localizer(const df::MeshFunction<std::size_t> &bnd)
         cells[cell_id].facet_adjacents = facet_adjacents;
         cells[cell_id].facet_plane_coeffs = facet_plane_coeffs;
     }
+}
+
+template <std::size_t len>
+void Population<len>::save_localizer(const std::string &fname)
+{
+    FILE *fout = fopen(fname.c_str(), "w");
+
+    for (auto &cell : cells)
+    {
+        fprintf(fout, "Cell %d\t", cell.id);
+        fprintf(fout, "Vertex coordinates:\t");
+        for (auto &a : cell.vertex_coordinates) fprintf(fout, "%g\t", a);
+        fprintf(fout, "Neighbors:\t");
+        for (auto &a : cell.facet_adjacents) fprintf(fout, "%d\t", a);
+        fprintf(fout, "Plane coeffs.:\t");
+        for (auto &a : cell.facet_plane_coeffs) fprintf(fout, "%g\t", a);
+        fprintf(fout, "\n");
+    }
+
+    fclose(fout);
 }
 
 template <std::size_t len>
