@@ -167,7 +167,6 @@ double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
     double KE = 0.0;
 
     std::vector<double> vertex_coordinates(t_dim);
-    double Ei[v_dim];
     double coeffs[n_dim];
     double values[s_dim];
 
@@ -181,28 +180,81 @@ double accel_cg1(PopulationType &pop, const df::Function &E, double dt)
             double q = particle.q;
             auto &vel = particle.v;
 
-            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, coeffs);
 
-            for (std::size_t j = 0; j < v_dim; j++)
-            {
-                Ei[j] = 0.0;
-                for (std::size_t i = 0; i < n_dim; ++i)
-                {
-                    Ei[j] += coeffs[i] * values[j * n_dim + i];
+            for (std::size_t j = 0; j < v_dim; j++){
+
+                double Ei = 0.0;
+
+                for (std::size_t i = 0; i < n_dim; ++i){
+                    Ei += coeffs[i] * values[j * n_dim + i];
                 }
-            }
 
-            for (std::size_t j = 0; j < g_dim; j++)
-            {
-                Ei[j] *= dt * (q / m);
-                KE += 0.5 * m * vel[j] * (vel[j] + Ei[j]);
-                particle.v[j] += Ei[j];
+                Ei *= dt * (q / m);
+                KE += 0.5 * m * vel[j] * (vel[j] + Ei);
+                particle.v[j] += Ei;
             }
         }
     }
     return KE;
 }
+
+/* template <typename PopulationType> */
+/* double accel_cg1_fast(PopulationType &pop, const df::Function &E, double dt) */
+/* { */
+/*     auto W = E.function_space(); */
+/*     auto mesh = W->mesh(); */
+/*     auto element = W->element(); */
+/*     auto t_dim = mesh->topology().dim(); */
+/*     auto g_dim = mesh->geometry().dim(); */
+/*     auto s_dim = element->space_dimension(); */
+/*     auto v_dim = element->value_dimension(0); */
+/*     auto n_dim = s_dim / v_dim; // Number of vertices */
+
+/*     double KE = 0.0; */
+
+/*     std::vector<double> vertex_coordinates(t_dim); */
+/*     double Ei[v_dim]; */
+/*     double coeffs[n_dim]; */
+/*     double values[s_dim]; */
+
+/*     // https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates?newreg=880d311b336a49819ccefce717e10233 */
+
+/*     for (auto &cell : pop.cells) */
+/*     { */
+/*         E.restrict(values, *element, cell, cell.vertex_coordinates.data(), cell.ufc_cell); */
+
+/*         for (auto &particle : cell.particles) */
+/*         { */
+/*             double m = particle.m; */
+/*             double q = particle.q; */
+/*             auto &vel = particle.v; */
+/*             auto &pos = particle.x; */
+
+/*             Vector v2 = pos - vertex_a; */
+/*             double d20 = Dot(v2, v0); */
+/*             double d21 = Dot(v2, v1); */
+/*             double v = (d11 * d20 - d01 * d21) / denom; */
+/*             double w = (d00 * d21 - d01 * d20) / denom; */
+/*             double u = 1.0f - v - w; */
+
+/*             matrix_vector_product(&coeffs[0], cell.basis_matrix.data(), */
+/*                                   particle.x, n_dim, n_dim); */
+
+/*             for (std::size_t j = 0; j < v_dim; j++) */
+/*             { */
+/*                 Ei[j] = 0.0; */
+/*                 for (std::size_t i = 0; i < n_dim; ++i) */
+/*                 { */
+/*                     Ei[j] += coeffs[i] * values[j * n_dim + i]; */
+/*                 } */
+/*             } */
+/*         } */
+/*     } */
+
+/*     return KE; */
+/* } */
 
 /**
  * @brief Accelerates particles in a homogeneous magnetic field (Only valid for E in CG1)
@@ -264,8 +316,8 @@ double boris_cg1(PopulationType &pop, const df::Function &E,
             double q = particle.q;
             auto &vel = particle.v;
 
-            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, coeffs);
 
             for (std::size_t j = 0; j < v_dim; j++)
             {

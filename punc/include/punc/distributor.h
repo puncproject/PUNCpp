@@ -188,8 +188,8 @@ void distribute_cg1(PopulationType &pop, df::Function &rho,
         std::vector<double> accum(n_dim, 0.0);
         for (auto &particle : cell.particles)
         {
-            matrix_vector_product(&cell_coords[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, cell_coords);
 
             for (std::size_t i = 0; i < n_dim; ++i)
             {

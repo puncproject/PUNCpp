@@ -118,4 +118,126 @@ double max_speed(const std::vector<Species> &species,
     return v_max;
 }
 
+/**
+ * @brief Generates the basis matrix (in 1D) used to transform physical 
+ * coordinates of a given particle position to the corresponding barycentric 
+ * coordinates of the cell 
+ */
+template<>
+void Cell<1>::init_barycentric_matrix()
+{
+    double x1 = vertex_coordinates[0];
+    double x2 = vertex_coordinates[1];
+
+    double det = x2 - x1;
+
+    // Row 1
+    barycentric_matrix[0] = x2 / det;
+    barycentric_matrix[1] = -1.0 / det;
+
+    // Row 2 (not used due to optimizations)
+    // barycentric_matrix[2] = -x1 / det;
+    // barycentric_matrix[3] = 1.0 / det;
+}
+
+/**
+ * @brief Generates the basis matrix (in 2D) used to transform physical 
+ * coordinates of a given particle position to the corresponding barycentric 
+ * coordinates of the cell 
+ */
+template<>
+void Cell<2>::init_barycentric_matrix()
+{
+    double x1 = vertex_coordinates[0];
+    double y1 = vertex_coordinates[1];
+    double x2 = vertex_coordinates[2];
+    double y2 = vertex_coordinates[3];
+    double x3 = vertex_coordinates[4];
+    double y3 = vertex_coordinates[5];
+
+    double det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+
+    // Row 1
+    barycentric_matrix[0] = (x2 * y3 - x3 * y2) / det;
+    barycentric_matrix[1] = (y2 - y3) / det;
+    barycentric_matrix[2] = (x3 - x2) / det;
+
+    // Row 2
+    barycentric_matrix[3] = (x3 * y1 - x1 * y3) / det;
+    barycentric_matrix[4] = (y3 - y1) / det;
+    barycentric_matrix[5] = (x1 - x3) / det;
+
+    // Row 3 (not used due to optimizations)
+    // barycentric_matrix[6] = (x1 * y2 - x2 * y1) / det;
+    // barycentric_matrix[7] = (y1 - y2) / det;
+    // barycentric_matrix[8] = (x2 - x1) / det;
+}
+
+/**
+ * @brief Generates the basis matrix (in 3D) used to transform physical 
+ * coordinates of a given particle position to the corresponding barycentric 
+ * coordinates of the cell 
+ */
+template<>
+void Cell<3>::init_barycentric_matrix()
+{
+    double x1 = vertex_coordinates[0];
+    double y1 = vertex_coordinates[1];
+    double z1 = vertex_coordinates[2];
+    double x2 = vertex_coordinates[3];
+    double y2 = vertex_coordinates[4];
+    double z2 = vertex_coordinates[5];
+    double x3 = vertex_coordinates[6];
+    double y3 = vertex_coordinates[7];
+    double z3 = vertex_coordinates[8];
+    double x4 = vertex_coordinates[9];
+    double y4 = vertex_coordinates[10];
+    double z4 = vertex_coordinates[11];
+
+    // double x12 = x1 - x2; double y12 = y1 - y2; double z12 = z1 - z2;
+    double x13 = x1 - x3; double y13 = y1 - y3; double z13 = z1 - z3;
+    double x14 = x1 - x4; double y14 = y1 - y4; double z14 = z1 - z4;
+    // double x21 = x2 - x1; double y21 = y2 - y1; double z21 = z2 - z1;
+    double x24 = x2 - x4; double y24 = y2 - y4; double z24 = z2 - z4;
+    double x31 = x3 - x1; double y31 = y3 - y1; double z31 = z3 - z1;
+    double x32 = x3 - x2; double y32 = y3 - y2; double z32 = z3 - z2;
+    double x34 = x3 - x4; double y34 = y3 - y4; double z34 = z3 - z4;
+    double x42 = x4 - x2; double y42 = y4 - y2; double z42 = z4 - z2;
+    double x43 = x4 - x3; double y43 = y4 - y3; double z43 = z4 - z3;
+
+    double V01 = (x2 * (y3 * z4 - y4 * z3) + x3 * (y4 * z2 - y2 * z4) + x4 * (y2 * z3 - y3 * z2)) / 6.0;
+    double V02 = (x1 * (y4 * z3 - y3 * z4) + x3 * (y1 * z4 - y4 * z1) + x4 * (y3 * z1 - y1 * z3)) / 6.0;
+    double V03 = (x1 * (y2 * z4 - y4 * z2) + x2 * (y4 * z1 - y1 * z4) + x4 * (y1 * z2 - y2 * z1)) / 6.0;
+    double V04 = (x1 * (y3 * z2 - y2 * z3) + x2 * (y1 * z3 - y3 * z1) + x3 * (y2 * z1 - y1 * z2)) / 6.0;
+    double V = V01 + V02 + V03 + V04;
+    double V6 = 6 * V;
+
+    // Row 4 not used due to optimizations
+
+    // Column 1
+    barycentric_matrix[0] = V01 / V;
+    barycentric_matrix[4] = V02 / V;
+    barycentric_matrix[8] = V03 / V;
+    // barycentric_matrix[12] = V04 / V;
+
+    // Column 2
+    barycentric_matrix[1] = (y42 * z32 - y32 * z42) / V6;  
+    barycentric_matrix[5] = (y31 * z43 - y34 * z13) / V6; 
+    barycentric_matrix[9] = (y24 * z14 - y14 * z24) / V6;  
+    // barycentric_matrix[13] = (y13 * z21 - y12 * z31) / V6; 
+
+    // Column 3
+    barycentric_matrix[2] = (x32 * z42 - x42 * z32) / V6;  
+    barycentric_matrix[6] = (x43 * z31 - x13 * z34) / V6;  
+    barycentric_matrix[10] = (x14 * z24 - x24 * z14) / V6; 
+    // barycentric_matrix[14] = (x21 * z13 - x31 * z12) / V6; 
+
+    // Column 4
+    barycentric_matrix[3] = (x42 * y32 - x32 * y42) / V6;  
+    barycentric_matrix[7] = (x31 * y43 - x34 * y13) / V6;  
+    barycentric_matrix[11] = (x24 * y14 - x14 * y24) / V6; 
+    // barycentric_matrix[15] = (x13 * y21 - x12 * y31) / V6; 
+}
+
+
 } // namespace punc
