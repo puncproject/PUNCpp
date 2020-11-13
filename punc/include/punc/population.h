@@ -217,6 +217,11 @@ class Cell : public df::Cell
         init_barycentric_matrix();
     }
 
+    /**
+     * @brief Compute barycentric coordinates wrt. cell
+     * @param[in]   x   Cartesian coordinates
+     * @param[out]  y   Barycentric coordinates
+     */
     inline void barycentric(const double *x, double *y) const;
 
   private:
@@ -877,11 +882,6 @@ void Population<len>::load_file(const std::string &fname, bool binary)
 }
 
 
-/**
- * @brief Compute barycentric coordinates wrt. cell
- * @param[in]   x   Cartesian coordinates
- * @param[out]  y   Barycentric coordinates
- */
 template <>
 inline void Cell<3>::barycentric(const double *x, double *y) const {
     auto A = barycentric_matrix;
