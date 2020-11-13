@@ -396,8 +396,9 @@ double particle_potential_energy_cg1(PopulationType &pop, const df::Function &ph
 
         for (auto &particle : cell.particles)
         {
-            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, coeffs);
+
             phi_x = 0.0;
             for (std::size_t i = 0; i < n_dim; ++i)
             {
@@ -519,8 +520,8 @@ void density_cg1(const df::FunctionSpace &V, PopulationType &pop,
         std::vector<double> accum_i(n_dim, 0.0);
         for (auto &particle : cell.particles)
         {
-            matrix_vector_product(&cell_coords[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, cell_coords);
 
             if (particle.q < 0)
             {

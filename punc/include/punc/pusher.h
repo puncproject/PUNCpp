@@ -316,8 +316,8 @@ double boris_cg1(PopulationType &pop, const df::Function &E,
             double q = particle.q;
             auto &vel = particle.v;
 
-            matrix_vector_product(&coeffs[0], cell.basis_matrix.data(),
-                                  particle.x, n_dim, n_dim);
+            auto &x = particle.x;
+            cell.barycentric(x, coeffs);
 
             for (std::size_t j = 0; j < v_dim; j++)
             {

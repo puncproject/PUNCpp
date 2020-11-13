@@ -60,24 +60,24 @@ enum class ParticleAmountType {
  * @param A[in]   the matrix
  * @param x[in]   the vector resulting from the matrix-vector product
  * @param n       number of rows of matrix A
- * @param m       number of columns of matrix A 
+ * @param m       number of columns of matrix A*
  */
-static inline void matrix_vector_product(double *y, const double *A,
-                                         const double *x, std::size_t n,
-                                         std::size_t m)
-{
-    for (std::size_t i = 0; i < n; ++i)
-    {
-        y[i] = A[i * m];
-    }
-    for (std::size_t i = 0; i < n; ++i)
-    {
-        for (std::size_t j = 0; j < m - 1; ++j)
-        {
-            y[i] += A[i * m + j + 1] * x[j];
-        }
-    }
-}
+/* static inline void matrix_vector_product(double *y, const double *A,*/
+ /*                                         const double *x, std::size_t n,*/
+ /*                                         std::size_t m)*/
+/* {*/
+ /*    for (std::size_t i = 0; i < n; ++i)*/
+ /*    {*/
+ /*        y[i] = A[i * m];*/
+ /*    }*/
+ /*    for (std::size_t i = 0; i < n; ++i)*/
+ /*    {*/
+ /*        for (std::size_t j = 0; j < m - 1; ++j)*/
+ /*        {*/
+ /*            y[i] += A[i * m + j + 1] * x[j];*/
+ /*        }*/
+ /*    }*/
+/* }*/
 /* static inline void barycentric(double *y, const double *A, const double *x){ */
 /*     y[0] = A[0]  + A[1]*x[0]  + A[2]*x[1]  + A[3]*x[2]; */
 /*     y[1] = A[4]  + A[5]*x[0]  + A[6]*x[1]  + A[7]*x[2]; */
