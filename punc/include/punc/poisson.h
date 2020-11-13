@@ -258,7 +258,7 @@ public:
      * @brief Set the absolute residual tolerance of the linear algebra backend
      * @param   tol     absolute tolerance
      */
-    void set_abstol(double tol=1e-14){
+    void set_abstol(double tol=1e-12){
         solver->parameters["absolute_tolerance"] = tol;
     };
 
@@ -266,7 +266,7 @@ public:
      * @brief Set the relative residual tolerance of the linear algebra backend
      * @param   tol     relative tolerance
      */
-    void set_reltol(double tol=1e-12){
+    void set_reltol(double tol=1e-10){
         solver->parameters["relative_tolerance"] = tol;
     };
 

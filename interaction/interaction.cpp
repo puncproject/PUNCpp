@@ -278,8 +278,8 @@ int run(const Options &opt)
     opt.get("poisson.method", linalg_method, true);
     opt.get("poisson.preconditioner", linalg_preconditioner, true);
 
-    double linalg_abstol = 1e-14;
-    double linalg_reltol = 1e-12;
+    double linalg_abstol = 1e-12;
+    double linalg_reltol = 1e-10;
     opt.get("poisson.abstol", linalg_abstol, true);
     opt.get("poisson.reltol", linalg_reltol, true);
     
