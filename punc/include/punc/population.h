@@ -78,6 +78,13 @@ static inline void matrix_vector_product(double *y, const double *A,
         }
     }
 }
+/* static inline void barycentric(double *y, const double *A, const double *x){ */
+/*     y[0] = A[0]  + A[1]*x[0]  + A[2]*x[1]  + A[3]*x[2]; */
+/*     y[1] = A[4]  + A[5]*x[0]  + A[6]*x[1]  + A[7]*x[2]; */
+/*     y[2] = A[8]  + A[9]*x[0]  + A[10]*x[1] + A[11]*x[2]; */
+/*     /1* y[3] = A[12] + A[13]*x[0] + A[14]*x[1] + A[15]*x[2]; *1/ */
+/*     y[3] = 1 - y[0] - y[1] - y[2]; */
+/* } */
 
 /**
  * @brief Contains the most important physical constants needed in PIC simulations
@@ -251,6 +258,8 @@ class Cell : public df::Cell
             basis_matrix_3d();
         }
     }
+
+    inline void barycentric(const double *x, double *y) const;
 
     /**
      * @brief Generates the basis matrix (in 1D) used to transform physical 
@@ -1028,6 +1037,39 @@ void Population<len>::load_file(const std::string &fname, bool binary)
             add_particles(x, v, q, m);
         }
     }
+}
+
+
+/**
+ * @brief Compute barycentric coordinates wrt. cell
+ * @param[in]   x   Cartesian coordinates
+ * @param[out]  y   Barycentric coordinates
+ */
+template <>
+inline void Cell<3>::barycentric(const double *x, double *y) const {
+    auto A = basis_matrix.data();
+    y[0] = A[0]  + A[1] *x[0] + A[2] *x[1] + A[3] *x[2];
+    y[1] = A[4]  + A[5] *x[0] + A[6] *x[1] + A[7] *x[2];
+    y[2] = A[8]  + A[9] *x[0] + A[10]*x[1] + A[11]*x[2];
+    // y[3] = A[12] + A[13]*x[0] + A[14]*x[1] + A[15]*x[2];
+    y[3] = 1 - y[0] - y[1] - y[2];
+}
+
+template <>
+inline void Cell<2>::barycentric(const double *x, double *y) const {
+    auto A = basis_matrix.data();
+    y[0] = A[0]  + A[1] *x[0] + A[2] *x[1];
+    y[1] = A[3]  + A[4] *x[0] + A[5] *x[1];
+    // y[2] = A[6]  + A[7] *x[0] + A[8]*x[1];
+    y[2] = 1 - y[0] - y[1];
+}
+
+template <>
+inline void Cell<1>::barycentric(const double *x, double *y) const {
+    auto A = basis_matrix.data();
+    y[0] = A[0]  + A[1] *x[0];
+    // y[1] = A[2]  + A[3] *x[0];
+    y[1] = 1 - y[0];
 }
 
 /**
