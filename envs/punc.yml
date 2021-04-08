@@ -22,6 +22,13 @@ dependencies:
   - conda-forge::mshr
   - conda-forge::fenics=2019.1
   - pip
+
+  # This is a temporary workaround. injector.cpp does not build on GCC 9.3.
+  - gcc_impl_linux-64=7.3.0
+  - gcc_linux-64=7.3.0
+  - gxx_impl_linux-64=7.3.0
+  - gxx_linux-64=7.3.0
+
   - pip:
       - metaplot
 
