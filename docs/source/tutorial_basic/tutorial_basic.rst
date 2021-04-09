@@ -62,11 +62,13 @@ It is also possible to define a physical group for the domain (``Physical Surfac
 
 Hint: For larger geometries it can be difficult to keep track of all line in a text editor. The author prefers to define the variables and the points in text, and subsequently opening it in Gmsh to connect arcs and lines between the points.
 
-To generate the mesh from the geometry, run ``Mesh -> 2D`` from the GUI or from the terminal::
+To generate the mesh from the GUI, run ``Mesh -> 2D``. The mesh can be saved using ``File -> Save Mesh``, and it will automatically be named ``cylinder.msh``. If, however, you use Gmsh 4, the default ``.msh`` format is of a newer variety than is incompatible with the ``dolfin-convert`` tool we shall use later. In this case, you must go to ``File -> Export``, and export it as ``cylinder.msh``. You will be asked to choose format, and should choose ``Version 2 - ASCII``.
 
-    $ gmsh -2 cylinder.geo 
+The mesh can also be generated and saved directly from the terminal::
 
-For a 3D mesh it would be ``-3`` instead of ``-2``. The mesh is named ``cylinder.msh`` and should look something like this when opened in Gmsh:
+    $ gmsh -2 -format msh2 cylinder.geo 
+
+``-format msh2`` makes sure it is saved in the correct format, and ``-2`` means that it is a 2D mesh. For a 3D mesh it would be ``-3`` instead. The mesh is named ``cylinder.msh`` and should look something like this when opened in Gmsh:
 
 .. image:: mesh.png
 
